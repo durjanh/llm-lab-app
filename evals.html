@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evals Lab</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<style>
+  body.lab{--hard-bg:#fef3c7;--hard-ink:#92400e;--bad-bg:#fef2f2}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body.lab{--hard-bg:#3a2e0e;--hard-ink:#fcd34d;--bad-bg:#2c1416}}
+  :root[data-theme="dark"] body.lab{--hard-bg:#3a2e0e;--hard-ink:#fcd34d;--bad-bg:#2c1416}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .ok{color:var(--good);font-weight:700}.no{color:var(--bad);font-weight:700}
+  .scroll{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .scroll table.t th{position:sticky;top:0;background:var(--surface);z-index:1;box-shadow:0 1px 0 var(--line)}
+  .scroll table.t tr:last-child td{border-bottom:0}
+  .kind{display:inline-block;font-size:11px;line-height:1.6;padding:0 8px;border-radius:999px;background:var(--soft);color:var(--ink2);white-space:nowrap}
+  .kind.hard{background:var(--hard-bg);color:var(--hard-ink)}
+  .x{font:inherit;font-size:16px;line-height:1;border:0;background:none;color:var(--faint);cursor:pointer;padding:2px 7px;border-radius:6px}
+  .x:hover{color:var(--bad);background:var(--bad-bg)}
+  .x:disabled{opacity:.3;cursor:default;background:none}
+  .add-row{margin-top:10px}
+  .add-row input[type=text]{flex:1 1 260px;min-width:0}
+  .chart{width:100%;height:auto;display:block;overflow:visible}
+  .chart text{font-size:11px;fill:var(--muted);font-family:inherit}
+  .chart .lbl{font-size:12px;fill:var(--ink2)}
+  .chart .lbl.sel{fill:var(--ink);font-weight:700}
+  .chart .hit{fill:transparent;cursor:default}
+  .chart g.mark:hover circle:not(.hit){stroke:var(--ink)}
+  .chart g.mark:hover line{stroke-width:3}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;margin:4px 0 6px;color:var(--ink2)}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:-1px}
+  .legend span.line::before{width:2px;height:12px;border-radius:1px;vertical-align:-2px}
+  .chart-title{font-size:13px;font-weight:600;color:var(--ink);margin:4px 0 0}
+  .slot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+  .slot-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .slot-head b{font-size:15px}
+  .tplbox textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+  .pp{display:inline-block;position:relative;width:70px;height:8px;background:var(--soft);border-radius:4px;vertical-align:middle;margin-right:6px}
+  .pp i{position:absolute;left:0;top:0;bottom:0;border-radius:0 4px 4px 0}
+  .pp::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--faint)}
+  .verdict{border-left:3px solid var(--warn);background:var(--note-bg);padding:10px 14px;border-radius:0 8px 8px 0;font-size:14px;margin:12px 0;max-width:86ch}
+  .verdict.good{border-color:var(--good);background:var(--ok-bg)}
+  .verdict.bad{border-color:var(--bad);background:var(--bad-bg)}
+  .verdict .badge{display:inline-block;font-weight:700;margin-right:6px}
+  .run-row{margin:10px 0 4px}
+  .run-row .progress{width:180px}
+  .flat{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:12px 14px;max-height:420px;overflow:auto;margin:6px 0 0}
+  .flat .role{color:#c4b5fd;font-weight:700}
+  .flat .tag{color:#7dd3fc}
+  .ticket{background:var(--soft2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;max-width:86ch}
+  .rubric td.c,.rubric th.c{text-align:center}
+  .rubric td:first-child{min-width:220px}
+  .crit{font-size:12px;color:var(--muted);display:block}
+  .judge-out{margin-top:10px;font-size:14px}
+  .judge-out .err{color:var(--bad)}
+  .live-state{font-size:14px}
+  .live-state.on::before,.live-state.off::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+  .live-state.on::before{background:var(--ok-dot)}
+  .live-state.off::before{background:var(--faint)}
+  .stack > * + *{margin-top:8px}
+  .grader-card h3{margin-top:0}
+  .grader-card p{font-size:14px;margin-bottom:8px}
+  .placeholder{color:var(--muted);font-size:14px;padding:18px 4px}
+  select{max-width:100%}
+  @media (max-width:640px){.rubric td:first-child{min-width:180px}}
+</style>
+</head>
+<body class="lab">
+<main>
+  <div class="kicker">Lab 7 · Evals</div>
+  <h1>Did the prompt get better, or did you get lucky?</h1>
+  <p class="lede">An eval is a set of test cases plus a way to grade the answers. It turns "this prompt feels better" into a number you can defend. This lab builds one, grades answers three ways, then asks the question most teams skip: is the difference bigger than the noise? GPT-2 does the classifying, using its real next-token probabilities.</p>
+  <div id="gate"></div>
+
+  <section id="secData">
+    <h2>1. Build a labelled test set</h2>
+    <p>A test set is a list of inputs, each with the answer a person agrees is correct. The task here is sentiment: is each review positive or negative? A third of the cases are deliberately hard. Sarcasm uses nice words to mean the opposite. Negation flips a word, as in "not bad at all". Mixed reviews praise one thing and criticise another, and the label is the overall verdict.</p>
+    <p>This matters because a prompt change is only as good as the cases you test it on. Leave out the hard cases and every prompt looks fine.</p>
+    <div class="stats">
+      <div class="stat"><div class="v" id="dN">–</div><div class="k">cases</div></div>
+      <div class="stat"><div class="v" id="dPos">–</div><div class="k">labelled positive</div></div>
+      <div class="stat"><div class="v" id="dNeg">–</div><div class="k">labelled negative</div></div>
+      <div class="stat"><div class="v" id="dHard">–</div><div class="k">hard cases</div></div>
+    </div>
+    <div class="scroll"><table class="t" id="dataTable"><thead><tr><th class="num">#</th><th>Review</th><th>Label</th><th>Kind</th><th><span class="sr">Remove</span></th></tr></thead><tbody></tbody></table></div>
+    <div class="row add-row">
+      <input type="text" id="newText" placeholder="Add your own review, for example: Could have been worse." aria-label="New review">
+      <select id="newLabel" aria-label="Label"><option>positive</option><option>negative</option></select>
+      <select id="newKind" aria-label="Kind"><option>plain</option><option>sarcasm</option><option>negation</option><option>mixed</option></select>
+      <button class="btn" id="addCase">Add case</button>
+      <button class="btn" id="resetData">Reset to the built-in set</button>
+    </div>
+    <p class="small muted" style="margin-top:6px">Changes are scored straight away once GPT-2 is loaded. Each case is scored once per prompt and then remembered.</p>
+    <div class="note"><b>Good test sets</b> come from real traffic and include the failures users reported. They keep a sensible label mix, and they stay frozen while you compare prompts. If you change the cases and the prompt at the same time, you cannot tell which change moved the score.</div>
+  </section>
+
+  <section id="secGraders">
+    <h2>2. Decide how each answer is graded</h2>
+    <p>A grader turns one model output into a score. Use the cheapest grader that measures what you care about. Code is free, fast and gives the same answer every time. A model judge can read meaning, but it costs money and makes mistakes of its own.</p>
+    <div class="grid3">
+      <div class="card grader-card"><h3>Exact match</h3><p>Compare the output with the expected label as a string.</p><p><b>Use it for</b> classification, extraction of IDs and dates, and multiple choice.</p><p><b>Watch out for</b> formatting. "Positive." is not "positive". Constrain the output so it can only be a valid label.</p></div>
+      <div class="card grader-card"><h3>Code-based rubric</h3><p>A list of checks written in code: required facts, length limits, banned content, valid JSON.</p><p><b>Use it for</b> free text where you can name what must and must not appear.</p><p><b>Watch out for</b> wording. Keyword checks miss paraphrases and are fooled by negation.</p></div>
+      <div class="card grader-card"><h3>LLM as judge</h3><p>A second model reads the output and a rubric, then returns a score and a reason.</p><p><b>Use it for</b> qualities code cannot check, such as faithfulness, tone and helpfulness.</p><p><b>Watch out for</b> the judge's own biases. Check it against human labels before you trust it.</p></div>
+    </div>
+
+    <h3>Exact match, strict and normalised</h3>
+    <p>The expected label is <code>positive</code>. A strict grader fails anything that is not exactly that string. Normalising first, by lowering the case and trimming spaces and end punctuation, rescues small formatting slips. It cannot rescue a sentence.</p>
+    <div class="grid2">
+      <div class="table-wrap"><table class="t" id="emTable"><thead><tr><th>Model output</th><th>Strict</th><th>Normalised</th></tr></thead><tbody></tbody></table></div>
+      <div class="card">
+        <label for="emTry">Try an output</label>
+        <input type="text" id="emTry" value="  Positive!" style="width:100%;margin-top:4px">
+        <p id="emTryOut" style="margin:8px 0 0"></p>
+        <p class="small muted" style="margin:8px 0 0">The fix is to constrain the output. The GPT-2 runs below only score the two allowed labels, and Claude's structured outputs guarantee a value from your list.</p>
+      </div>
+    </div>
+
+    <h3>A code-based rubric for free text</h3>
+    <p>Say a model writes one-line summaries of support tickets for an on-call engineer. Here is the ticket. Below it are six candidate summaries, graded by six checks written in code. A person has also marked each summary pass or fail, so you can see where the code grader is wrong.</p>
+    <div class="ticket" id="ticket"></div>
+    <div class="table-wrap" style="margin-top:10px"><table class="t rubric" id="rubricTable"></table></div>
+    <p class="small" id="rubricAgree" style="margin-top:6px"></p>
+    <label for="mySummary" style="display:block;margin-top:6px">Write your own summary. It is graded as you type and appears as the last row.</label>
+    <textarea id="mySummary" rows="2" spellcheck="false" placeholder="For example: Standing desk arrived with a cracked leg. Customer wants a replacement before 24 March."></textarea>
+    <div class="note">Summary 5 passes every check but says the opposite of the ticket, because the keywords are all there. Summary 6 is correct but fails, because it says "the 24th" instead of "24 March". Code graders are exact, cheap and repeatable. They are also literal, so test the grader itself on cases like these.</div>
+
+    <h3>LLM as judge</h3>
+    <p>A judge model reads the ticket, the summary and the rubric, then returns a score from 1 to 5 and a one-sentence reason. Structured outputs force the reply into that shape, so code can read it. Here a score of 4 or 5 counts as a pass.</p>
+    <div class="card">
+      <div class="row"><span class="live-state off" id="liveState">Checking for live Claude…</span><span class="spacer"></span><button class="btn small" id="liveCheck">Check again</button></div>
+      <div class="grid2" style="margin-top:10px">
+        <div>
+          <label for="jPick">Summary to judge</label>
+          <select id="jPick" style="width:100%;margin-top:4px"></select>
+          <div class="small muted" style="margin-top:8px">The exact request the judge receives:</div>
+          <div class="flat" id="jPrompt"></div>
+        </div>
+        <div class="stack">
+          <div class="row"><button class="btn primary" id="jOne" disabled>Judge this summary</button><button class="btn" id="jAll" disabled>Judge all six</button></div>
+          <div class="judge-out" id="jOut"></div>
+          <div id="liveHelp" class="small"></div>
+          <h3 style="margin-top:14px">Test the judge for position bias</h3>
+          <p class="small" style="margin-bottom:6px">Show the judge two summaries and ask which is better. Then swap the order. A fair judge picks the same summary both times.</p>
+          <div class="row"><select id="pFirst" aria-label="First summary"></select><select id="pSecond" aria-label="Second summary"></select><button class="btn" id="pRun" disabled>Compare in both orders</button></div>
+          <div class="judge-out" id="pOut"></div>
+        </div>
+      </div>
+    </div>
+    <div class="note"><b>Judge pitfalls.</b>
+      <ul style="margin:6px 0 0;padding-left:20px">
+        <li><b>Position bias.</b> When comparing two answers, judges often favour whichever comes first, or second. Run both orders and only count a win that survives the swap.</li>
+        <li><b>Verbosity bias.</b> Longer answers tend to score higher even when they are worse. Put length limits in the rubric and check them with code.</li>
+        <li><b>Self-preference.</b> A judge can favour text written in its own style. Where you can, use a judge that did not write the answers.</li>
+        <li><b>Check the judge against people.</b> Label 50 to 100 outputs yourself and measure how often the judge agrees. Only rely on it where it agrees.</li>
+        <li><b>Keep the scale small and anchored.</b> Pass or fail, or 1 to 5 with each score described, is more consistent than "rate from 1 to 10".</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="needs-model locked" id="lab">
+    <h2>3. Score two prompts on the same cases</h2>
+    <p>Each review is put into a prompt template, and GPT-2 gives the probability that the next token is <code>positive</code> or <code>negative</code>. The more likely label is the prediction, graded by exact match. Only the two labels are scored, so formatting can never cause a miss. Prompt A is your baseline. Prompt B is the change you want to ship.</p>
+    <div class="grid2">
+      <div class="tplbox">
+        <div class="slot-head"><span class="slot" style="background:var(--s1)"></span><b>Prompt A</b><span class="muted small" id="nameA"></span></div>
+        <div class="chips" id="presetsA" style="margin-bottom:6px"></div>
+        <textarea id="tplA" rows="8" spellcheck="false" aria-label="Prompt A template"></textarea>
+      </div>
+      <div class="tplbox">
+        <div class="slot-head"><span class="slot" style="background:var(--s2)"></span><b>Prompt B</b><span class="muted small" id="nameB"></span></div>
+        <div class="chips" id="presetsB" style="margin-bottom:6px"></div>
+        <textarea id="tplB" rows="8" spellcheck="false" aria-label="Prompt B template"></textarea>
+      </div>
+    </div>
+    <p class="small muted" style="margin:6px 0 0"><code>{review}</code> marks where each review goes. Few-shot examples must never be copied from the test set, or the score measures memory instead of skill. GPT-2 is small and leans towards saying positive, so examples matter a lot here. Later, try the two hard-case presets against each other: they hold the same examples in a different order.</p>
+    <div class="row run-row">
+      <button class="btn primary" id="runAB">Run A and B on the test set</button>
+      <div class="progress" id="prog" hidden><i></i></div>
+      <span class="small muted" id="progTxt"></span>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="sA">–</div><div class="k">Prompt A correct</div></div>
+      <div class="stat"><div class="v" id="sB">–</div><div class="k">Prompt B correct</div></div>
+      <div class="stat"><div class="v" id="sFix">–</div><div class="k">B fixed: A wrong, B right</div></div>
+      <div class="stat"><div class="v" id="sBrk">–</div><div class="k">B broke: A right, B wrong</div></div>
+    </div>
+    <p class="small" id="predLine"></p>
+    <div class="grid2">
+      <div>
+        <h3 style="margin-top:4px">Every case</h3>
+        <div class="scroll"><table class="t" id="resTable"><thead><tr><th>Review</th><th>Label</th><th>Prompt A</th><th>Prompt B</th></tr></thead><tbody><tr><td colspan="4" class="muted">Load GPT-2 to score the prompts.</td></tr></tbody></table></div>
+        <p class="small muted" style="margin-top:6px">Each bar is the probability of <code>positive</code>. Past the middle line, the prediction is positive.</p>
+      </div>
+      <div>
+        <h3 style="margin-top:4px">Accuracy by kind of case</h3>
+        <div class="table-wrap"><table class="t" id="kindTable"><thead><tr><th>Kind</th><th class="num">Cases</th><th class="num">Prompt A</th><th class="num">Prompt B</th></tr></thead><tbody></tbody></table></div>
+        <p class="small" style="margin-top:8px">One overall number hides where a prompt fails. Slice the results by kind of case. A prompt that gains on easy cases and loses on sarcasm may be worse for the users who matter.</p>
+        <p class="small">Counting what B <b>fixed</b> and what it <b>broke</b> is more useful than the net change. A prompt that fixes ten cases and breaks eight has changed behaviour a lot, even if the score barely moved.</p>
+      </div>
+    </div>
+
+    <h2>4. Is B really better? Put an interval on it</h2>
+    <p>Your test set is a sample. Another sample of the same kind would give a slightly different score. A <b>95% confidence interval</b> is the range of accuracy the prompt would plausibly get on other samples like yours. Here it comes from the <b>bootstrap</b>: build a new test set of the same size by drawing cases from yours at random, with replacement, so some appear twice and some not at all. Score it, repeat 2,000 times, and keep the middle 95% of the scores.</p>
+    <p>The difference B − A is bootstrapped in pairs. Each resample draws the same cases for both prompts, because both saw the same reviews. That is fairer and tighter than comparing two separate intervals. Differences are in <b>percentage points</b>: going from 70% to 75% is a gain of 5 points.</p>
+    <div class="row" style="margin:10px 0 4px">
+      <span class="small" style="color:var(--ink2)">Cases in the sample</span>
+      <div class="chips" id="nChips"></div>
+      <button class="btn small" id="redraw">Draw a different sample</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="cA">–</div><div class="k" id="cAk">Prompt A</div></div>
+      <div class="stat"><div class="v" id="cB">–</div><div class="k" id="cBk">Prompt B</div></div>
+      <div class="stat"><div class="v" id="cD">–</div><div class="k" id="cDk">B − A</div></div>
+      <div class="stat"><div class="v" id="cOne">–</div><div class="k" id="cOnek">one case is worth</div></div>
+    </div>
+    <div class="verdict" id="verdict">Load GPT-2 to compare the prompts.</div>
+    <div class="grid2">
+      <div>
+        <div class="chart-title">Accuracy with 95% intervals, by sample size</div>
+        <div class="legend" id="nLegend"></div>
+        <div id="nChart"></div>
+      </div>
+      <div>
+        <div class="chart-title">Difference B − A with its 95% interval</div>
+        <div class="legend" id="dLegend"></div>
+        <div id="dChart"></div>
+      </div>
+    </div>
+    <div class="note" id="smallNote"><b>Try 8 cases.</b> One case is then worth 12.5 points, so going from 6 to 7 correct looks like a big gain. The interval for a single prompt is about 50 points wide, so that jump is noise. Press "Draw a different sample" a few times and watch the winner change.</div>
+
+    <h2>5. Run it again: run-to-run variance</h2>
+    <p>So far each prompt always takes its most likely label, so a rerun gives the same answer. Real systems sample, and hosted models can vary between identical calls. Here each label is drawn at random from GPT-2's own probabilities, so a review that is 70% positive comes out positive about 70% of the time. <b>Temperature</b> reshapes those odds. Below 1 it sharpens them, above 1 it flattens them, and 0 means always take the top label.</p>
+    <p>This matters because one run of each prompt can pick the wrong winner. On current Claude models you cannot turn temperature down, so run each case a few times and average. These runs use the cases selected in section 4.</p>
+    <div class="row" style="margin:10px 0 4px">
+      <label>Temperature <input type="range" id="temp" min="0" max="2" step="0.1" value="1"> <span class="mono" id="tempV">1.0</span></label>
+      <label>Repeated runs <select id="nRuns"><option>10</option><option selected>20</option><option>40</option></select></label>
+      <button class="btn" id="resample">Sample again</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="vA">–</div><div class="k" id="vAk">Prompt A, mean across runs</div></div>
+      <div class="stat"><div class="v" id="vB">–</div><div class="k" id="vBk">Prompt B, mean across runs</div></div>
+      <div class="stat"><div class="v" id="vW">–</div><div class="k" id="vWk">runs where B beat A</div></div>
+    </div>
+    <div class="chart-title">Accuracy of each repeated run</div>
+    <div class="legend" id="sLegend"></div>
+    <div id="sChart"></div>
+    <p class="small" id="sNote" style="margin-top:6px"></p>
+
+    <h2>6. Every run, side by side</h2>
+    <p>Each row is one evaluation: a prompt, a number of cases and a way of picking labels. Sampled rows report the mean over their repeated runs, with an interval over cases. Overlapping intervals are a warning sign, not a verdict. For the A against B decision itself, use the paired difference in section 4.</p>
+    <div class="legend" id="hLegend"></div>
+    <div id="hChart"></div>
+    <div class="table-wrap" style="margin-top:10px"><table class="t" id="histTable"><thead><tr><th class="num">Run</th><th>Prompt</th><th class="num">Cases</th><th>Labels picked by</th><th class="num">Accuracy</th><th class="num">95% interval</th><th class="num">Run-to-run range</th></tr></thead><tbody><tr><td colspan="7" class="muted">Runs appear here as you go.</td></tr></tbody></table></div>
+    <div class="row" style="margin-top:8px"><span class="small muted" id="histCount"></span><span class="spacer"></span><button class="btn small" id="clearHist">Clear history</button></div>
+  </section>
+
+  <div class="takeaways">
+    <h3>Engineering takeaways</h3>
+    <ul>
+      <li><b>Build the test set before you touch the prompt.</b> Start with 50 to 200 real cases, including the failures users reported. Version it like code.</li>
+      <li><b>Grade with code wherever you can.</b> Exact match and rubric checks are free and repeatable. Use an LLM judge only for what code cannot check, and measure its agreement with human labels first.</li>
+      <li><b>Report an interval, not a single number.</b> "72%, 95% interval 60% to 83%" stops a team from shipping noise.</li>
+      <li><b>Compare prompts on the same cases, in pairs.</b> Look at the interval for B − A, and count what B fixed and what it broke.</li>
+      <li><b>Size the test set for the gap you need to see.</b> At 75% accuracy, a 95% interval spans about ±30 points with 8 cases, ±13 with 40 and ±5 with 300. Small gains need hundreds of cases.</li>
+      <li><b>Run each case more than once.</b> Current Claude models do not accept temperature, and hosted outputs can vary. Average a few runs per case before deciding.</li>
+    </ul>
+    <pre class="code"><code><span class="c"># Classify a labelled test set with Claude and report accuracy with a 95% bootstrap interval</span>
+<span class="k">import</span> json
+<span class="k">import</span> random
+<span class="k">from</span> anthropic <span class="k">import</span> Anthropic
+
+client = Anthropic()
+SCHEMA = {
+    <span class="s">"type"</span>: <span class="s">"object"</span>,
+    <span class="s">"properties"</span>: {<span class="s">"sentiment"</span>: {<span class="s">"type"</span>: <span class="s">"string"</span>, <span class="s">"enum"</span>: [<span class="s">"positive"</span>, <span class="s">"negative"</span>]}},
+    <span class="s">"required"</span>: [<span class="s">"sentiment"</span>],
+    <span class="s">"additionalProperties"</span>: False,
+}
+
+<span class="k">def</span> classify(review: str) -> str | None:
+    resp = client.messages.create(
+        model=<span class="s">"claude-opus-5-5"</span>,
+        max_tokens=4096,
+        system=<span class="s">"Classify the sentiment of the customer review inside the review tags."</span>,
+        messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">f"&lt;review&gt;{review}&lt;/review&gt;"</span>}],
+        output_config={<span class="s">"effort"</span>: <span class="s">"low"</span>, <span class="s">"format"</span>: {<span class="s">"type"</span>: <span class="s">"json_schema"</span>, <span class="s">"schema"</span>: SCHEMA}},
+    )
+    <span class="k">if</span> resp.stop_reason == <span class="s">"refusal"</span>:
+        <span class="k">return</span> None  <span class="c"># counts as wrong</span>
+    text = next(b.text <span class="k">for</span> b <span class="k">in</span> resp.content <span class="k">if</span> b.type == <span class="s">"text"</span>)
+    <span class="k">return</span> json.loads(text)[<span class="s">"sentiment"</span>]
+
+<span class="k">def</span> bootstrap_ci(scores: list[int], resamples: int = 2000, seed: int = 0) -> tuple[float, float]:
+    rng = random.Random(seed)
+    n = len(scores)
+    means = sorted(sum(rng.choices(scores, k=n)) / n <span class="k">for</span> _ <span class="k">in</span> range(resamples))
+    <span class="k">return</span> means[int(0.025 * resamples)], means[int(0.975 * resamples) - 1]
+
+test_set = [(<span class="s">"Not bad at all."</span>, <span class="s">"positive"</span>), (<span class="s">"Oh great, it broke again."</span>, <span class="s">"negative"</span>)]  <span class="c"># your labelled cases</span>
+scores = [int(classify(text) == label) <span class="k">for</span> text, label <span class="k">in</span> test_set]
+low, high = bootstrap_ci(scores)
+print(<span class="s">f"accuracy {sum(scores) / len(scores):.1%}, 95% interval {low:.1%} to {high:.1%}, n={len(scores)}"</span>)</code></pre>
+    <p class="small" style="margin:8px 0 0">Runnable versions: <code>python/03_classify_reviews.py</code> classifies reviews with structured outputs, and <code>python/08_eval_with_judge.py</code> runs an LLM judge over a set of outputs and checks it against human labels.</p>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/gpt2.js"></script>
+<script src="js/live.js"></script>
+<script src="js/evals.js"></script>
+</body>
+</html>

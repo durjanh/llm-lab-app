@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Lab</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<style>
+  .hero{padding:12px 0 6px}
+  .labs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;margin-top:18px}
+  .lab-card{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:inherit;background:var(--surface);transition:border-color .15s,box-shadow .15s,transform .15s}
+  .lab-card:hover{border-color:var(--brand-line);box-shadow:0 8px 24px rgba(91,79,214,.12);transform:translateY(-2px)}
+  .lab-card .num{font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.06em;text-transform:uppercase}
+  .lab-card h3{margin:0;font-size:18px}
+  .lab-card p{margin:0;font-size:14px;color:var(--ink2)}
+  .lab-card .decides{font-size:13px;color:var(--muted);border-top:1px solid var(--soft);padding-top:8px;margin-top:auto}
+  .lab-card .decides b{color:var(--ink2)}
+  .lab-card .dl{font-size:12px;color:var(--muted)}
+  .path{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px;color:var(--ink2);margin-top:8px}
+  .path a{padding:3px 10px;border:1px solid var(--line);border-radius:999px;text-decoration:none}
+  .path span{color:var(--faint)}
+</style>
+</head>
+<body class="lab">
+<main>
+  <div class="hero">
+    <div class="kicker">LLM Lab for AI engineers</div>
+    <h1>See how large language models work, then build with them better</h1>
+    <p class="lede">Twelve hands-on labs. Each one runs real models or real arithmetic in your browser, explains one mechanism, and ends with the engineering decisions it should change in your code.</p>
+    <div class="note" style="margin-top:14px"><b>Run it through the local server</b> for the best experience: <code>python python/server.py</code>, then open <code>http://localhost:8000</code>. Opening the files directly also works, but the live Claude features and the full GPT-2 explainer need the server. See <code>python/README.md</code>.</div>
+  </div>
+
+  <h2>Foundations</h2>
+  <p class="muted">How a model turns text into a prediction, and how it learned to do it.</p>
+  <div class="labs">
+    <a class="lab-card" href="transformer.html"><span class="num">Start here</span><h3>Transformer explainer</h3>
+      <p>Follow a prompt through embeddings, attention, the MLP and the output probabilities, with every value computed live.</p>
+      <span class="decides"><b>Helps you decide:</b> nothing yet. It builds the mental model the other labs rely on.</span><span class="dl">Tiny built-in model, or GPT-2 at 128 MB</span></a>
+    <a class="lab-card" href="training.html"><span class="num">Lab 9</span><h3>Training</h3>
+      <p>Train a tiny language model in your browser and watch it learn, then overfit and memorise.</p>
+      <span class="decides"><b>Helps you decide:</b> prompting, retrieval or fine-tuning, and how much data each needs.</span><span class="dl">No download</span></a>
+    <a class="lab-card" href="tokens.html"><span class="num">Lab 1</span><h3>Tokens</h3>
+      <p>Watch text turn into tokens, compare data formats by token count, and plan a context budget.</p>
+      <span class="decides"><b>Helps you decide:</b> prompt formats, cost estimates, what fits in context, and which tasks need a tool.</span><span class="dl">Tokenizer download, 2 MB</span></a>
+    <a class="lab-card" href="sampling.html"><span class="num">Lab 2</span><h3>Sampling</h3>
+      <p>Run one prompt under greedy, balanced and creative settings and see the model’s confidence token by token.</p>
+      <span class="decides"><b>Helps you decide:</b> temperature and top-p per task, when to sample several answers, and how to spot guesses.</span><span class="dl">GPT-2 download, 128 MB</span></a>
+  </div>
+
+  <h2>Building</h2>
+  <p class="muted">The three patterns most LLM features are made of.</p>
+  <div class="labs">
+    <a class="lab-card" href="prompting.html"><span class="num">Lab 3</span><h3>Prompting</h3>
+      <p>Measure how instructions, examples and their balance change accuracy, try constrained decoding, and see a prompt injection.</p>
+      <span class="decides"><b>Helps you decide:</b> zero-shot or few-shot, structured outputs, and how to handle untrusted text.</span><span class="dl">GPT-2 download, 128 MB</span></a>
+    <a class="lab-card" href="embeddings.html"><span class="num">Lab 5</span><h3>Embeddings and RAG</h3>
+      <p>Search by meaning and by keyword, rerank, then run a full retrieval pipeline and see the exact prompt it builds.</p>
+      <span class="decides"><b>Helps you decide:</b> chunking, top-k, thresholds, hybrid search and reranking.</span><span class="dl">Embedding model 23 MB, optional reranker</span></a>
+    <a class="lab-card" href="agents.html"><span class="num">Lab 6</span><h3>Agents and tools</h3>
+      <p>Step through the tool-use loop request by request, including parallel calls, errors and a human approval gate.</p>
+      <span class="decides"><b>Helps you decide:</b> whether you need an agent at all, and how to write tools, loops and safeguards.</span><span class="dl">No download</span></a>
+  </div>
+
+  <h2>Quality and safety</h2>
+  <p class="muted">How to know a change helped, when to trust an answer, and how to stay safe.</p>
+  <div class="labs">
+    <a class="lab-card" href="evals.html"><span class="num">Lab 7</span><h3>Evals</h3>
+      <p>Build a test set, grade it three ways, and see how much a score wobbles with confidence intervals.</p>
+      <span class="decides"><b>Helps you decide:</b> whether a prompt change really helped, and how big a test set you need.</span><span class="dl">GPT-2 download, 128 MB; live judge optional</span></a>
+    <a class="lab-card" href="confidence.html"><span class="num">Lab 8</span><h3>Confidence</h3>
+      <p>Check whether a model’s confidence matches how often it is right, and route doubtful answers to a person.</p>
+      <span class="decides"><b>Helps you decide:</b> when to automate, when to ask a human, and where to set the threshold.</span><span class="dl">GPT-2 download, 128 MB</span></a>
+    <a class="lab-card" href="injection.html"><span class="num">Lab 10</span><h3>Prompt injection</h3>
+      <p>Attack a toy agent that holds a secret, then switch defences on and off to see which ones hold.</p>
+      <span class="decides"><b>Helps you decide:</b> which safeguards are real security boundaries and which only reduce risk.</span><span class="dl">No download; live mode optional</span></a>
+  </div>
+
+  <h2>Cost and operations</h2>
+  <p class="muted">Where the time and money go, and how to spend less of both.</p>
+  <div class="labs">
+    <a class="lab-card" href="context.html"><span class="num">Lab 4</span><h3>Context, latency and cost</h3>
+      <p>Prefill against decode, the KV cache and its memory bill, and how cost grows over a long conversation.</p>
+      <span class="decides"><b>Helps you decide:</b> streaming, output limits, prompt caching layout, and GPU sizing for self-hosting.</span><span class="dl">No download</span></a>
+    <a class="lab-card" href="routing.html"><span class="num">Lab 11</span><h3>Routing</h3>
+      <p>Compare one large model, one small model, a cascade and a router on cost per correct answer.</p>
+      <span class="decides"><b>Helps you decide:</b> which model to use where, and whether a cascade is worth its complexity.</span><span class="dl">No download</span></a>
+    <a class="lab-card" href="live.html"><span class="num">Lab 12</span><h3>Live Claude</h3>
+      <p>Send real requests through a local server and measure latency, tokens, effort, caching and cost.</p>
+      <span class="decides"><b>Helps you decide:</b> effort levels and caching layout, using real numbers from your own prompts.</span><span class="dl">Needs the local server and your API key</span></a>
+  </div>
+
+  <h2>Decision cheat sheet</h2>
+  <p>Common problems, the first thing to try, and where to see why it works.</p>
+  <div class="table-wrap"><table class="t">
+    <thead><tr><th>If you need to…</th><th>Try first</th><th>See</th></tr></thead>
+    <tbody>
+      <tr><td>Get the same kind of answer every time, for extraction or classification</td><td>Structured outputs with a schema or enum, plus a few examples. On models that allow it, a low temperature.</td><td><a href="prompting.html">Prompting</a>, <a href="sampling.html">Sampling</a></td></tr>
+      <tr><td>Answer from your own documents</td><td>Retrieval first, not fine-tuning. Chunk by structure, combine keyword and meaning search, set a threshold, and require citations.</td><td><a href="embeddings.html">Embeddings &amp; RAG</a>, <a href="training.html">Training</a></td></tr>
+      <tr><td>Fix output in the wrong format</td><td>Show two or three input and output examples, then move to structured outputs if code reads the result.</td><td><a href="prompting.html">Prompting</a></td></tr>
+      <tr><td>Cut cost</td><td>Measure tokens, shorten outputs, cache the stable prefix, trim history and tool results, and use a smaller model or lower effort for easy steps.</td><td><a href="tokens.html">Tokens</a>, <a href="context.html">Context &amp; cost</a>, <a href="live.html">Live Claude</a></td></tr>
+      <tr><td>Choose between a large and a small model</td><td>Measure both on your eval, try the large model at lower effort, and compare cost per correct answer, not per request.</td><td><a href="routing.html">Routing</a>, <a href="live.html">Live Claude</a></td></tr>
+      <tr><td>Cut latency</td><td>Stream, ask for shorter answers, and reduce the number of sequential calls.</td><td><a href="context.html">Context &amp; cost</a></td></tr>
+      <tr><td>Reduce made-up facts</td><td>Ground answers in retrieved sources, allow "I don't know", and route low-confidence answers to a person.</td><td><a href="embeddings.html">Embeddings &amp; RAG</a>, <a href="confidence.html">Confidence</a></td></tr>
+      <tr><td>Do exact maths, counting or string work</td><td>Give the model a tool that runs code.</td><td><a href="tokens.html">Tokens</a>, <a href="agents.html">Agents &amp; tools</a></td></tr>
+      <tr><td>Let the model take actions</td><td>Start with a fixed workflow. Use an agent loop only for open-ended tasks, with bounded iterations and approval for side effects.</td><td><a href="agents.html">Agents &amp; tools</a></td></tr>
+      <tr><td>Process untrusted text safely</td><td>Delimit it as data, keep instructions in the system prompt, and never give tools more power than that text should have.</td><td><a href="prompting.html">Prompting</a>, <a href="injection.html">Prompt injection</a></td></tr>
+      <tr><td>Know whether a prompt change helped</td><td>Build a labelled test set, run every version against it several times, and compare confidence intervals, not single scores.</td><td><a href="evals.html">Evals</a></td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted" style="margin-top:18px">The browser models are GPT-2 (124M parameters, 2019), MiniLM and a small reranker, all tiny and old by today's standards. They are here because they show the mechanisms honestly and run on a laptop. Modern models are far more capable, but they work on the same principles.</p>
+</main>
+<script src="js/common.js"></script>
+</body>
+</html>

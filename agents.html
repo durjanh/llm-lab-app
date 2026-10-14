@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agents and Tools</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<style>
+  .sim{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px;margin-top:14px}
+  @media (max-width:900px){.sim{grid-template-columns:1fr}}
+  #diagram{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+  #diagram .node rect{fill:var(--surface);stroke:var(--line2);stroke-width:1.5;transition:all .3s}
+  #diagram .node text{font-size:13px;fill:var(--ink2);text-anchor:middle}
+  #diagram .node.on rect{stroke:var(--brand);stroke-width:2.5;fill:var(--brand-soft)}
+  #diagram .node.dim{opacity:.35}
+  #diagram .edge{stroke:var(--line);stroke-width:3;transition:stroke .3s}
+  #diagram .edge.on{stroke:var(--brand-line);stroke-width:4}
+  .explain-box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:12px;min-height:150px;background:var(--surface)}
+  .explain-box h3{margin:0 0 6px;font-size:16px}
+  .badge2{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;border-radius:999px;padding:2px 9px;margin:0 6px 6px 0;background:var(--soft);color:var(--ink2)}
+  .badge2.api{background:rgba(91,79,214,.16);color:var(--brand)}.badge2.stop{background:rgba(21,128,61,.14);color:var(--good)}.badge2.warn{background:rgba(180,83,9,.15);color:var(--warn)}
+  .req{font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 14px;height:560px;overflow:auto}
+  .req .k{color:#c4b5fd}.req .s{color:#a5f3fc}.req .c{color:#94a3b8}
+  .req .newmsg{display:block;background:rgba(91,79,214,.28);border-left:3px solid #a78bfa;margin-left:-14px;padding-left:11px;animation:labfade .5s ease both}
+  .req-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .chart{width:100%;height:auto;display:block}
+  .chart text{font-size:11px;fill:var(--muted)}
+  .tabs{display:flex;gap:6px;margin-top:10px}
+  .crit{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .crit .card h3{margin:0 0 4px;font-size:15px}
+  .crit .card p{font-size:14px;margin:0}
+</style>
+</head>
+<body class="lab">
+<main>
+  <div class="kicker">Lab 6 · Agents and tools</div>
+  <h1>An agent is a loop you write</h1>
+  <p class="lede">Tool use looks like the model acting in the world, but the model only ever writes text. It writes a structured request to call a tool; your code decides whether to run it, runs it, and sends the result back. Repeat until the model says it is done. Step through three scenarios to see exactly what crosses the wire.</p>
+
+  <div class="card">
+    <div class="row">
+      <label>Scenario <select id="scenario">
+        <option value="weather">1. One tool call</option>
+        <option value="parallel">2. Two calls at once, one fails</option>
+        <option value="order">3. Several steps with human approval</option>
+      </select></label>
+      <span class="spacer"></span>
+      <button class="btn" id="back">‹ Back</button>
+      <button class="btn primary" id="next">Next ›</button>
+      <button class="btn" id="play">Play</button>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+    <div class="sim">
+      <div>
+        <svg id="diagram" viewBox="0 0 520 300" role="img" aria-label="Agent loop diagram"></svg>
+        <div class="explain-box" id="explain" aria-live="polite"></div>
+        <h3>Input tokens sent per API call</h3>
+        <svg class="chart" id="tokChart" viewBox="0 0 520 150" role="img" aria-label="Input tokens per API call"></svg>
+        <p class="small muted">Estimated at 4 characters per token, including the full tool schemas. Each call carries everything before it.</p>
+      </div>
+      <div>
+        <div class="req-head"><span>The request your code sends on the next call</span><span id="stepNo"></span></div>
+        <div class="req" id="req"></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Before you build one: should this be an agent?</h2>
+  <p>An agent lets the model choose its own steps. That is powerful and expensive. A single call, or a fixed workflow where your code decides the steps, is simpler to test and cheaper to run. Reach for an agent only when all four of these hold.</p>
+  <div class="crit">
+    <div class="card"><h3>Complexity</h3><p>The task is multi-step and hard to specify in advance, such as turning a design document into a pull request.</p></div>
+    <div class="card"><h3>Value</h3><p>The outcome justifies more calls, more tokens and more latency.</p></div>
+    <div class="card"><h3>Viability</h3><p>The model is actually good at this kind of task. Check with a small evaluation first.</p></div>
+    <div class="card"><h3>Cost of error</h3><p>Mistakes can be caught and undone, through tests, review or rollback.</p></div>
+  </div>
+
+  <div class="takeaways">
+    <h3>Engineering takeaways</h3>
+    <ul>
+      <li><b>Your code is in charge.</b> The model proposes a call; your code validates the input, decides whether to run it, and owns the side effects.</li>
+      <li><b>Tool definitions are prompt.</b> Names, descriptions and schemas are sent on every call and cost tokens every time. They are also your main lever on tool-use quality, so write them like documentation for a new colleague.</li>
+      <li><b>Return errors, don't crash.</b> Send failures back as a tool result with <code>is_error</code> set, so the model can correct itself. When several tools run at once, send all their results back in one message.</li>
+      <li><b>Gate anything with side effects.</b> Sending email, paying, deleting or deploying should pass a human or policy check first.</li>
+      <li><b>Bound the loop.</b> Cap the number of iterations, log every step, and stop on any stop reason other than a tool call.</li>
+      <li><b>Mind the growing context.</b> Every call resends the whole history, so cache the stable prefix and trim large tool results. The <a href="context.html">Context &amp; cost lab</a> shows the effect.</li>
+    </ul>
+    <div class="tabs"><button class="chip-btn on" data-tab="manual">Manual loop</button><button class="chip-btn" data-tab="runner">SDK tool runner</button></div>
+    <pre class="code" data-panel="manual"><code><span class="k">import</span> json
+<span class="k">import</span> anthropic
+
+client = anthropic.Anthropic()
+
+tools = [{
+    <span class="s">"name"</span>: <span class="s">"get_weather"</span>,
+    <span class="s">"description"</span>: <span class="s">"Get the weather forecast for a city on a given day."</span>,
+    <span class="s">"input_schema"</span>: {
+        <span class="s">"type"</span>: <span class="s">"object"</span>,
+        <span class="s">"properties"</span>: {
+            <span class="s">"city"</span>: {<span class="s">"type"</span>: <span class="s">"string"</span>, <span class="s">"description"</span>: <span class="s">"City name, for example London"</span>},
+            <span class="s">"date"</span>: {<span class="s">"type"</span>: <span class="s">"string"</span>, <span class="s">"description"</span>: <span class="s">"An ISO date or 'tomorrow'"</span>},
+        },
+        <span class="s">"required"</span>: [<span class="s">"city"</span>, <span class="s">"date"</span>],
+    },
+}]
+
+<span class="k">def</span> run_tool(name: str, args: dict) -> str:
+    <span class="k">if</span> name == <span class="s">"get_weather"</span>:
+        <span class="k">return</span> json.dumps(get_weather(**args))  <span class="c"># your implementation</span>
+    <span class="k">raise</span> ValueError(<span class="s">f"Unknown tool: {name}"</span>)
+
+messages = [{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"I'm in London tomorrow. Do I need an umbrella?"</span>}]
+
+<span class="k">for</span> _ <span class="k">in</span> range(10):  <span class="c"># never loop forever</span>
+    response = client.messages.create(
+        model=<span class="s">"claude-opus-5-5"</span>,
+        max_tokens=16000,
+        system=<span class="s">"You are a helpful travel assistant."</span>,
+        tools=tools,
+        messages=messages,
+    )
+    messages.append({<span class="s">"role"</span>: <span class="s">"assistant"</span>, <span class="s">"content"</span>: response.content})
+    <span class="k">if</span> response.stop_reason != <span class="s">"tool_use"</span>:  <span class="c"># end_turn, refusal, max_tokens</span>
+        <span class="k">break</span>
+
+    results = []
+    <span class="k">for</span> block <span class="k">in</span> response.content:
+        <span class="k">if</span> block.type == <span class="s">"tool_use"</span>:
+            <span class="k">try</span>:
+                output, failed = run_tool(block.name, block.input), False
+            <span class="k">except</span> Exception <span class="k">as</span> exc:
+                output, failed = <span class="s">f"Error: {exc}"</span>, True
+            results.append({<span class="s">"type"</span>: <span class="s">"tool_result"</span>, <span class="s">"tool_use_id"</span>: block.id,
+                            <span class="s">"content"</span>: output, <span class="s">"is_error"</span>: failed})
+    messages.append({<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: results})  <span class="c"># all results in one message</span>
+
+<span class="k">if</span> response.stop_reason == <span class="s">"end_turn"</span>:
+    print(next(b.text <span class="k">for</span> b <span class="k">in</span> response.content <span class="k">if</span> b.type == <span class="s">"text"</span>))</code></pre>
+    <pre class="code" data-panel="runner" hidden><code><span class="c"># The SDK's tool runner (beta) writes the loop for you</span>
+<span class="k">import</span> anthropic
+<span class="k">from</span> anthropic <span class="k">import</span> beta_tool
+
+client = anthropic.Anthropic()
+
+@beta_tool
+<span class="k">def</span> get_weather(city: str, date: str) -> str:
+    <span class="s">"""Get the weather forecast for a city on a given day.
+
+    Args:
+        city: City name, for example London.
+        date: An ISO date or 'tomorrow'.
+    """</span>
+    <span class="k">return</span> <span class="s">"Rain likely, 80% chance, 14°C"</span>  <span class="c"># your implementation</span>
+
+runner = client.beta.messages.tool_runner(
+    model=<span class="s">"claude-opus-5-5"</span>,
+    max_tokens=16000,
+    tools=[get_weather],
+    messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"I'm in London tomorrow. Do I need an umbrella?"</span>}],
+)
+<span class="k">for</span> message <span class="k">in</span> runner:  <span class="c"># one message per loop iteration</span>
+    print(message.stop_reason)</code></pre>
+    <p class="small" style="margin:10px 0 0">Runnable version: <code>python/06_agent_loop.py</code> and <code>python/07_tool_runner.py</code>. Setup is in <code>python/README.md</code>.</p>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/agents.js"></script>
+</body>
+</html>

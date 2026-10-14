@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confidence and Calibration</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<style>
+  .ok{color:var(--good);font-weight:700}.no{color:var(--bad);font-weight:700}
+  .scroll{max-height:400px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .scroll table.t th{position:sticky;top:0;background:var(--surface);z-index:1;box-shadow:0 1px 0 var(--line)}
+  .scroll table.t tr:last-child td{border-bottom:0}
+  .kind{display:inline-block;font-size:11px;line-height:1.6;padding:0 8px;border-radius:999px;background:var(--soft);color:var(--ink2);white-space:nowrap}
+  .cbar{display:inline-block;position:relative;width:64px;height:8px;background:var(--soft);border-radius:4px;vertical-align:middle;margin-right:6px}
+  .cbar i{position:absolute;left:0;top:0;bottom:0;border-radius:0 4px 4px 0;background:var(--s1)}
+  .chart{width:100%;max-width:660px;height:auto;display:block}
+  .chart text{font-size:11px;fill:var(--muted);font-family:inherit}
+  .chart .ax{font-size:12px;fill:var(--ink2)}
+  .chart .hov{fill:transparent}
+  .chart .hov:hover{fill:var(--soft);fill-opacity:.5}
+  .chart-title{font-size:13px;font-weight:600;color:var(--ink);margin:4px 0 2px}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;margin:4px 0 8px;color:var(--ink2)}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:-1px}
+  .legend span.dash::before{width:16px;height:0;border-radius:0;background:none;border-top:2px dashed var(--c);vertical-align:3px}
+  .legend span.dot::before{border-radius:50%}
+  .run-row{margin:10px 0 4px}
+  .run-row .progress{width:180px}
+  .ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px 18px;align-items:end;margin-bottom:6px}
+  .ctl label{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+  .ctl input[type=range]{grid-column:1/-1;width:100%}
+  .ctl .mono{font-size:13px;color:var(--ink)}
+  .tpl{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:pre-wrap;word-break:break-word;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:12px 14px;margin:6px 0 0}
+  details summary{cursor:pointer;color:var(--brand);font-size:14px;margin-top:8px}
+  .ece-line{font-size:14px;margin:6px 0 0}
+</style>
+</head>
+<body class="lab">
+<main>
+  <div class="kicker">Lab 8 · Confidence</div>
+  <h1>When can you trust a model's confidence?</h1>
+  <p class="lede">Many systems act on a model's confidence. A support bot might answer on its own when it is sure and pass everything else to a person. That only works if the confidence is honest: when the model says 80%, it should be right about 80% of the time. This lab measures that with GPT-2 on 60 labelled reviews.</p>
+  <div id="gate"></div>
+
+  <section class="needs-model locked" id="lab">
+    <h2>Sixty reviews, each with a confidence</h2>
+    <p>Each review goes into a short prompt, and GPT-2's probabilities for the next token being <code>positive</code> or <code>negative</code> are read off. The two are rescaled to add up to 100%. The larger share is the prediction, and that share is the model's confidence. Half the reviews are plain. The rest are hard on purpose: negation, mixed feelings and sarcasm.</p>
+    <div class="chips" id="promptChips"></div>
+    <details><summary>Show the prompt</summary><div class="tpl" id="tplText"></div></details>
+    <div class="row run-row"><div class="progress" id="runBar" hidden><i></i></div><span class="small muted" id="runStatus"></span></div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="sAcc">–</div><div class="k">accuracy</div></div>
+      <div class="stat"><div class="v" id="sConf">–</div><div class="k">average confidence</div></div>
+      <div class="stat"><div class="v" id="sEce">–</div><div class="k">calibration error, ECE</div></div>
+      <div class="stat"><div class="v" id="sPos">–</div><div class="k">predicted positive, 30 are</div></div>
+    </div>
+    <div class="chips" id="filterChips" style="margin-bottom:8px"></div>
+    <div class="scroll"><table class="t" id="revTable"><thead><tr><th>Review</th><th>Kind</th><th>True label</th><th>Predicted</th><th>Confidence</th></tr></thead><tbody></tbody></table></div>
+
+    <h2>Does 70% sure mean 70% right?</h2>
+    <p>A reliability diagram answers that. It groups the reviews by confidence and shows how often the model was right in each group. On a perfectly calibrated model, every bar would reach the dashed diagonal. Bars above the line mean the model is right more often than it claims, so it is underconfident. Bars below the line mean it is overconfident. With two labels the winner always has at least 50%, so the confidence axis starts at 50%.</p>
+    <div class="chips" id="binChips" style="margin-bottom:6px"></div>
+    <div class="legend"><span style="--c:var(--s1)">Accuracy of the reviews in each bin</span><span class="dash" style="--c:var(--ink2)">Perfect calibration</span></div>
+    <svg class="chart" id="relChart" viewBox="0 0 560 320" role="img" aria-label="Reliability diagram: accuracy against confidence"></svg>
+    <p class="ece-line" id="eceLine"></p>
+    <div class="note" id="verdict"></div>
+
+    <h2>Calibrate on labelled data</h2>
+    <p>You can often fix calibration without retraining the model. All you need is a small labelled set. Two simple methods work on label probabilities like these.</p>
+    <p><b>Temperature scaling</b> divides the model's score gap between the two labels by one number, T, chosen to fit the labelled set. T below 1 makes the model more decisive. T above 1 makes it more cautious. It never changes which label wins, so accuracy stays the same.</p>
+    <p><b>Contextual calibration</b> shows the model a content-free review, here "N/A", and divides each label's probability by the probability the model gave that label for "N/A". This removes a built-in lean towards one label. It can change predictions, so accuracy can change too.</p>
+    <div class="chips" id="fixChips" style="margin-bottom:8px"></div>
+    <div class="grid2">
+      <div><div class="chart-title">Before: raw confidence</div><svg class="chart" id="relBefore" viewBox="0 0 560 320" role="img" aria-label="Reliability diagram before calibration"></svg></div>
+      <div><div class="chart-title" id="afterTitle">After</div><svg class="chart" id="relAfter" viewBox="0 0 560 320" role="img" aria-label="Reliability diagram after calibration"></svg></div>
+    </div>
+    <div class="legend"><span style="--c:var(--s1)">Accuracy of the reviews in each bin</span><span class="dash" style="--c:var(--ink2)">Perfect calibration</span></div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fEce0">–</div><div class="k">ECE before</div></div>
+      <div class="stat"><div class="v" id="fEce1">–</div><div class="k">ECE after</div></div>
+      <div class="stat"><div class="v" id="fAcc0">–</div><div class="k">accuracy before</div></div>
+      <div class="stat"><div class="v" id="fAcc1">–</div><div class="k">accuracy after</div></div>
+    </div>
+    <p class="small muted" id="fitInfo"></p>
+
+    <h2>Send the unsure cases to a person</h2>
+    <p>Selective prediction turns confidence into a decision. Above the threshold, the model answers on its own. Below it, the case goes to a person. A higher threshold lets fewer errors through but sends more work to people. The curve shows the whole trade-off, so you can pick the point that matches the error rate you can accept.</p>
+    <div class="ctl">
+      <div><div class="small muted" style="margin-bottom:4px">Confidence to use</div><div class="chips" id="srcChips"></div></div>
+      <label>Threshold: answer automatically at or above <span class="mono" id="vTh"></span><input type="range" id="th" min="0.5" max="1" step="0.01" value="0.8"></label>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="cCov">–</div><div class="k">answered automatically</div></div>
+      <div class="stat"><div class="v" id="cAcc">–</div><div class="k">accuracy on those</div></div>
+      <div class="stat"><div class="v" id="cErr">–</div><div class="k">errors that slip through</div></div>
+      <div class="stat"><div class="v" id="cHum">–</div><div class="k">sent to a person</div></div>
+    </div>
+    <div class="legend"><span style="--c:var(--s1)">Accuracy on the answered share</span><span class="dash" style="--c:var(--faint)">Accuracy if every review is answered</span><span class="dot" style="--c:var(--ink)">Your threshold</span></div>
+    <svg class="chart" id="covChart" viewBox="0 0 560 280" role="img" aria-label="Accuracy against coverage"></svg>
+    <p id="covText"></p>
+    <div class="note">Calibration makes the threshold mean something. With raw scores, 0.8 is just a number. After calibration, answers with 80% confidence are right about 8 times in 10, so the threshold can be agreed in plain terms with the people who own the risk. Temperature scaling keeps the reviews in almost the same order, so the curve keeps its shape. What changes is the threshold you need to reach a given point on it.</div>
+
+    <h2>High probability is not the same as being right</h2>
+    <p>Calibration needs labels. A factual answer comes with a probability but no label, so it is tempting to read the probability as truth. Here GPT-2 names the capital of 15 countries. The table shows its top answer, the probability of that whole answer, and whether it is right. Several of these capitals are not the country's best-known city, such as Ottawa, Canberra and Ankara. That is exactly where a model that learned word patterns slips.</p>
+    <div class="chips" id="fmtChips"></div>
+    <div class="tpl" id="capPrompt"></div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="kRight">–</div><div class="k">right answers</div></div>
+      <div class="stat"><div class="v" id="kPR">–</div><div class="k">average probability when right</div></div>
+      <div class="stat"><div class="v" id="kPW">–</div><div class="k">average probability when wrong</div></div>
+      <div class="stat"><div class="v" id="kTop">–</div><div class="k">most confident wrong answer</div></div>
+    </div>
+    <div class="legend"><span class="dot" style="--c:var(--s1)">Right answer</span><span class="dot" style="--c:var(--s2)">Wrong answer</span></div>
+    <svg class="chart" id="capChart" viewBox="0 0 560 120" role="img" aria-label="Probability of each answer, right and wrong"></svg>
+    <div class="table-wrap"><table class="t" id="capTable"><thead><tr><th>Country</th><th>GPT-2's answer</th><th>Its probability</th><th>Right answer</th><th class="num">Probability of the right answer</th></tr></thead><tbody></tbody></table></div>
+    <div class="note">A next-token probability says how likely those words are to come next. It does not check the fact. Wrong answers can score as high as right ones, so a single probability cannot tell you whether one answer is true. Measure how often answers at each confidence level are right before you rely on the number.</div>
+  </section>
+
+  <div class="takeaways">
+    <h3>Engineering takeaways</h3>
+    <ul>
+      <li><b>Check calibration before you build rules on confidence.</b> Score a labelled set from your own task and draw a reliability diagram. On this page, changing only the prompt changes how honest the confidence is, so check again after every prompt or model change.</li>
+      <li><b>Calibrate on held-out data.</b> Temperature scaling fixes overconfidence or underconfidence without changing answers. Contextual calibration removes a lean towards one label. Fit either on one labelled set and measure on another.</li>
+      <li><b>Choose the threshold from the coverage curve.</b> Decide what error rate you can accept, then read off how much work goes to people. Revisit it when traffic changes.</li>
+      <li><b>A high probability is not proof.</b> Models can be confidently wrong, especially when a famous answer sits next to the right one. Ground factual answers in documents and check them.</li>
+      <li><b>No token probabilities? Measure agreement.</b> If your API does not return token probabilities, ask the same question several times. The share of answers that agree is a practical confidence signal. Calibrate it on labelled data like any other score.</li>
+      <li><b>Check verbal confidence against data.</b> A model that writes "I am 90% sure" is producing more text, not reporting a measured probability. Before you trust such statements, check how often they are right on your own labelled cases.</li>
+    </ul>
+    <pre class="code"><code><span class="c"># Agreement across several answers as a confidence signal</span>
+<span class="k">from</span> collections <span class="k">import</span> Counter
+<span class="k">from</span> anthropic <span class="k">import</span> Anthropic
+
+client = Anthropic()
+
+<span class="k">def</span> ask(question: str) -> str | None:
+    resp = client.messages.create(
+        model=<span class="s">"claude-opus-5-5"</span>,
+        max_tokens=16000,
+        output_config={<span class="s">"effort"</span>: <span class="s">"low"</span>},
+        messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">f"{question}\nReply with the answer only."</span>}],
+    )
+    <span class="k">if</span> resp.stop_reason == <span class="s">"refusal"</span>:
+        <span class="k">return</span> None
+    <span class="k">return</span> next(b.text <span class="k">for</span> b <span class="k">in</span> resp.content <span class="k">if</span> b.type == <span class="s">"text"</span>).strip().lower()
+
+<span class="k">def</span> answer_with_agreement(question: str, n: int = 5) -> tuple[str | None, float]:
+    votes = Counter(a <span class="k">for</span> a <span class="k">in</span> (ask(question) <span class="k">for</span> _ <span class="k">in</span> range(n)) <span class="k">if</span> a <span class="k">is not</span> None)
+    <span class="k">if not</span> votes:
+        <span class="k">return</span> None, 0.0
+    best, count = votes.most_common(1)[0]
+    <span class="k">return</span> best, count / n
+
+answer, agreement = answer_with_agreement(<span class="s">"What is the capital of Australia?"</span>)
+<span class="k">if</span> agreement &lt; 0.8:  <span class="c"># pick the cut-off from labelled data, as on this page</span>
+    print(<span class="s">"Send to human review:"</span>, answer, agreement)
+<span class="k">else</span>:
+    print(answer)</code></pre>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/gpt2.js"></script>
+<script src="js/confidence.js"></script>
+</body>
+</html>

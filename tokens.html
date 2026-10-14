@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokens Lab</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<style>
+  .tok-out{border:1px solid var(--line);border-radius:10px;padding:12px;min-height:90px;line-height:2.1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;white-space:normal;word-break:break-word;background:var(--surface)}
+  .tk{border-radius:4px;padding:2px 1px;margin:0 1px;cursor:default;white-space:pre;color:#1f2937}
+  .tk:nth-child(5n+1){background:#dbeafe}.tk:nth-child(5n+2){background:#fde68a}.tk:nth-child(5n+3){background:#bbf7d0}.tk:nth-child(5n+4){background:#fbcfe8}.tk:nth-child(5n){background:#e9d5ff}
+  .tk:hover{outline:2px solid var(--brand)}
+  .tk small{font-size:10px;color:#475569;margin-left:2px;vertical-align:super}
+  .tk .sp{color:#94a3b8}
+  .mini-row{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .mini-row .src{width:150px;font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--ink2)}
+  .mini-row .n{font-size:12px;color:var(--muted);width:70px}
+  .budget{display:flex;height:30px;border-radius:6px;overflow:hidden;background:var(--soft);gap:2px}
+  .budget i{display:block;height:100%;transition:flex-basis .35s ease;min-width:0}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin-top:8px}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:-1px}
+  .budget-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .budget-inputs label{display:flex;flex-direction:column;gap:3px}
+  .budget-inputs input{width:100%}
+  .fmt-row{cursor:pointer}
+  .fmt-row:hover td{background:var(--soft2)}
+  .fmt-row.sel td{background:var(--brand-soft)}
+</style>
+</head>
+<body class="lab">
+<main>
+  <div class="kicker">Lab 1 · Tokens</div>
+  <h1>Models read tokens, not words</h1>
+  <p class="lede">Before a model sees your prompt, a tokenizer chops it into pieces from a fixed vocabulary. Tokens are what you pay for, what fills the context window, and the reason models are oddly bad at spelling and arithmetic.</p>
+  <div id="gate"></div>
+
+  <section class="needs-model locked" id="lab">
+    <h2>Tokenizer playground</h2>
+    <p>Type anything. Each coloured block is one token, and the small number is its id in GPT-2's vocabulary of 50,257 tokens. Notice that a leading space usually belongs to the word that follows it.</p>
+    <div class="chips" id="presets" style="margin-bottom:10px"></div>
+    <textarea id="text" rows="5" spellcheck="false"></textarea>
+    <div class="row" style="margin:8px 0">
+      <label><input type="checkbox" id="showIds" checked> Show ids</label>
+      <label><input type="checkbox" id="showSpaces" checked> Show spaces as ·</label>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="sTokens">0</div><div class="k">tokens</div></div>
+      <div class="stat"><div class="v" id="sChars">0</div><div class="k">characters</div></div>
+      <div class="stat"><div class="v" id="sRatio">0</div><div class="k">characters per token</div></div>
+      <div class="stat"><div class="v" id="sWords">0</div><div class="k">words</div></div>
+    </div>
+    <div class="tok-out" id="out" aria-live="polite"></div>
+    <p class="small muted" style="margin-top:8px">English prose usually runs at about 4 characters per token. Code, numbers, rare words and non-English text use more tokens for the same length, so they cost more and fill the context faster. The � blocks are pieces of a character that needs several bytes, such as an emoji or a Japanese character.</p>
+
+    <h2>Same data, different formats</h2>
+    <p>Six employee records, written six ways. The information is identical, but the token bill is not. Click a row to load it into the playground.</p>
+    <div class="table-wrap"><table class="t" id="fmtTable"><thead><tr><th>Format</th><th class="num">Characters</th><th class="num">Tokens</th><th style="width:38%">Relative to cheapest</th></tr></thead><tbody></tbody></table></div>
+
+    <h2>Why models trip up on some tasks</h2>
+    <p>The model never sees letters or digits one by one. It sees the chunks below. That is why counting the letters in a word, reversing a string, or adding long numbers is hard without a tool.</p>
+    <div class="card" id="quirks"></div>
+
+  </section>
+
+  <section>
+    <h2>Will it fit? Plan your context budget</h2>
+    <p>Everything you send shares one context window: system prompt, tool definitions, the conversation so far, retrieved documents, and the room you reserve for the answer. Enter your own numbers.</p>
+    <div class="card">
+      <div class="budget-inputs" id="budgetInputs"></div>
+      <div style="margin-top:14px" class="budget" id="budgetBar" role="img" aria-label="Context budget"></div>
+      <div class="legend" id="budgetLegend"></div>
+      <p id="budgetMsg" style="margin-top:10px"></p>
+    </div>
+  </section>
+
+  <div class="takeaways">
+    <h3>Engineering takeaways</h3>
+    <ul>
+      <li><b>Every model family has its own tokenizer.</b> This page shows GPT-2's, so treat its counts as a guide to the patterns, not to your bill. For Claude, count with the API's <code>count_tokens</code> endpoint. Don't use OpenAI's <code>tiktoken</code>; it undercounts Claude tokens, especially on code and non-English text.</li>
+      <li><b>Output tokens cost more than input tokens.</b> On current Claude models, output is 5 times the input price. Asking for a shorter answer is often the cheapest optimisation there is.</li>
+      <li><b>Pick compact formats for bulk data.</b> Minified JSON or CSV can carry the same records for far fewer tokens than pretty-printed JSON. Measure, because the model also needs the structure to stay readable.</li>
+      <li><b>Hand character-level work to code.</b> Counting, exact string manipulation and long arithmetic belong in a tool call, not in the model's head.</li>
+      <li><b>Watch whitespace in templates.</b> A trailing space or an extra newline changes the tokens the model sees, and can change its answer.</li>
+      <li><b>Budget the whole window.</b> Reserve output room with <code>max_tokens</code>, and check your model's limit. For Claude, the Models API reports it as <code>max_input_tokens</code>.</li>
+    </ul>
+    <pre class="code"><code><span class="c"># Count tokens exactly as Claude will see them</span>
+<span class="k">from</span> anthropic <span class="k">import</span> Anthropic
+
+client = Anthropic()
+resp = client.messages.count_tokens(
+    model=<span class="s">"claude-opus-5-5"</span>,
+    messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: open(<span class="s">"prompt.txt"</span>).read()}],
+)
+print(resp.input_tokens)</code></pre>
+    <p class="small" style="margin:10px 0 0">Runnable version: <code>python/01_count_tokens.py</code>. Setup is in <code>python/README.md</code>.</p>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/gpt2.js"></script>
+<script src="js/tokens.js"></script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Embeddings and RAG</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<style>
+  body.lab{--doc-c0:#f1f5f9;--doc-c1:#e0f2fe;--doc-hit:#ddd6fe;--kw-bg:#fef3c7;--bar-off:#cbd5e1}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body.lab{--doc-c0:#1d222c;--doc-c1:#172636;--doc-hit:#3a3270;--kw-bg:#4a3b12;--bar-off:#3a414e}}
+  :root[data-theme="dark"] body.lab{--doc-c0:#1d222c;--doc-c1:#172636;--doc-hit:#3a3270;--kw-bg:#4a3b12;--bar-off:#3a414e}
+  .map-wrap{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+  @media (max-width:860px){.map-wrap{grid-template-columns:1fr}}
+  #map{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+  #map .pt{cursor:pointer}
+  #map text{font-size:11px;fill:var(--muted)}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;margin-top:8px}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:-1px}
+  .nn td{font-size:13px}
+  .doc{font-size:14px;line-height:1.8;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-height:520px;overflow:auto;background:var(--surface)}
+  .doc .w{padding:2px 0}
+  .doc .c0{background:var(--doc-c0)}.doc .c1{background:var(--doc-c1)}
+  .doc .hit{background:var(--doc-hit);box-shadow:0 2px 0 var(--brand)}
+  .doc .badge{display:inline-block;background:var(--brand);color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:0 7px;margin:0 3px;line-height:18px}
+  .doc .h{font-weight:700}
+  .scores{max-height:520px;overflow:auto}
+  .srow{display:grid;grid-template-columns:28px 1fr 52px;gap:8px;align-items:center;font-size:12px;padding:3px 0;border-bottom:1px solid var(--soft)}
+  .srow .bar{height:10px;border-radius:0 4px 4px 0;background:var(--bar-off)}
+  .srow.hit .bar{background:var(--brand)}
+  .srow .txt{grid-column:2/4;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srow .why{grid-column:2/4;display:flex;flex-wrap:wrap;gap:0 14px;font-size:11.5px;color:var(--ink2)}
+  .srow .why b{font-weight:600;color:var(--ink)}
+  .srow .why i{font-style:normal;font-family:ui-monospace,Menlo,monospace;background:var(--kw-bg);border-radius:3px;padding:0 3px}
+  .srow .why .rr b{color:var(--brand)}
+  .rule{font-size:13px;color:var(--ink2);background:var(--soft2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:2px 0 10px}
+  .rag-controls label.off{opacity:.5}
+  #rrGate[hidden]{display:none}
+  #rrGate{margin:10px 0 0}
+  .srow.below{opacity:.55}
+  .assembled{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:pre-wrap;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:14px 16px;max-height:420px;overflow:auto}
+  .assembled .tag{color:#7dd3fc}
+  .assembled .q{color:#fde68a}
+  .rag-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 18px;margin-bottom:12px}
+  .rag-controls label{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px}
+  .rag-controls input[type=range],.rag-controls select{grid-column:1/-1;width:100%}
+</style>
+</head>
+<body class="lab">
+<main>
+  <div class="kicker">Lab 5 · Embeddings and retrieval</div>
+  <h1>Search by meaning, then answer from your own documents</h1>
+  <p class="lede">An embedding model turns a piece of text into a list of numbers, so that texts with similar meaning end up close together. That is the engine behind semantic search and retrieval-augmented generation (RAG): find the relevant passages first, then give only those to the LLM.</p>
+  <div id="gate"></div>
+
+  <section class="needs-model locked" id="lab">
+    <h2>A map of meaning</h2>
+    <p>Fifteen sentences about three topics, each turned into 384 numbers and squashed onto two dimensions so you can see them. Type a query to find its nearest neighbours. Compare the meaning score with the word-overlap score that keyword search would use.</p>
+    <div class="row" style="margin-bottom:8px">
+      <input type="text" id="query" value="My puppy will not touch his food." style="flex:1 1 320px" aria-label="Query">
+      <button class="btn primary" id="search">Search</button>
+      <button class="btn" id="addSent" title="Add this sentence to the map">Add to map</button>
+    </div>
+    <div class="chips" id="qPresets" style="margin-bottom:10px"></div>
+    <div class="map-wrap">
+      <div><svg id="map" viewBox="0 0 600 420" role="img" aria-label="Sentences projected onto two dimensions"></svg>
+        <div class="legend" id="mapLegend"></div>
+        <p class="small muted" style="margin-top:6px">Squashing 384 dimensions onto 2 loses detail, so the map is approximate. The table uses the exact similarity.</p></div>
+      <div class="table-wrap"><table class="t nn" id="nnTable"><thead><tr><th>Nearest sentences</th><th class="num">Meaning</th><th class="num">Shared words</th></tr></thead><tbody></tbody></table></div>
+    </div>
+
+    <h2>Retrieval-augmented generation, step by step</h2>
+    <p>Below is a made-up company handbook. It is split into chunks, every chunk is embedded once, and each question is matched against them. The best chunks are pasted into the prompt for the LLM. Change the chunking and watch which passages get retrieved.</p>
+    <p>There are two ways to find candidates. Meaning search compares embeddings, so it matches vacation with annual leave. Keyword search, here the classic BM25 formula, scores chunks by the words they share with the question and gives rare words more weight. It finds exact amounts, codes and names that embeddings blur. Hybrid search runs both and merges the two rankings.</p>
+    <div class="card">
+      <div class="rag-controls">
+        <label>Chunking <span></span><select id="mode"><option value="fixed">Fixed size, by word count</option><option value="section">By section heading</option></select></label>
+        <label>Chunk size, words <span class="mono" id="vSize"></span><input type="range" id="size" min="15" max="200" step="5" value="60"></label>
+        <label>Overlap <span class="mono" id="vOv"></span><input type="range" id="overlap" min="0" max="50" step="5" value="15"></label>
+        <label>Chunks to retrieve <span class="mono" id="vK"></span><input type="range" id="topk" min="1" max="6" value="3"></label>
+        <label id="thLabel">Minimum similarity <span class="mono" id="vTh"></span><input type="range" id="thresh" min="0" max="0.8" step="0.02" value="0.3"></label>
+        <label>Retrieval method <span></span><select id="method"><option value="embed">Embeddings only</option><option value="bm25">Keywords only, BM25</option><option value="hybrid">Hybrid, both fused by rank</option></select></label>
+      </div>
+      <p class="rule" id="ruleNote"></p>
+      <div class="row" style="margin-bottom:6px">
+        <input type="text" id="ragQ" value="How many vacation days do I get?" style="flex:1 1 320px" aria-label="Question">
+        <button class="btn primary" id="ragGo">Retrieve</button>
+      </div>
+      <div class="chips" id="ragPresets"></div>
+      <p class="small muted" style="margin:10px 0 0">Try this: ask "Can I work from Spain for a month?" with fixed-size chunks, then switch to chunking by section heading. Then ask about the World Cup and watch the threshold stop an off-topic question.</p>
+      <p class="small muted" style="margin:6px 0 0">Then compare methods: ask "Is there a £35 limit?" with embeddings only. Meaning search puts the travel section first, because an amount carries little meaning. Switch to keywords or hybrid and the expenses chunk that contains £35 wins. Now ask about vacation days with keywords only. The handbook says annual leave, never vacation, so keyword search grabs the wrong section.</p>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="margin-top:0">Reranking the shortlist</h3>
+      <p>A reranker is a second model that reads the question and one chunk together, then scores how well the chunk answers it. An embedding model reads them separately, so chunk vectors are computed once, ahead of time, and comparing them is cheap. A reranker must run once for every question and chunk pair. It is slower but more precise, which is why it only reorders a shortlist: here, the top 8 chunks that pass the rule above.</p>
+      <label><input type="checkbox" id="rerank"> Rerank the top candidates with a cross-encoder</label>
+      <div id="rrGate" hidden></div>
+      <p class="small muted" id="rrInfo" style="margin:8px 0 0"></p>
+      <p class="small muted" style="margin:6px 0 0">Try this: use fixed-size chunks, ask about vacation days, and turn reranking on. The chunk that holds the annual leave rule moves to the top.</p>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div><h3 style="margin-top:0">The document and its chunks</h3><div class="doc" id="doc"></div>
+        <p class="small muted" style="margin-top:6px">Shading alternates between chunks. Purple marks retrieved chunks, numbered by rank.</p></div>
+      <div><h3 style="margin-top:0" id="scoreTitle">Every chunk, by similarity</h3><div class="scores" id="scores"></div></div>
+    </div>
+    <h3>What gets sent to the LLM</h3>
+    <div class="assembled" id="assembled"></div>
+    <p class="small muted" id="assembledInfo" style="margin-top:6px"></p>
+  </section>
+
+  <div class="takeaways">
+    <h3>Engineering takeaways</h3>
+    <ul>
+      <li><b>Chunking decides what can be found.</b> Chunks that are too small split an answer in half. Chunks that are too large dilute the match. Splitting on the document's own structure, such as headings, is a strong default, and some overlap protects answers that cross a boundary.</li>
+      <li><b>Test retrieval on its own.</b> Write questions with known answer passages and measure how often the right passage appears in the top results. If retrieval misses, no prompt can fix the answer.</li>
+      <li><b>Use hybrid search.</b> Embeddings handle synonyms, such as vacation and annual leave. Keyword search handles exact amounts, codes and names, such as £35 or extension 4400. Reciprocal rank fusion merges the two rankings by position, so you never have to compare scores that live on different scales.</li>
+      <li><b>Rerank a shortlist.</b> A cross-encoder reads the question and each passage together, so it judges relevance more precisely than comparing vectors. It is too slow to run over a whole collection. Retrieve a few dozen candidates cheaply, then rerank only those.</li>
+      <li><b>Set a threshold and allow "I don't know".</b> Off-topic questions still get a "nearest" chunk. A minimum score, plus an instruction to say when the documents don't contain the answer, prevents confident nonsense. A fixed minimum suits cosine similarity. BM25 and fused scores have no fixed scale, so give them their own rule, such as requiring a shared keyword.</li>
+      <li><b>Keep sources attached.</b> Store a source id with every chunk so answers can cite it and users can check it.</li>
+      <li><b>Vectors only compare within one model.</b> If you change embedding models, re-embed everything.</li>
+    </ul>
+    <pre class="code"><code><span class="c"># Answer from retrieved chunks, with citations and an explicit way out</span>
+<span class="k">from</span> anthropic <span class="k">import</span> Anthropic
+
+client = Anthropic()
+
+<span class="k">def</span> answer(question: str, chunks: list[dict]) -> str:
+    docs = <span class="s">"\n"</span>.join(
+        <span class="s">f'&lt;document index="{i}" source="{c["source"]}"&gt;\n{c["text"]}\n&lt;/document&gt;'</span>
+        <span class="k">for</span> i, c <span class="k">in</span> enumerate(chunks, 1)
+    )
+    resp = client.messages.create(
+        model=<span class="s">"claude-opus-5-5"</span>,
+        max_tokens=16000,
+        system=<span class="s">"Answer using only the documents provided and cite document numbers. "</span>
+               <span class="s">"If the documents do not contain the answer, say you don't know."</span>,
+        messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">f"&lt;documents&gt;\n{docs}\n&lt;/documents&gt;\n\nQuestion: {question}"</span>}],
+    )
+    <span class="k">if</span> resp.stop_reason == <span class="s">"refusal"</span>:
+        <span class="k">return</span> <span class="s">"The request was declined."</span>
+    <span class="k">return</span> next(b.text <span class="k">for</span> b <span class="k">in</span> resp.content <span class="k">if</span> b.type == <span class="s">"text"</span>)
+
+chunks = vector_store.search(question, top_k=3, min_score=0.3)  <span class="c"># your retrieval layer</span>
+print(answer(question, chunks) <span class="k">if</span> chunks <span class="k">else</span> <span class="s">"I couldn't find that in the handbook."</span>)</code></pre>
+    <p class="small" style="margin:10px 0 0">Runnable version with embeddings, BM25 and a "not found" path: <code>python/05_rag.py</code>. Setup is in <code>python/README.md</code>.</p>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/gpt2.js"></script>
+<script src="js/embedder.js"></script>
+<script src="js/reranker.js"></script>
+<script src="js/embeddings.js"></script>
+</body>
+</html>

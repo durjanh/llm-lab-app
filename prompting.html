@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prompting Lab</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<style>
+  .div-bar{position:relative;height:14px;background:var(--soft);border-radius:3px;min-width:140px}
+  .div-bar::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#9ca3af}
+  .div-bar i{position:absolute;top:0;bottom:0;transition:all .4s ease}
+  .div-bar i.pos{left:50%;background:var(--s1);border-radius:0 4px 4px 0}
+  .div-bar i.neg{right:50%;background:var(--s2);border-radius:4px 0 0 4px}
+  .ok{color:var(--good);font-weight:700}.no{color:var(--bad);font-weight:700}
+  #template{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+  .pbar{display:grid;grid-template-columns:110px 1fr 54px;gap:8px;align-items:center;font-size:13px;margin:3px 0}
+  .pbar span:nth-child(2){height:12px;background:var(--s1);border-radius:0 4px 4px 0;transition:width .4s}
+  .pbar.lbl{grid-template-columns:170px 1fr 54px}
+  .pbar.lbl span:nth-child(2){background:var(--s3)}
+  .flat{font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px}
+  .flat .role{color:#c4b5fd;font-weight:700}
+  .flat .inj{background:rgba(227,73,72,.35);border-radius:3px}
+  .flat .tag{color:#7dd3fc}
+</style>
+</head>
+<body class="lab">
+<main>
+  <div class="kicker">Lab 3 · Prompting</div>
+  <h1>A prompt is just the start of a text</h1>
+  <p class="lede">A language model continues text. Instructions, examples and chat roles all work by changing which continuation is most likely. This lab measures that directly, using GPT-2's real next-token probabilities on a small labelled test set.</p>
+  <div id="gate"></div>
+
+  <section class="needs-model locked" id="lab">
+    <h2>Few-shot prompting, measured</h2>
+    <p>The task is to label eight reviews as positive or negative. For each review the template below is filled in, and the model's probabilities for the next token being <code>positive</code> or <code>negative</code> are read off. Try each preset, then edit the template yourself. <code>{review}</code> marks where the review goes.</p>
+    <div class="chips" id="tplPresets" style="margin-bottom:8px"></div>
+    <textarea id="template" rows="9" spellcheck="false"></textarea>
+    <div class="row" style="margin:8px 0 4px">
+      <label><input type="checkbox" id="calib"> Calibrate against a blank input</label>
+      <span class="spacer"></span>
+      <button class="btn primary" id="runEval">Run on the test set</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v" id="sAcc">–</div><div class="k">accuracy</div></div>
+      <div class="stat"><div class="v" id="sMass">–</div><div class="k">probability on a valid label</div></div>
+      <div class="stat"><div class="v" id="sPos">–</div><div class="k">predicted positive (4 are)</div></div>
+    </div>
+    <div class="table-wrap"><table class="t" id="evalTable"><thead><tr><th>Review</th><th>True label</th><th>Leaning <span class="muted">negative ← → positive</span></th><th>Predicted</th><th class="num">Valid label</th></tr></thead><tbody></tbody></table></div>
+    <h3>Your runs</h3>
+    <div class="table-wrap"><table class="t" id="runsTable"><thead><tr><th>Template</th><th>Calibrated</th><th class="num">Accuracy</th><th class="num">Valid label</th><th class="num">Predicted positive</th></tr></thead><tbody><tr><td colspan="5" class="muted">Run a template to start comparing.</td></tr></tbody></table></div>
+    <div class="note"><b>What to look for.</b> With no examples, almost none of the probability goes to either label, because the model has not learned the answer format. Balanced examples teach the format and improve accuracy. Examples that are all positive teach the model to say positive. Calibration divides out the model's bias measured on a blank input, which can rescue a biased prompt.</div>
+
+    <h2>Constrained decoding: only allow valid answers</h2>
+    <p>Left alone, the model can continue with anything, including text your code cannot parse. Constrained decoding scores only the answers you allow. Labels made of several tokens are scored by multiplying the probability of each token in turn.</p>
+    <div class="grid2">
+      <div><label>Prompt</label><textarea id="cPrompt" rows="8" spellcheck="false"></textarea>
+        <label style="display:block;margin-top:8px">Allowed answers, comma separated<input type="text" id="cLabels" value="positive, negative, mixed" style="width:100%"></label>
+        <button class="btn primary" id="runC" style="margin-top:8px">Score</button></div>
+      <div class="card">
+        <h3 style="margin-top:0">Unconstrained: top next tokens</h3><div id="cFree"></div>
+        <p class="small muted" id="cGreedy" style="margin-top:6px"></p>
+        <h3>Constrained to your answers</h3><div id="cCon"></div>
+      </div>
+    </div>
+    <p class="small muted">Structured outputs, enums in JSON schemas, and strict tool inputs use the same idea: the decoder is stopped from producing anything that breaks the format.</p>
+  </section>
+
+  <section>
+    <h2>Roles are text too, and so is everything you paste in</h2>
+    <p>A chat API takes separate system, user and assistant messages, but the model receives them as one sequence of tokens with role markers in between. The markers below are illustrative; every provider uses its own. The important point is that a document you paste in sits in the same stream as your instructions.</p>
+    <div class="row" style="margin-bottom:8px"><label><input type="checkbox" id="wrap"> Wrap the untrusted email in tags and say it is data</label></div>
+    <div class="flat" id="flat"></div>
+    <p class="small muted" id="flatCount" style="margin-top:6px"></p>
+    <div class="note">The red sentence is a <b>prompt injection</b>: instructions hidden inside data. Tags and a clear instruction help the model tell data from instructions, but they are not a security boundary. Never give a model access, tools or secrets that the least trusted text in its context should not control.</div>
+  </section>
+
+  <div class="takeaways">
+    <h3>Engineering takeaways</h3>
+    <ul>
+      <li><b>Examples teach format faster than instructions.</b> A few input and output pairs pin down exactly what you want back.</li>
+      <li><b>Balance and vary your examples.</b> The model copies their label mix and their order. Lopsided examples produce lopsided answers.</li>
+      <li><b>Judge a prompt on a test set, never on one example.</b> This page is a tiny evaluation. Real ones need dozens to hundreds of labelled cases.</li>
+      <li><b>Use structured outputs when code reads the answer.</b> It guarantees valid JSON, so you are not parsing free text. On recent Claude models, the old trick of prefilling the assistant's reply returns an error, so structured outputs are the way.</li>
+      <li><b>Treat pasted and retrieved text as data.</b> Delimit it, keep your instructions in the system prompt, and limit what tools can do.</li>
+    </ul>
+    <pre class="code"><code><span class="c"># Guaranteed-valid label with structured outputs</span>
+<span class="k">import</span> json
+<span class="k">from</span> anthropic <span class="k">import</span> Anthropic
+
+client = Anthropic()
+resp = client.messages.create(
+    model=<span class="s">"claude-opus-5-5"</span>,
+    max_tokens=4096,
+    output_config={
+        <span class="s">"effort"</span>: <span class="s">"low"</span>,
+        <span class="s">"format"</span>: {
+            <span class="s">"type"</span>: <span class="s">"json_schema"</span>,
+            <span class="s">"schema"</span>: {
+                <span class="s">"type"</span>: <span class="s">"object"</span>,
+                <span class="s">"properties"</span>: {<span class="s">"sentiment"</span>: {<span class="s">"type"</span>: <span class="s">"string"</span>, <span class="s">"enum"</span>: [<span class="s">"positive"</span>, <span class="s">"negative"</span>, <span class="s">"mixed"</span>]}},
+                <span class="s">"required"</span>: [<span class="s">"sentiment"</span>],
+                <span class="s">"additionalProperties"</span>: False,
+            },
+        },
+    },
+    system=<span class="s">"Classify the sentiment of the customer review inside the review tags."</span>,
+    messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"&lt;review&gt;Terrible service and cold food.&lt;/review&gt;"</span>}],
+)
+<span class="k">if</span> resp.stop_reason != <span class="s">"refusal"</span>:
+    text = next(b.text <span class="k">for</span> b <span class="k">in</span> resp.content <span class="k">if</span> b.type == <span class="s">"text"</span>)
+    print(json.loads(text)[<span class="s">"sentiment"</span>])</code></pre>
+    <p class="small" style="margin:10px 0 0">Runnable version: <code>python/03_classify_reviews.py</code>. Setup is in <code>python/README.md</code>.</p>
+  </div>
+</main>
+<script src="js/common.js"></script>
+<script src="js/gpt2.js"></script>
+<script src="js/prompting.js"></script>
+</body>
+</html>

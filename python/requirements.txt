@@ -1,0 +1,3 @@
+anthropic>=1.9,<2
+# Only needed for 05_rag.py (local embeddings, same model as the browser lab)
+fastembed>=0.8.1,<1

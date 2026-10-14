@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transformer Explainer</title>
+<script>try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="css/common.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">TRANSFORMER EXPLAINER</div>
+  <div class="input-group">
+    <select id="examples" title="Examples">
+      <option value="">Examples</option>
+      <option>As the spaceship was approaching the</option>
+      <option>Data visualization empowers users to</option>
+      <option>Artificial intelligence is transforming the</option>
+      <option>Once upon a time there was a</option>
+      <option>The cat sat on the</option>
+    </select>
+    <input id="prompt" type="text" spellcheck="false" value="As the spaceship was approaching the" aria-label="Input text">
+    <button id="generate" class="btn">Generate</button>
+  </div>
+  <div class="control">
+    <div class="sampling-label">Model
+      <label><input type="radio" name="engine" value="tiny" checked> Tiny (offline)</label>
+      <label><input type="radio" name="engine" value="gpt2"> GPT-2 (128 MB)</label>
+      <label class="off" title="Checking for the full-internals model…"><input type="radio" name="engine" value="full" disabled> GPT-2 full internals</label>
+    </div>
+    <div class="engine-status"><div id="progress" class="progress" hidden><i></i></div><span id="engineStatus">Built-in demo model</span></div>
+    <div id="fullHint" class="engine-hint" hidden></div>
+  </div>
+  <div class="control">
+    <label for="temp">Temperature</label>
+    <div class="slider-row"><input id="temp" type="range" min="0.1" max="2" step="0.05" value="0.8"><span id="tempVal" class="mono">0.8</span></div>
+  </div>
+  <div class="control">
+    <div class="sampling-label">Sampling
+      <label><input type="radio" name="mode" value="top-k" checked> Top-k</label>
+      <label><input type="radio" name="mode" value="top-p"> Top-p</label>
+    </div>
+    <div class="slider-row"><input id="kp" type="range" min="1" max="20" step="1" value="5"><span id="kpVal" class="mono">k=5</span></div>
+  </div>
+</header>
+
+<main class="stage-wrap">
+  <svg id="stage" viewBox="0 0 1280 640" preserveAspectRatio="xMidYMin meet" aria-label="Transformer visualization"></svg>
+  <button id="play" class="play" title="Pause / play data flow" aria-label="Pause or play data flow"></button>
+  <p id="footnote" class="footnote">A tiny 12-layer, 12-head GPT-style model (d<sub>model</sub>=48, GPT-2 small uses 768) runs every step in your browser. Its weights are untrained, so next-token scores are blended with a small n-gram model. Hover anything; click <b>⊕</b> labels to zoom in.</p>
+</main>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="modalTitle"></h2>
+      <button id="modalClose" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div id="modalSteps" class="steps"></div>
+    <div id="modalBody" class="modal-body"></div>
+    <div class="modal-foot">
+      <button id="stepPrev" class="btn">‹ Back</button>
+      <span id="stepInfo" class="muted"></span>
+      <button id="stepNext" class="btn primary">Next ›</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script src="js/model.js"></script>
+<script src="js/gpt2.js"></script>
+<script src="js/gpt2-full.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
