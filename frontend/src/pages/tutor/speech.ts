@@ -18,6 +18,14 @@ export interface Spoken {
   vdurations: number[];
 }
 
+export interface ListenOptions {
+  reference?: string;
+  onPartial?: (text: string) => void;
+  endOnPause?: boolean;
+  /** Recognition language, such as en-GB or es-ES. Pronunciation is scored only for the default, en-US. */
+  language?: string;
+}
+
 export interface Heard {
   text: string;
   pronunciation: PronunciationScores | null;
@@ -99,7 +107,7 @@ export class Speech {
     };
     const percent = Math.round((rate - 1) * 100);
     const ssml =
-      `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-GB"><voice name="${voice}">` +
+      `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${voice.split('-').slice(0, 2).join('-')}"><voice name="${voice}">` +
       `<prosody rate="${percent >= 0 ? '+' : ''}${percent}%">${escapeXml(text)}</prosody></voice></speak>`;
     try {
       const result = await new Promise<SDK.SpeechSynthesisResult>((resolve, reject) =>
@@ -123,25 +131,29 @@ export class Speech {
    * until they have been quiet for a moment. With `reference` (say-it-again) it listens for that one
    * sentence and scores it against the reference.
    */
-  listen(opts: { reference?: string; onPartial?: (text: string) => void; endOnPause?: boolean } = {}): Promise<Heard> {
+  listen(opts: ListenOptions = {}): Promise<Heard> {
     return this.withFallback(() => this.listenOnce(opts));
   }
 
-  private async listenOnce(opts: { reference?: string; onPartial?: (text: string) => void; endOnPause?: boolean }): Promise<Heard> {
+  private async listenOnce(opts: ListenOptions): Promise<Heard> {
     this.stopListening(false); // only one microphone listener at a time
     const { sdk, config } = await this.config();
-    config.speechRecognitionLanguage = 'en-US'; // prosody scores are given for US English only
+    const language = opts.language ?? 'en-US'; // the tutor's default: prosody scores are given for US English only
+    config.speechRecognitionLanguage = language;
     // A pause of this long ends a sentence; the next one is heard as another sentence.
     config.setProperty(sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, opts.reference ? '1500' : '1200');
     const recognizer = new sdk.SpeechRecognizer(config, sdk.AudioConfig.fromDefaultMicrophoneInput());
-    const assessment = new sdk.PronunciationAssessmentConfig(
-      opts.reference ?? '',
-      sdk.PronunciationAssessmentGradingSystem.HundredMark,
-      sdk.PronunciationAssessmentGranularity.Word,
-      !!opts.reference, // miscues: words left out or added, only meaningful against a reference
-    );
-    assessment.enableProsodyAssessment = true;
-    assessment.applyTo(recognizer);
+    if (language === 'en-US') {
+      // Pronunciation scores, for the tutor. Other languages (the follow-up agent's) only need the words.
+      const assessment = new sdk.PronunciationAssessmentConfig(
+        opts.reference ?? '',
+        sdk.PronunciationAssessmentGradingSystem.HundredMark,
+        sdk.PronunciationAssessmentGranularity.Word,
+        !!opts.reference, // miscues: words left out or added, only meaningful against a reference
+      );
+      assessment.enableProsodyAssessment = true;
+      assessment.applyTo(recognizer);
+    }
     try {
       return await (opts.reference ? this.once(sdk, recognizer, opts.onPartial) : this.continuous(sdk, recognizer, opts));
     } finally {
@@ -176,11 +188,7 @@ export class Speech {
   }
 
   /** Everything the learner says, sentence by sentence, until they press Done (or pause, hands-free). */
-  private continuous(
-    sdk: typeof SDK,
-    recognizer: SDK.SpeechRecognizer,
-    opts: { onPartial?: (text: string) => void; endOnPause?: boolean },
-  ): Promise<Heard> {
+  private continuous(sdk: typeof SDK, recognizer: SDK.SpeechRecognizer, opts: ListenOptions): Promise<Heard> {
     const sentences: { text: string; scores: PronunciationScores | null }[] = [];
     let partial = '';
     let pauseTimer = 0;

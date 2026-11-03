@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 
 from ..container import Container
 from ..core.errors import ApiError
+from ..services.aftercare import AftercareService
 from ..services.decks import DeckService
 from ..services.documents import DocumentService
 from ..services.mcp_lab import McpLab
@@ -72,6 +73,10 @@ def medassist(c: Container = Depends(container)) -> MedAssistService:
 
 def reviews(c: Container = Depends(container)) -> ReviewsService:
     return c.reviews
+
+
+def aftercare(c: Container = Depends(container)) -> AftercareService:
+    return c.aftercare
 
 
 def require_lab_page(request: Request, c: Container = Depends(container)) -> None:

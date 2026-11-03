@@ -103,3 +103,17 @@ export {
   type ReviewsInfo,
   type Sentiment,
 } from './reviewsService';
+export {
+  AftercareService,
+  aftercareService,
+  type AftercareInfo,
+  type AftercareStep,
+  type Board,
+  type CareTask,
+  type Engine,
+  type AftercareEvalEvent,
+  type HospitalRecord,
+  type StartResult,
+  type TurnResult,
+  type WorkItem,
+} from './aftercareService';

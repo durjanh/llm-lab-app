@@ -37,6 +37,9 @@ def _load_example(name: str, path: Path):
 # MedAssist's practice systems and tool loop, shared with examples/medassist so the page and the command line
 # book into the same database under the same rules. Standard library only.
 medassist_clinic = _load_example("medassist_clinic", ROOT / "examples" / "medassist" / "clinic.py")
+# The Aftercare follow-up agent's hospital record, rules and tools, shared with examples/aftercare (the Claude and
+# Agent Framework command lines). Standard library only.
+aftercare_ward = _load_example("aftercare_ward", ROOT / "examples" / "aftercare" / "ward.py")
 
 __all__ = ["ROOT", "DEFAULT_MODEL", "LANGUAGE_PRICE_PER_1K_RECORDS", "PRICES", "HANDBOOK", "EnvSettings", "Refused", "cost_usd", "create", "describe_usage",
-           "make_client", "stream", "text_of", "harness_script", "skills_script", "medassist_clinic"]
+           "make_client", "stream", "text_of", "harness_script", "skills_script", "medassist_clinic", "aftercare_ward"]

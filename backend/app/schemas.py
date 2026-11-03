@@ -1,6 +1,7 @@
 """The request bodies the pages may send. Anything not listed is dropped or rejected."""
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -46,6 +47,33 @@ class MedAssistStart(BaseModel):
 
 class MedAssistMessage(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
+
+
+class AftercareStart(ModelChoice):
+    """A follow-up call to one discharged patient. The worklist picks the patient, never the model."""
+    patient_id: str = Field(pattern=r"^P1\d\d$")
+    engine: Literal["claude", "agent-framework"] = "claude"
+
+
+class AftercareMessage(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+
+
+class AftercareTaskClose(BaseModel):
+    note: str = Field(default="Done", max_length=300)
+
+
+class AftercareEvaluate(ModelChoice):
+    engine: Literal["claude", "agent-framework"] = "claude"
+    patients: list[str] = Field(default_factory=lambda: ["P101", "P102", "P103", "P104", "P105", "P106", "P107", "P108"],
+                                min_length=1, max_length=8)
+
+    @field_validator("patients")
+    @classmethod
+    def known_patients(cls, value: list[str]) -> list[str]:
+        if any(not re.fullmatch(r"P10[1-8]", p) for p in value):
+            raise ValueError("Choose from P101 to P108")
+        return list(dict.fromkeys(value))
 
 
 class McpAskRequest(ModelChoice):

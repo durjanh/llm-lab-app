@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .gateways.agent_framework import AgentFramework, FrameworkAgents
 from .gateways.azure_language import AzureLanguage, TextAnalyzer
 from .gateways.azure_openai import AzureOpenAI, StructuredModel
 from .gateways.azure_search import AzureSearch
@@ -15,6 +16,7 @@ from .gateways.azure_speech import AzureSpeech, SpeechTokens
 from .gateways.browser import ChromeScreenshotter, Screenshotter
 from .gateways.claude import ClaudeGateway
 from .gateways.foundry_agent import AgentConversations, FoundryAgent
+from .services.aftercare import AftercareService
 from .services.casework import CaseworkService
 from .services.decks import DeckChats, DeckService
 from .services.documents import DocumentService
@@ -48,13 +50,14 @@ class Container:
     casework: CaseworkService
     medassist: MedAssistService
     reviews: ReviewsService
+    aftercare: AftercareService
     runs: RunRegistry
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,
               speech: SpeechTokens | None = None, gpt: StructuredModel | None = None,
               search: AzureSearch | None = None, foundry: AgentConversations | None = None,
-              language: TextAnalyzer | None = None) -> "Container":
+              language: TextAnalyzer | None = None, agents: FrameworkAgents | None = None) -> "Container":
         claude = ClaudeGateway(client)
         spend = SpendTracker(settings.budget_usd)
         registry = RunRegistry()
@@ -65,6 +68,8 @@ class Container:
                               settings.azure_openai_embedding_deployment)
         if foundry is None and settings.foundry_project_endpoint and settings.foundry_model:
             foundry = FoundryAgent(settings.foundry_project_endpoint, settings.foundry_model)
+        if agents is None and settings.foundry_project_endpoint and settings.foundry_model:
+            agents = AgentFramework(settings.foundry_project_endpoint, settings.foundry_model)
         if language is None and settings.azure_language_endpoint:
             language = AzureLanguage(settings.azure_language_endpoint)
         return cls(
@@ -88,5 +93,6 @@ class Container:
                                                      if settings.azure_search_endpoint else None), spend, settings.casework_dir),
             medassist=MedAssistService(foundry, spend, settings.medassist_db),
             reviews=ReviewsService(language, claude, spend),
+            aftercare=AftercareService(claude, agents, spend, streamer, settings.aftercare_db),
             runs=registry,
         )

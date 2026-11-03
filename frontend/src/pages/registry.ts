@@ -186,6 +186,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./reviews/ReviewsPage')),
   },
   {
+    id: 'aftercare',
+    path: '/aftercare',
+    title: 'Aftercare: Post-discharge Follow-up Agent',
+    label: 'Aftercare follow-up',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./aftercare/AftercarePage')),
+  },
+  {
     id: 'mcp',
     path: '/mcp',
     title: 'MCP Servers',

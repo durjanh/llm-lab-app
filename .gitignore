@@ -20,6 +20,8 @@ examples/sdks/logs/
 
 # MedAssist example: its dummy patient database
 examples/medassist/data/
+# Aftercare example: its dummy hospital record
+examples/aftercare/data/
 
 # The example agents: their dummy databases
 examples/agents/data/

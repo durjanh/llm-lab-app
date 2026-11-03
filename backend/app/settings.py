@@ -45,6 +45,7 @@ class Settings:
     foundry_project_endpoint: str = ""
     foundry_model: str = ""
     medassist_db: Path = ROOT / "examples" / "medassist" / "data" / "medassist.db"
+    aftercare_db: Path = ROOT / "examples" / "aftercare" / "data" / "aftercare.db"
     # Azure Language in Foundry Tools, for the review dashboard. Signed in with your Azure login; empty means offline.
     azure_language_endpoint: str = ""
 
