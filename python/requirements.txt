@@ -1,3 +1,6 @@
 anthropic>=1.9,<2
-# Only needed for 05_rag.py (local embeddings, same model as the browser lab)
+# Only needed for 05_rag.py and the RAG part of 10_rag_vs_cag_vs_kag.py (local embeddings, same model as the browser lab)
 fastembed>=0.8.1,<1
+# Only needed for the GPT readers in 15_vision.py (Azure OpenAI with your Azure login)
+openai>=3.41,<4
+azure-identity~=1.26

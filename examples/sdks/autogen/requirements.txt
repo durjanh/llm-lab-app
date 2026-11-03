@@ -1,0 +1,8 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+autogen-agentchat==0.7.5
+autogen-core==0.7.5
+autogen-ext[openai,azure,mcp]==0.7.5
+mcp==1.30.0             # pinned below 2: autogen-ext's MCP code imports names the MCP SDK 2.x removed
+openai==3.41.0
+pydantic==2.14.2
+azure-identity==1.27.0

@@ -1,0 +1,43 @@
+/* Scoped to .page-routing, so it cannot affect other pages. */
+.page-routing .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.page-routing .fields label{display:flex;flex-direction:column;gap:3px}
+.page-routing .fields input[type=number],.page-routing .fields select{width:100%}
+.page-routing .fields .wide{grid-column:1/-1}
+.page-routing .grid2 > .card + .card,.page-routing .grid3 > .card + .card{margin-top:0}
+.page-routing #resTable td:first-child{white-space:nowrap}
+.page-routing .model-card h3{margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.page-routing .model-card .derived{margin:12px 0 0;font-size:13px;color:var(--ink2)}
+.page-routing .model-card .warnline{margin:8px 0 0;font-size:13px;color:var(--warn)}
+.page-routing .sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px 18px}
+.page-routing .sliders label{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.page-routing .sliders label input[type=range],.page-routing .sliders label input[type=number]{grid-column:1/-1;width:100%}
+.page-routing .sliders .mono{font-size:13px;color:var(--ink)}
+.page-routing .strat-card h3{margin:0 0 4px}
+.page-routing .strat-card p{font-size:14px;color:var(--ink2);margin:0 0 12px}
+.page-routing .placeholder-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;border-radius:999px;padding:1px 8px;background:var(--note-bg);color:var(--warn);vertical-align:1px;margin-left:4px}
+.page-routing .verdict{font-size:16px;margin:0 0 4px;max-width:86ch}
+.page-routing .verdict b{color:var(--ink)}
+.page-routing .legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;margin:14px 0 4px;color:var(--ink2)}
+.page-routing .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:-1px}
+.page-routing .chart-title{font-size:13px;font-weight:600;color:var(--ink);margin:16px 0 0}
+.page-routing .chart-sub{font-size:12px;color:var(--muted);margin:0 0 4px}
+.page-routing .chart{width:100%;height:auto;display:block}
+.page-routing .chart text{font-size:12px;fill:var(--muted);font-family:inherit}
+.page-routing .chart .lbl{fill:var(--ink);font-size:13px}
+.page-routing .chart .lbl-sub{fill:var(--muted);font-size:11px}
+.page-routing .chart .val{fill:var(--ink2);font-size:12px;font-variant-numeric:tabular-nums}
+.page-routing .chart .grid{stroke:var(--line);stroke-width:1}
+.page-routing .chart .base{stroke:var(--line2);stroke-width:1}
+.page-routing .chart .guide{stroke:var(--soft);stroke-width:1}
+.page-routing .chart .target{stroke:var(--ink2);stroke-width:1}
+.page-routing .chart .hit{fill:transparent}
+.page-routing .chart g.row:hover .hit{fill:var(--soft2)}
+.page-routing .chart .dot{stroke:var(--surface);stroke-width:2}
+.page-routing .ok{color:var(--good);font-weight:600}
+.page-routing .no{color:var(--warn);font-weight:600}
+.page-routing .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+.page-routing #resTable tr.best td{background:var(--ok-bg)}
+.page-routing .formula li{margin:6px 0}
+@media (max-width:520px){
+.page-routing .fields{grid-template-columns:1fr}
+}

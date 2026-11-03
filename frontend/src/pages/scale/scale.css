@@ -1,0 +1,60 @@
+.page-scale .sc-section{margin-top:32px}
+.page-scale .sc-controls{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:10px 0}
+.page-scale .sc-controls label{font-size:13px;color:var(--ink2);display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+.page-scale .sc-controls select{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line2);border-radius:6px;background:var(--surface);color:var(--ink);max-width:100%}
+.page-scale .sc-note{font-size:12px;color:var(--muted)}
+.page-scale .sc-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin:12px 0}
+.page-scale .sc-cards.sc-four{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
+.page-scale .sc-cards .card p{margin:6px 0 0}
+.page-scale .sc-cards .card+.card{margin-top:0}
+.page-scale .sc-stat{display:flex;flex-direction:column;gap:2px}
+.page-scale .sc-big{font-size:26px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.page-scale .sc-table td,.page-scale .sc-table th{font-size:13px}
+.page-scale .sc-table tr.sc-off td{color:var(--muted)}
+.page-scale .sc-table tr.sc-total td{border-top:2px solid var(--line2)}
+.page-scale .sc-good{color:var(--good)}
+.page-scale .sc-bad{color:var(--bad)}
+.page-scale .sc-legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin:8px 0;color:var(--ink2)}
+.page-scale .sc-legend i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.page-scale .sc-aside{margin-top:12px;background:var(--soft2)}
+.page-scale .dl-plot{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface2);margin-top:6px}
+.page-scale .dl-plot canvas{display:block}
+/* memory bars */
+.page-scale .sc-mem{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.page-scale .sc-mem-row{display:grid;grid-template-columns:minmax(0,1fr) 130px;grid-template-areas:"head head" "bar total";gap:4px 12px;align-items:center}
+.page-scale .sc-mem-head{grid-area:head}
+.page-scale .sc-mem-bar{grid-area:bar;display:flex;height:22px;background:var(--soft);border-radius:6px;overflow:hidden;min-width:0}
+.page-scale .sc-mem-total{grid-area:total;display:flex;flex-direction:column;line-height:1.2}
+.page-scale .sc-seg{display:block;height:100%;transition:width .35s}
+.page-scale .sc-legend .sc-seg{display:inline-block}
+.page-scale .sc-seg.w{background:var(--s1)}
+.page-scale .sc-seg.g{background:var(--s4)}
+.page-scale .sc-seg.o{background:var(--s2)}
+.page-scale .sc-seg.o2{background:var(--s5)}
+.page-scale .sc-seg.a{background:var(--s3)}
+/* parallelism */
+.page-scale .sc-plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px;margin:12px 0}
+.page-scale .sc-plan .card+.card{margin-top:0}
+.page-scale .sc-plan-head{margin-bottom:6px}
+.page-scale .sc-membar{height:10px;background:var(--soft);border-radius:5px;overflow:hidden;margin-top:8px}
+.page-scale .sc-membar span{display:block;height:100%;border-radius:5px;transition:width .35s}
+.page-scale .sc-membar .ok{background:var(--good)}
+.page-scale .sc-membar .over{background:var(--bad)}
+.page-scale .sc-split{display:flex;flex-direction:column;gap:10px;margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.page-scale .sc-stages{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.page-scale .sc-stage{border:2px solid var(--line2);border-radius:8px;padding:6px;background:var(--surface);min-width:0}
+.page-scale .sc-stage-head{font-size:11px;color:var(--ink2);margin-bottom:4px}
+.page-scale .sc-gpus{display:flex;flex-wrap:wrap;gap:3px}
+.page-scale .sc-gpu{display:inline-flex;align-items:center;justify-content:center;width:30px;height:24px;border-radius:4px;background:var(--soft);border:1px solid var(--line2);font-size:10px;color:var(--ink2);font-variant-numeric:tabular-nums}
+/* pipeline timeline */
+.page-scale .sc-timeline{margin:12px 0}
+.page-scale .sc-tl-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.page-scale .sc-tl-label{flex:0 0 58px;font-size:12px;color:var(--ink2)}
+.page-scale .sc-tl-track{position:relative;flex:1;height:22px;background:repeating-linear-gradient(45deg,var(--soft),var(--soft) 4px,var(--surface2) 4px,var(--surface2) 8px);border-radius:4px;overflow:hidden;min-width:0}
+.page-scale .sc-tl-cell{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;border-right:1px solid var(--surface)}
+.page-scale .sc-tl-cell.F,.page-scale .sc-tl-key.F{background:var(--s1)}
+.page-scale .sc-tl-cell.B,.page-scale .sc-tl-key.B{background:var(--s2)}
+.page-scale .sc-tl-key.idle{background:repeating-linear-gradient(45deg,var(--soft),var(--soft) 2px,var(--line2) 2px,var(--line2) 4px)}
+.page-scale .sc-takeaways li{margin-bottom:8px}
+@media (max-width:600px){.page-scale .sc-mem-row{grid-template-columns:minmax(0,1fr) 92px}}
+@media (prefers-reduced-motion:reduce){.page-scale *{transition:none!important}}

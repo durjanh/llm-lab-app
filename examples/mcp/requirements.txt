@@ -1,0 +1,3 @@
+anthropic[mcp]>=1.15,<2   # the Claude API SDK, with its MCP helpers; installs the MCP Python SDK (mcp 2.x)
+uvicorn>=0.30             # serves server.py --http
+pytest>=8                 # test_server.py

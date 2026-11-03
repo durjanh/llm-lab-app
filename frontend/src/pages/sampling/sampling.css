@@ -1,0 +1,26 @@
+/* Scoped to .page-sampling, so it cannot affect other pages. */
+.page-sampling .controls{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.page-sampling .controls .full{grid-column:1/-1}
+@media (max-width:760px){
+.page-sampling .controls{grid-template-columns:1fr}
+}
+.page-sampling .cfg h3{margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.page-sampling .cfg .param{display:grid;grid-template-columns:120px 1fr 48px;align-items:center;gap:6px;font-size:13px;margin:4px 0}
+.page-sampling .cfg .param input[type=range]{width:100%}
+.page-sampling .cfg .param input[type=number]{width:100%;padding:3px 6px}
+.page-sampling .cfg .val{font-family:ui-monospace,Menlo,monospace;font-size:12px;text-align:right}
+.page-sampling .sample{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;font-size:14px;line-height:1.75;min-height:44px;background:var(--surface)}
+.page-sampling .sample .prompt{color:var(--faint)}
+.page-sampling .gt{border-radius:3px;padding:1px 0;cursor:default}
+.page-sampling .gt.b1{background:rgba(235,104,52,.16)}
+.page-sampling .gt.b2{background:rgba(235,104,52,.38)}
+.page-sampling .gt.b3{background:rgba(235,104,52,.66)}
+.page-sampling .gt:hover{outline:2px solid var(--brand)}
+.page-sampling .gt.new{animation:labfade .3s ease both}
+.page-sampling .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.page-sampling .metrics div{background:var(--soft2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
+.page-sampling .metrics b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
+.page-sampling .conf-legend{display:flex;gap:4px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.page-sampling .conf-legend i{display:inline-block;width:26px;height:14px;border-radius:3px;border:1px solid var(--line)}
+.page-sampling .alt-row{display:grid;grid-template-columns:90px 1fr 46px;gap:6px;align-items:center}
+.page-sampling .alt-row span:nth-child(2){height:7px;background:#c4b5fd;border-radius:2px}

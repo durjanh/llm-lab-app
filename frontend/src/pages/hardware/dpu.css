@@ -1,0 +1,25 @@
+.page-hardware .dp-badge{display:inline-block;margin:0 0 6px;padding:3px 10px;border-radius:999px;border:1px dashed var(--warn);color:var(--warn)}
+.page-hardware .dp-svg{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--surface2);margin:6px 0 12px}
+.page-hardware .dp-box rect{fill:var(--surface);stroke:var(--line2);stroke-width:1.5}
+.page-hardware .dp-box.dpu > rect:first-child{stroke:var(--brand);stroke-width:2.5;fill:var(--brand-soft)}
+.page-hardware .dp-title{font:600 13px system-ui,sans-serif;fill:var(--ink)}
+.page-hardware .dp-sub{font:11px system-ui,sans-serif;fill:var(--muted)}
+.page-hardware .dp-line{fill:none;stroke:var(--line2);stroke-width:2}
+.page-hardware .dp-arrowhead{fill:var(--muted)}
+.page-hardware .dp-core{transition:fill .35s}
+.page-hardware .dp-core.infra,.page-hardware .dp-fill.infra{fill:var(--s4);background:var(--s4)}
+.page-hardware .dp-core.feed,.page-hardware .dp-fill.feed{fill:var(--s1);background:var(--s1)}
+.page-hardware .dp-core.free,.page-hardware .dp-fill.free{fill:var(--line2);background:var(--line2)}
+.page-hardware .dp-box rect.dp-gpu-fill{fill:var(--s3);opacity:.35;stroke:none;transition:y .5s,height .5s}
+.page-hardware .dp-fill.gpu{background:var(--s3)}
+.page-hardware .dp-fill.dpu{background:var(--brand)}
+.page-hardware .dp-packet{animation:dp-move 2.4s linear infinite;opacity:0}
+.page-hardware .dp-packet.net{fill:var(--s2)}
+.page-hardware .dp-packet.storage{fill:var(--s5)}
+@keyframes dp-move{0%{transform:translateX(0);opacity:0}10%{opacity:1}85%{opacity:1}100%{transform:translateX(var(--dx));opacity:0}}
+.page-hardware .dp-bars{display:flex;flex-direction:column;gap:8px;max-width:760px}
+.page-hardware .dp-bar-head{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--ink2)}
+.page-hardware .dp-track{height:12px;border-radius:999px;background:var(--soft);overflow:hidden}
+.page-hardware .dp-fill{height:100%;border-radius:999px;transition:width .5s}
+.page-hardware .dp-notes{margin-top:12px;color:var(--ink2);max-width:80ch}
+@media (prefers-reduced-motion:reduce){.page-hardware .dp-packet{animation:none;opacity:1}.page-hardware .dp-fill,.page-hardware .dp-core,.page-hardware .dp-box rect.dp-gpu-fill{transition:none}}

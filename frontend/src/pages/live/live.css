@@ -1,0 +1,18 @@
+/* Scoped to .page-live, so it cannot affect other pages. */
+.page-live .status-card{border-radius:12px;padding:14px 18px;margin:16px 0;font-size:14px;border:1px solid var(--line);background:var(--soft2)}
+.page-live .status-card.ok{border-color:var(--ok-line);background:var(--ok-bg)}
+.page-live .status-card.off{border-color:rgba(237,161,0,.45);background:var(--note-bg)}
+.page-live .status-card pre{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:13px;overflow:auto;margin:8px 0 0}
+.page-live .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 14px;margin-bottom:10px}
+.page-live .form label{display:flex;flex-direction:column;gap:3px}
+.page-live .form label.wide{grid-column:1/-1}
+.page-live .form label[hidden]{display:none}
+.page-live .out{border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-height:80px;white-space:pre-wrap;font-size:14px;line-height:1.6;background:var(--surface);margin-top:10px}
+.page-live .out.streaming::after{content:"▍";color:var(--brand);animation:live-blink 1s steps(2) infinite}
+@keyframes live-blink{50%{opacity:0}}
+.page-live .err{color:var(--bad);font-size:14px;margin-top:8px}
+.page-live .chart{width:100%;max-width:640px;height:auto;display:block}
+.page-live .chart text{font-size:11px;fill:var(--muted)}
+.page-live .ok{color:var(--good);font-weight:700}
+.page-live .no{color:var(--bad);font-weight:700}
+.page-live .modes{display:flex;flex-wrap:wrap;gap:8px 16px;margin:6px 0 10px}

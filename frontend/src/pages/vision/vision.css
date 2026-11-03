@@ -1,0 +1,25 @@
+.page-vision section{margin-top:28px}
+.page-vision .vi-bar{gap:6px 8px;margin:14px 0}
+.page-vision .vi-bar label.chip-btn{display:inline-flex;align-items:center}
+.page-vision .vi-two{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.page-vision .vi-image{display:block;border-radius:10px;cursor:crosshair;max-width:100%;height:auto!important;aspect-ratio:1;border:1px solid var(--line)}
+.page-vision .vi-overlays{gap:6px;margin-top:8px;max-width:340px}
+.page-vision .vi-seq{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;max-width:520px;max-height:340px;overflow:auto;padding:4px}
+.page-vision .vi-thumb{display:flex;flex-direction:column;align-items:center;gap:1px;padding:2px;border:2px solid transparent;border-radius:6px;background:none;cursor:pointer;color:var(--muted);font:10px system-ui,sans-serif}
+.page-vision .vi-thumb canvas{width:30px;height:30px;image-rendering:pixelated;border-radius:3px}
+.page-vision .vi-thumb.on{border-color:#ff8a00;color:var(--ink)}
+.page-vision .vi-zoom{width:192px;height:192px;image-rendering:pixelated;border-radius:8px;border:1px solid var(--line)}
+.page-vision .vi-vector{border-left:3px solid var(--line2);padding:4px 12px;line-height:1.6}
+.page-vision .vi-ch{display:inline-block;width:14px;font-weight:700}
+.page-vision .vi-ch.c0{color:#e5484d}.page-vision .vi-ch.c1{color:#30a46c}.page-vision .vi-ch.c2{color:#3e63dd}
+.page-vision .vi-emb{display:grid;grid-template-columns:repeat(48,1fr);gap:2px;max-width:720px;margin:10px 0}
+.page-vision .vi-emb span{height:26px;border-radius:2px;border:1px solid var(--line)}
+.page-vision .vi-controls{margin:6px 0}
+.page-vision .vi-controls input{vertical-align:middle}
+.page-vision .vi-why{margin-top:12px;max-width:80ch}
+.page-vision .vi-tokens{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0}
+.page-vision .vi-tok{font:12px ui-monospace,Menlo,monospace;padding:3px 7px;border-radius:6px;border:1px solid var(--line2);white-space:pre}
+.page-vision .vi-tok.img{background:var(--brand-soft);color:var(--brand)}
+.page-vision .vi-tok.txt{background:var(--soft);color:var(--ink)}
+.page-vision .vi-tok.next{border-style:dashed;color:var(--muted)}
+@media (max-width:600px){.page-vision .vi-emb{grid-template-columns:repeat(24,1fr)}}

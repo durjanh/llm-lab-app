@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "engagements": {
+      "command": "python",
+      "args": ["examples/mcp/server.py"]
+    },
+    "engagements-hosted": {
+      "type": "http",
+      "url": "${MCP_URL:-http://127.0.0.1:8765/mcp}",
+      "headers": { "Authorization": "Bearer ${MCP_TOKEN}" }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+# CrewAI comparison example (Python 3.12): python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+crewai[tools,azure-ai-inference]==1.15.33   # azure-ai-inference: CrewAI's native Azure provider
+crewai-tools==1.15.33
+azure-ai-inference==1.0.0b9
+azure-identity==1.27.0
+mcp==1.30.0
+pydantic==2.12.5

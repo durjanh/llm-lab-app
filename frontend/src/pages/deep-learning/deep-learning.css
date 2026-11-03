@@ -1,0 +1,38 @@
+.page-deep-learning{max-width:1180px}
+.page-deep-learning .dl-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start}
+.page-deep-learning .dl-toc{position:sticky;top:calc(var(--nav-h,56px) + 12px);max-height:calc(100dvh - var(--nav-h,56px) - 24px);overflow:auto;font-size:13px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+.page-deep-learning .dl-toc b{display:block;margin:10px 0 4px;color:var(--ink);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.page-deep-learning .dl-toc b:first-child{margin-top:0}
+.page-deep-learning .dl-toc a{display:block;padding:2px 0;color:var(--ink2);text-decoration:none}
+.page-deep-learning .dl-toc a:hover{color:var(--brand)}
+.page-deep-learning .dl-toc a span{display:inline-block;width:34px;color:var(--muted);font-variant-numeric:tabular-nums}
+.page-deep-learning .dl-chapter{margin-top:28px}
+.page-deep-learning .dl-chapter > h2{margin-bottom:4px}
+.page-deep-learning .dl-nb{margin-top:16px;scroll-margin-top:calc(var(--nav-h,56px) + 12px)}
+.page-deep-learning .dl-nb-head{display:flex;align-items:baseline;gap:10px}
+.page-deep-learning .dl-nb-head h3{margin:0}
+.page-deep-learning .dl-num{font:600 12px/1 ui-monospace,Menlo,monospace;color:var(--brand);background:var(--brand-soft);border-radius:6px;padding:4px 7px}
+.page-deep-learning .dl-intro{color:var(--ink2);margin:8px 0 12px;max-width:80ch}
+.page-deep-learning .dl-body{display:flex;flex-direction:column;gap:12px}
+.page-deep-learning .dl-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;align-items:start}
+.page-deep-learning .dl-controls{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.page-deep-learning .dl-slider{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2)}
+.page-deep-learning .dl-slider input{width:130px}
+.page-deep-learning .dl-slider .mono{min-width:44px;color:var(--ink)}
+.page-deep-learning .dl-plot{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface2)}
+.page-deep-learning .dl-plot canvas{display:block}
+.page-deep-learning .dl-caption{font-size:12px;color:var(--muted);margin-top:4px}
+.page-deep-learning .dl-readout{display:flex;flex-wrap:wrap;gap:8px 22px}
+.page-deep-learning .dl-readout div{display:flex;flex-direction:column}
+.page-deep-learning .dl-readout b{font-size:16px;color:var(--ink)}
+.page-deep-learning .dl-readout span{font-size:12px;color:var(--muted)}
+.page-deep-learning .dl-try{background:var(--soft2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-top:12px}
+.page-deep-learning .dl-try ul{margin:4px 0 0;padding-left:18px}
+.page-deep-learning .dl-takeaway{margin:10px 0 0;color:var(--ink2)}
+.page-deep-learning .dl-legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink2)}
+.page-deep-learning .dl-legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.page-deep-learning .dl-table{border-collapse:collapse;font-size:13px}
+.page-deep-learning .dl-table td,.page-deep-learning .dl-table th{border:1px solid var(--line);padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums}
+.page-deep-learning .dl-table th{background:var(--soft2);color:var(--ink2);font-weight:600}
+.page-deep-learning .dl-scroll{overflow-x:auto;max-width:100%}
+@media (max-width:900px){.page-deep-learning .dl-layout{grid-template-columns:1fr}.page-deep-learning .dl-toc{position:static;max-height:none}}

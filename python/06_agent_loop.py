@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from common import create, cost_usd, describe_usage, ensure_answered, make_client, model_argument, run, text_of
+from common import create, cost_usd, describe_usage, ensure_answered, make_client, model_argument, run, text_of, tool
 
 WEATHER = {
     "london": {"forecast": "rain", "chance_of_rain": 0.8, "temp_c": 14},
@@ -22,16 +22,6 @@ WEATHER = {
 }
 ORDERS = {"1042": {"order_id": "1042", "status": "shipped", "customer_id": "C-77", "tracking": "ZX93"}}
 CUSTOMERS = {"C-77": {"name": "Sam Patel", "email": "sam@example.com"}}
-
-
-def tool(name: str, description: str, properties: dict) -> dict:
-    return {
-        "name": name,
-        "description": description,
-        "strict": True,  # tool inputs are guaranteed to match the schema
-        "input_schema": {"type": "object", "properties": properties,
-                         "required": list(properties), "additionalProperties": False},
-    }
 
 
 TOOLS = {

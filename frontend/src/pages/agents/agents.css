@@ -1,0 +1,30 @@
+/* Scoped to .page-agents, so it cannot affect other pages. */
+.page-agents .sim{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px;margin-top:14px}
+@media (max-width:900px){
+.page-agents .sim{grid-template-columns:1fr}
+}
+.page-agents #diagram{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.page-agents #diagram .node rect{fill:var(--surface);stroke:var(--line2);stroke-width:1.5;transition:all .3s}
+.page-agents #diagram .node text{font-size:13px;fill:var(--ink2);text-anchor:middle}
+.page-agents #diagram .node.on rect{stroke:var(--brand);stroke-width:2.5;fill:var(--brand-soft)}
+.page-agents #diagram .node.dim{opacity:.35}
+.page-agents #diagram .edge{stroke:var(--line);stroke-width:3;transition:stroke .3s}
+.page-agents #diagram .edge.on{stroke:var(--brand-line);stroke-width:4}
+.page-agents .explain-box{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:12px;min-height:150px;background:var(--surface)}
+.page-agents .explain-box h3{margin:0 0 6px;font-size:16px}
+.page-agents .badge2{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;border-radius:999px;padding:2px 9px;margin:0 6px 6px 0;background:var(--soft);color:var(--ink2)}
+.page-agents .badge2.api{background:rgba(91,79,214,.16);color:var(--brand)}
+.page-agents .badge2.stop{background:rgba(21,128,61,.14);color:var(--good)}
+.page-agents .badge2.warn{background:rgba(180,83,9,.15);color:var(--warn)}
+.page-agents .req{font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 14px;height:560px;overflow:auto}
+.page-agents .req .k{color:#c4b5fd}
+.page-agents .req .s{color:#a5f3fc}
+.page-agents .req .c{color:#94a3b8}
+.page-agents .req .newmsg{display:block;background:rgba(91,79,214,.28);border-left:3px solid #a78bfa;margin-left:-14px;padding-left:11px;animation:labfade .5s ease both}
+.page-agents .req-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-bottom:6px}
+.page-agents .chart{width:100%;height:auto;display:block}
+.page-agents .chart text{font-size:11px;fill:var(--muted)}
+.page-agents .tabs{display:flex;gap:6px;margin-top:10px}
+.page-agents .crit{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.page-agents .crit .card h3{margin:0 0 4px;font-size:15px}
+.page-agents .crit .card p{font-size:14px;margin:0}

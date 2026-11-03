@@ -1,0 +1,46 @@
+/* Scoped to .page-decks, so it cannot affect other pages. */
+.page-decks .dk-bar{margin:18px 0 12px}
+.page-decks .dk-start{margin-bottom:14px}
+.page-decks .chip-btn{text-align:left}
+.page-decks .chip-btn.on{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+.page-decks .dk-chat{display:flex;flex-direction:column;gap:12px}
+.page-decks.chatting{box-sizing:border-box;height:calc(100dvh - var(--nav-h,0px));min-height:460px;display:flex;flex-direction:column;padding-bottom:16px}
+.page-decks.chatting h1{font-size:22px;margin:2px 0 0}
+.page-decks.chatting .dk-bar{margin:10px 0 12px}
+.page-decks.chatting .dk-chat{flex:1;min-height:0}
+.page-decks .dk-transcript{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:16px;padding:2px 6px 2px 2px}
+.page-decks .dk-turn{display:flex;flex-direction:column;gap:8px}
+.page-decks .dk-user{align-self:flex-end;max-width:80%;background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:14px 14px 4px 14px;padding:10px 14px;white-space:pre-wrap}
+.page-decks .dk-user .chips{margin-top:8px}
+.page-decks .dk-claude{border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:12px 14px;background:var(--surface);max-width:92%}
+.page-decks .dk-claude.error{border-color:rgba(185,28,28,.4)}
+.page-decks .dk-status{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.page-decks .dk-claude summary{cursor:pointer;color:var(--ink2);margin-top:8px}
+.page-decks .dk-steps{list-style:none;padding:0;margin:8px 0 0;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.page-decks .dk-steps li{display:grid;grid-template-columns:26px 1fr;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);font-size:13px}
+.page-decks .dk-steps li:last-child{border-bottom:0}
+.page-decks .dk-steps .detail{color:var(--ink2);font-size:12.5px;white-space:pre-wrap;word-break:break-word}
+.page-decks .dk-icon{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;background:var(--s3)}
+.page-decks .k-upload .dk-icon{background:var(--s1)}
+.page-decks .k-request .dk-icon,.page-decks .k-says .dk-icon{background:var(--s2)}
+.page-decks .k-step .dk-icon{background:var(--s4)}
+.page-decks .k-review .dk-icon{background:var(--brand)}
+.page-decks .k-error .dk-icon{background:var(--bad)}
+.page-decks .dk-previews{margin-top:12px}
+.page-decks .dk-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:6px}
+.page-decks .dk-thumbs img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:#fff}
+.page-decks .dk-thumbs a:hover img{border-color:var(--brand)}
+.page-decks .dk-thumb-wait{display:block;aspect-ratio:16/9;border:1px solid var(--line);border-radius:6px;background:var(--line)}
+.page-decks .dk-reply{margin-top:10px;white-space:pre-wrap}
+.page-decks .dk-files{margin-top:10px}
+.page-decks .dk-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid var(--line2);border-radius:999px;padding:3px 6px 3px 10px;background:var(--surface);color:var(--ink2)}
+.page-decks .dk-chip.template{border-color:var(--brand-line);color:var(--brand)}
+.page-decks .dk-chip button{border:0;background:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
+.page-decks .dk-attached{margin-top:8px}
+.page-decks .dk-composer{flex:none;margin:0}
+.page-decks .dk-composer .row{margin-top:10px}
+.page-decks .dk-problem{color:var(--bad);margin-top:6px}
+.page-decks .dk-notes{margin-top:18px}
+@media (max-width:640px){
+.page-decks .dk-user,.page-decks .dk-claude{max-width:100%}
+}

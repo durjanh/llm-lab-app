@@ -1,0 +1,27 @@
+/* Scoped to .page-claude-code, so it cannot affect other pages. */
+.page-claude-code .needs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.page-claude-code .answer-card{border:1px solid var(--brand-line);background:var(--brand-soft);border-radius:12px;padding:12px 16px;margin-top:8px}
+.page-claude-code .answer-card h3{margin:0 0 4px}
+.page-claude-code .answer-card .where{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.page-claude-code .session{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-top:10px}
+@media (max-width:860px){
+.page-claude-code .session{grid-template-columns:1fr}
+}
+.page-claude-code .ctxcol{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--surface);min-height:260px}
+.page-claude-code .ctxcol h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.page-claude-code .chunk{border-radius:8px;padding:6px 10px;margin:5px 0;font-size:13px;border:1px solid var(--line);background:var(--surface2);animation:labfade .4s ease both}
+.page-claude-code .chunk.always{border-left:4px solid var(--s1)}
+.page-claude-code .chunk.demand{border-left:4px solid var(--s3)}
+.page-claude-code .chunk.hook{border-left:4px solid var(--s2)}
+.page-claude-code .chunk.sub{border-left:4px solid var(--s4)}
+.page-claude-code .chunk.blocked{border-left:4px solid var(--bad)}
+.page-claude-code .chunk small{display:block;color:var(--muted)}
+.page-claude-code .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink2);margin-top:6px}
+.page-claude-code .legend span::before{content:"";display:inline-block;width:4px;height:12px;background:var(--c);margin-right:6px;vertical-align:-2px}
+.page-claude-code .tree{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:pre;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;line-height:1.55}
+.page-claude-code .bp{columns:2 320px;column-gap:24px;padding-left:18px;margin:6px 0}
+.page-claude-code .bp li{margin:4px 0;break-inside:avoid}
+.page-claude-code .mistake{border-left:3px solid var(--bad);background:rgba(185,28,28,.06);border-radius:0 8px 8px 0;padding:8px 12px;font-size:14px;margin:8px 0}
+.page-claude-code .facts-note{font-size:12.5px;color:var(--muted);margin-top:4px}
+.page-claude-code h2 .tag{font-size:12px;font-weight:600;color:var(--muted);margin-left:6px}
+.page-claude-code pre.code.wrap{white-space:pre-wrap;word-break:break-word}

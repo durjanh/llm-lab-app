@@ -1,0 +1,24 @@
+/* Scoped to .page-tokens, so it cannot affect other pages. */
+.page-tokens .tok-out{border:1px solid var(--line);border-radius:10px;padding:12px;min-height:90px;line-height:2.1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;white-space:normal;word-break:break-word;background:var(--surface)}
+.page-tokens .tk{border-radius:4px;padding:2px 1px;margin:0 1px;cursor:default;white-space:pre;color:#1f2937}
+.page-tokens .tk:nth-child(5n+1){background:#dbeafe}
+.page-tokens .tk:nth-child(5n+2){background:#fde68a}
+.page-tokens .tk:nth-child(5n+3){background:#bbf7d0}
+.page-tokens .tk:nth-child(5n+4){background:#fbcfe8}
+.page-tokens .tk:nth-child(5n){background:#e9d5ff}
+.page-tokens .tk:hover{outline:2px solid var(--brand)}
+.page-tokens .tk small{font-size:10px;color:#475569;margin-left:2px;vertical-align:super}
+.page-tokens .tk .sp{color:#94a3b8}
+.page-tokens .mini-row{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.page-tokens .mini-row .src{width:150px;font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--ink2)}
+.page-tokens .mini-row .n{font-size:12px;color:var(--muted);width:70px}
+.page-tokens .budget{display:flex;height:30px;border-radius:6px;overflow:hidden;background:var(--soft);gap:2px}
+.page-tokens .budget i{display:block;height:100%;transition:flex-basis .35s ease;min-width:0}
+.page-tokens .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin-top:8px}
+.page-tokens .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:-1px}
+.page-tokens .budget-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.page-tokens .budget-inputs label{display:flex;flex-direction:column;gap:3px}
+.page-tokens .budget-inputs input{width:100%}
+.page-tokens .fmt-row{cursor:pointer}
+.page-tokens .fmt-row:hover td{background:var(--soft2)}
+.page-tokens .fmt-row.sel td{background:var(--brand-soft)}

@@ -1,0 +1,17 @@
+/* Code samples, kept as highlighted HTML. */
+export const s1 =
+  '<span class="c">&lt;!-- CLAUDE.md --&gt;</span>\n# Project: payments-api\n\n## Commands\n- Run `npm test` before committing\n- Lint with `npm run lint`\n\n## Conventions\n- Use 2-space indentation\n- Throw `AppError` from `src/lib/errors.ts`, never a raw `Error`\n\n@docs/git-workflow.md';
+export const s2 =
+  '<span class="c"># .claude/skills/summarize-changes/SKILL.md</span>\n---\ndescription: Summarizes uncommitted changes and flags anything risky. Use when the user asks what changed, wants a commit message, or asks to review their diff.\n---\n\n## Current changes\n\n!`git diff HEAD`\n\n## Instructions\n\nSummarize the changes above in two or three bullet points, then list any risks you notice such as missing error handling, hardcoded values, or tests that need updating. If the diff is empty, say there are no uncommitted changes.';
+export const s3 =
+  '<span class="c"># .claude/skills/release/SKILL.md</span>\n---\ndescription: Cut a release of this package. Only run when the user explicitly asks for a release.\nargument-hint: "[patch|minor|major]"\ndisable-model-invocation: true\n---\n\nRelease a new $ARGUMENTS version of this package.\n\n1. Confirm the working tree is clean with `git status`.\n2. Run `npm test`. Stop and report if anything fails.\n3. Run `npm version $ARGUMENTS`.\n4. Update `CHANGELOG.md`, commit, and `git push --follow-tags`.\n5. Report the new version and tag.';
+export const s4 =
+  '{\n  "hooks": {\n    "PreToolUse": [\n      {\n        "matcher": "Edit|Write",\n        "hooks": [\n          { "type": "command",\n            "command": "\\"$CLAUDE_PROJECT_DIR\\"/.claude/hooks/protect-files.sh" }\n        ]\n      }\n    ],\n    "PostToolUse": [\n      {\n        "matcher": "Edit|Write",\n        "hooks": [\n          { "type": "command",\n            "command": "jq -r \'.tool_input.file_path\' | xargs npx prettier --write" }\n        ]\n      }\n    ]\n  }\n}';
+export const s5 =
+  '#!/usr/bin/env bash\n<span class="c"># Exit code 2 blocks the call; stderr tells Claude why.</span>\nset -euo pipefail\n\nfile_path=$(jq -r \'.tool_input.file_path // empty\')\n\ncase "$file_path" in\n  *.env | */package-lock.json | */.git/*)\n    echo "Blocked: $file_path is protected." >&2\n    exit 2\n    ;;\nesac\n\nexit 0';
+export const s6 =
+  '<span class="c"># .claude/agents/code-reviewer.md</span>\n---\nname: code-reviewer\ndescription: Reviews code for quality and best practices\ntools: Read, Glob, Grep\nmodel: sonnet\n---\n\nYou are a code reviewer. When invoked, analyze the code and provide\nspecific, actionable feedback on quality, security, and best practices.';
+export const s7 =
+  '<span class="c"># .claude-plugin/plugin.json</span>\n{\n  "name": "my-first-plugin",\n  "description": "A greeting plugin to learn the basics",\n  "version": "1.0.0",\n  "author": { "name": "Your Name" }\n}';
+export const s8 =
+  '<span class="c"># Try a plugin for one session without installing it</span>\nclaude --plugin-dir ./my-first-plugin\n\n<span class="c"># Check it</span>\nclaude plugin validate ./my-first-plugin\n\n<span class="c"># Inside Claude Code: add a marketplace, then browse and install</span>\n/plugin marketplace add anthropics/claude-code\n/plugin install commit-commands@claude-plugins-official\n\n<span class="c"># From the shell, install for the whole project</span>\nclaude plugin install formatter@your-org --scope project';

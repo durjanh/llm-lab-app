@@ -1,0 +1,17 @@
+/* Scoped to .page-prompting, so it cannot affect other pages. */
+.page-prompting .div-bar{position:relative;height:14px;background:var(--soft);border-radius:3px;min-width:140px}
+.page-prompting .div-bar::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:#9ca3af}
+.page-prompting .div-bar i{position:absolute;top:0;bottom:0;transition:all .4s ease}
+.page-prompting .div-bar i.pos{left:50%;background:var(--s1);border-radius:0 4px 4px 0}
+.page-prompting .div-bar i.neg{right:50%;background:var(--s2);border-radius:4px 0 0 4px}
+.page-prompting .ok{color:var(--good);font-weight:700}
+.page-prompting .no{color:var(--bad);font-weight:700}
+.page-prompting #template{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.page-prompting .pbar{display:grid;grid-template-columns:110px 1fr 54px;gap:8px;align-items:center;font-size:13px;margin:3px 0}
+.page-prompting .pbar span:nth-child(2){height:12px;background:var(--s1);border-radius:0 4px 4px 0;transition:width .4s}
+.page-prompting .pbar.lbl{grid-template-columns:170px 1fr 54px}
+.page-prompting .pbar.lbl span:nth-child(2){background:var(--s3)}
+.page-prompting .flat{font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px}
+.page-prompting .flat .role{color:#c4b5fd;font-weight:700}
+.page-prompting .flat .inj{background:rgba(227,73,72,.35);border-radius:3px}
+.page-prompting .flat .tag{color:#7dd3fc}

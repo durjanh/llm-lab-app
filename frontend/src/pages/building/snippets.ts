@@ -1,0 +1,3 @@
+/* Code samples, kept as highlighted HTML. */
+export const s1 =
+  '<span class="c"># Back-of-the-envelope training cost</span>\n<span class="k">def</span> training_cost(params, tokens, gpu_tflops=989, utilisation=0.4, price_per_gpu_hour=2.5):\n    flops = 6 * params * tokens                      <span class="c"># forward and backward pass</span>\n    gpu_hours = flops / (gpu_tflops * 1e12 * utilisation) / 3600\n    <span class="k">return</span> gpu_hours, gpu_hours * price_per_gpu_hour\n\nhours, dollars = training_cost(8e9, 15e12)            <span class="c"># an 8B model on 15 trillion tokens</span>\nprint(<span class="s">f"{hours:,.0f} GPU-hours, about ${dollars:,.0f}"</span>)';

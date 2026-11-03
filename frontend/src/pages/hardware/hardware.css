@@ -1,0 +1,29 @@
+.page-hardware .hw-section{margin-top:32px}
+.page-hardware .hw-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.page-hardware .hw-chip{border-top-width:4px}
+.page-hardware .hw-chip p{margin:6px 0}
+.page-hardware .hw-chip-head b{font-size:20px;margin-right:6px}
+.page-hardware .hw-cpu{border-top-color:var(--s1)}
+.page-hardware .hw-gpu{border-top-color:var(--s3)}
+.page-hardware .hw-tpu{border-top-color:var(--s2)}
+.page-hardware .hw-npu{border-top-color:var(--s4)}
+.page-hardware .hw-lpu{border-top-color:var(--s5)}
+.page-hardware .hw-dpu{border-top-color:var(--brand)}
+.page-hardware .hw-good{color:var(--good);font-weight:700}
+.page-hardware .hw-bad{color:var(--bad);font-weight:700}
+.page-hardware .hw-controls{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:8px 0}
+.page-hardware .hw-controls label{font-size:13px;color:var(--ink2);display:inline-flex;gap:6px;align-items:center}
+.page-hardware .hw-controls select,.page-hardware .hw-controls input[type=number]{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line2);border-radius:6px;background:var(--surface);color:var(--ink)}
+.page-hardware .hw-note{font-size:12px;color:var(--muted)}
+.page-hardware .hw-bw tr{cursor:pointer}
+.page-hardware .hw-bw tr.hw-picked td{background:var(--brand-soft)}
+.page-hardware .hw-bar{position:relative;min-width:180px;height:22px;background:var(--soft);border-radius:6px;overflow:hidden}
+.page-hardware .hw-bar i{position:absolute;inset:0 auto 0 0;background:var(--s5);opacity:.55;border-radius:6px;transition:width .35s}
+.page-hardware .hw-bar span{position:relative;padding-left:8px;font-size:13px;line-height:22px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.page-hardware .hw-takeaways{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;margin-top:12px}
+.page-hardware .hw-takeaways ul{padding-left:18px;margin:6px 0 0}
+.page-hardware .hw-takeaways li{margin-bottom:6px}
+.page-hardware .dl-plot{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface2)}
+.page-hardware .dl-plot canvas{display:block}
+.page-hardware .dl-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;color:var(--ink2)}
+.page-hardware .dl-legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}

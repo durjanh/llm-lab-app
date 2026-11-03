@@ -1,0 +1,6 @@
+{
+    "python.terminal.useEnvFile": true,
+    "python.analysis.extraPaths": [
+        "/Users/durjanhussain/.vscode/extensions/ms-security.ms-sentinel-2.4.1/python"
+    ]
+}

@@ -1,0 +1,10 @@
+.page-course .co-path{list-style:none;padding:0;margin:20px 0 0;display:flex;flex-direction:column;gap:12px;counter-reset:none}
+.page-course .co-path > li{border-left:4px solid var(--brand)}
+.page-course .co-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.page-course .co-head h2{margin:0;font-size:20px}
+.page-course .co-n{font:600 12px ui-monospace,Menlo,monospace;color:var(--brand);background:var(--brand-soft);border-radius:6px;padding:3px 8px}
+.page-course .co-labs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px;margin-top:8px}
+.page-course .co-lab{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--ink);background:var(--surface2)}
+.page-course .co-lab:hover{border-color:var(--brand)}
+.page-course .co-lab .small{color:var(--ink2)}
+.page-course .co-new{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#fff;background:var(--good);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle}

@@ -5,3 +5,21 @@ __pycache__/
 .DS_Store
 .env
 .env.*
+node_modules/
+frontend/dist/
+skill_outputs/
+sites/
+frontend/public/avatars/*.glb
+
+# The case-handling lab's audit log
+casework/
+
+# Per-SDK virtual environments for the SDK comparison
+examples/sdks/*/.venv/
+examples/sdks/logs/
+
+# MedAssist example: its dummy patient database
+examples/medassist/data/
+
+# The example agents: their dummy databases
+examples/agents/data/
