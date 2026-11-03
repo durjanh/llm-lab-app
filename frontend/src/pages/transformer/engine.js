@@ -143,9 +143,10 @@ export function mount(root, life) {
 
     // titles
     zoomLabel(gMain, 118, 120, 'Embedding', 'embedding');
-    text(gMain, 262, 52, `Transformer Block ${state.layer + 1}`, 'lbl-muted');
-    navButton(gMain, 410, 40, -1, () => setLayer(state.layer - 1), state.layer === 0);
-    navButton(gMain, 430, 40, 1, () => setLayer(state.layer + 1), state.layer === Dm.L - 1);
+    const blockT = zoomLabel(gMain, 262, 52, `Transformer Block ${state.layer + 1}`, 'block', 'start');
+    const navX = Math.max(410, 272 + blockT.getComputedTextLength());
+    navButton(gMain, navX, 40, -1, () => setLayer(state.layer - 1), state.layer === 0);
+    navButton(gMain, navX + 20, 40, 1, () => setLayer(state.layer + 1), state.layer === Dm.L - 1);
     text(gMain, 268, 82, 'Multi-head Self Attention', 'lbl');
     const mlpT = zoomLabel(gMain, 935, 82, 'MLP', 'mlp');
     text(gMain, 270, 113, 'Residual', 'lbl-small');
@@ -403,7 +404,8 @@ export function mount(root, life) {
     let html = `<div class="mat-wrap"><div style="display:grid;grid-template-columns:${opts.rowLabels ? 'auto ' : ''}repeat(${cols},${c}px);gap:1px;align-items:center">`;
     if (opts.colLabels) {
       if (opts.rowLabels) html += '<span></span>';
-      opts.colLabels.forEach(l => (html += `<span style="font-size:10px;color:var(--muted2);writing-mode:vertical-rl;transform:rotate(180deg);justify-self:center;max-height:70px;overflow:hidden">${esc(l)}</span>`));
+      // colShow(j) false hides a label above the grid but keeps it in the cell's tooltip
+      opts.colLabels.forEach((l, j) => (html += `<span style="font-size:10px;color:var(--muted2);writing-mode:vertical-rl;transform:rotate(180deg);justify-self:center;max-height:70px;overflow:${opts.colShow ? 'visible' : 'hidden'}">${!opts.colShow || opts.colShow(j) ? esc(l) : ''}</span>`));
     }
     Mx.forEach((row, i) => {
       if (opts.rowLabels) html += `<span style="font-size:12px;color:var(--ink2);text-align:right;padding-right:6px">${esc(opts.rowLabels[i])}</span>`;
@@ -417,11 +419,63 @@ export function mount(root, life) {
   }
   const op = s => `<span class="op">${s}</span>`;
   const transpose = A => A[0].map((_, j) => A.map(r => r[j]));
+  const length = v => Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+  const mean = v => v.reduce((s, x) => s + x, 0) / v.length;
+  const spread = v => { const m = mean(v); return Math.sqrt(v.reduce((s, x) => s + (x - m) * (x - m), 0) / v.length); };
+  const worstGap = (a, b, c) => Math.max(...a.map((x, i) => Math.abs(x + b[i] - c[i]))); // |a + b - c| at its largest
+  const bars = (rows, unit) => { // a table of [label, value] rows with a bar each
+    const mx = Math.max(...rows.map(r => r[1]), 1e-6);
+    return `<table class="num-table fade"><tr><th></th><th>${unit}</th></tr>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${fmt(v)} <span class="hbar" style="width:${(120 * v / mx).toFixed(0)}px"></span></td></tr>`).join('')}</table>`;
+  };
+
+  // The sinusoidal formula for one pair of dimensions (2k, 2k+1) over positions 0 to 100, with this text's positions marked.
+  function waveSvg(D, k, n) {
+    const P = 100, W = 520, H = 120, x = p => 34 + (p / P) * (W - 50), y = v => 58 - v * 42;
+    const f = p => p / Math.pow(10000, (2 * k) / D);
+    const line = fn => Array.from({ length: 401 }, (_, i) => { const p = (i / 400) * P; return `${x(p).toFixed(1)},${y(fn(f(p))).toFixed(1)}`; }).join(' ');
+    const dots = (fn, c) => Array.from({ length: n }, (_, p) => `<circle cx="${x(p).toFixed(1)}" cy="${y(fn(f(p))).toFixed(1)}" r="3" fill="${c}"/>`).join('');
+    const wave = Math.round(2 * Math.PI * Math.pow(10000, (2 * k) / D));
+    return `<svg width="${W}" height="${H + 14}" viewBox="0 0 ${W} ${H + 14}" style="max-width:100%;overflow:visible">
+      <line x1="34" y1="58" x2="${W - 16}" y2="58" stroke="var(--line2)"/><line x1="34" y1="12" x2="34" y2="104" stroke="var(--line2)"/>
+      ${[1, 0, -1].map(v => `<text x="26" y="${y(v) + 4}" font-size="10" fill="var(--muted2)" text-anchor="end">${v}</text>`).join('')}
+      ${[0, 50, 100].map(p => `<text x="${x(p)}" y="${H}" font-size="10" fill="var(--muted2)" text-anchor="middle">${p}</text>`).join('')}
+      <polyline fill="none" stroke="${COLORS.q}" stroke-width="2" points="${line(Math.sin)}"/>
+      <polyline fill="none" stroke="#f97316" stroke-width="2" points="${line(Math.cos)}"/>
+      ${dots(Math.sin, COLORS.q)}${dots(Math.cos, '#f97316')}
+      <text x="${W - 16}" y="${H + 12}" font-size="11" fill="var(--muted2)" text-anchor="end">position · dims ${2 * k} (sin, blue) and ${2 * k + 1} (cos, orange) · one wave every ${wave} positions</text>
+    </svg>`;
+  }
+
+  // A block as boxes in a row. arcs are [from, to]: a residual that leaves after item `from` and joins at the + of item `to`.
+  function blockSvg(items, arcs) {
+    const W = { io: 30, ln: 40, attn: 84, mlp: 52, add: 22 }, FILL = { ln: '#9ca3af', attn: COLORS.a, mlp: COLORS.m }, gap = 16, cy = 74;
+    let x = 4;
+    const pos = items.map(([label, kind]) => { const p = { label, kind, x, w: W[kind] }; x += W[kind] + gap; return p; });
+    const width = x - gap + 4;
+    let s = `<svg width="${width}" height="100" viewBox="0 0 ${width} 100" style="max-width:100%;overflow:visible">`;
+    pos.slice(1).forEach((p, i) => (s += `<line x1="${pos[i].x + pos[i].w}" y1="${cy}" x2="${p.x}" y2="${cy}" stroke="var(--line2)" stroke-width="1.5"/>`));
+    arcs.forEach(([from, to], i) => {
+      const x1 = pos[from].x + pos[from].w + gap / 2, x2 = pos[to].x + pos[to].w / 2;
+      s += `<path d="M${x1} ${cy} V30 H${x2} V${cy - 11}" fill="none" stroke="${COLORS.o}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+      if (i === 0) s += `<text x="${(x1 + x2) / 2}" y="24" font-size="11" fill="${COLORS.o}" text-anchor="middle">residual</text>`;
+    });
+    pos.forEach(p => {
+      const cx = p.x + p.w / 2;
+      if (p.kind === 'io') s += `<text x="${cx}" y="${cy + 4}" font-size="13" fill="var(--ink2)" text-anchor="middle">${p.label}</text>`;
+      else if (p.kind === 'add') s += `<circle cx="${cx}" cy="${cy}" r="11" fill="var(--surface)" stroke="var(--ink2)" stroke-width="1.5"/><text x="${cx}" y="${cy + 5}" font-size="15" fill="var(--ink2)" text-anchor="middle">+</text>`;
+      else s += `<rect x="${p.x}" y="${cy - 15}" width="${p.w}" height="30" rx="6" fill="${FILL[p.kind]}"/><text x="${cx}" y="${cy + 4}" font-size="12" fill="#fff" text-anchor="middle">${p.label}</text>`;
+    });
+    return s + '</svg>';
+  }
+  const PRE_NORM = [[['x', 'io'], ['LN', 'ln'], ['Attention', 'attn'], ['+', 'add'], ['LN', 'ln'], ['MLP', 'mlp'], ['+', 'add'], ['out', 'io']], [[0, 3], [3, 6]]];
+  const POST_NORM = [[['x', 'io'], ['Attention', 'attn'], ['+', 'add'], ['LN', 'ln'], ['MLP', 'mlp'], ['+', 'add'], ['LN', 'ln'], ['out', 'io']], [[0, 2], [3, 5]]];
 
   function buildSteps(kind) {
     const R = state.result, toks = R.tokens.map(t => t.text), n = toks.length, Dm = dims(), full = isFull();
     const L = R.layers[state.layer], h = state.head;
     const chunk = (v, w) => Array.from({ length: Math.ceil(v.length / w) }, (_, r) => v.slice(r * w, r * w + w));
+    const sv = (v, cells) => (v.length > cells ? pool(v, cells) : v);
+    const tokenPicker = i => `<p class="picker">Token: <select id="rowPick">${toks.map((t, j) => `<option value="${j}" ${j === i ? 'selected' : ''}>${j}: ${esc(t)}</option>`).join('')}</select> · Block ${state.layer + 1}</p>`;
     if (kind === 'embedding') {
       const EC = 64, SC = 48; // cells per row for the embedding grids and for the three small grids in Sum
       const embNote = poolNote(Dm.D, EC) ? ` Each row below shows the ${Dm.D} numbers averaged into ${EC} cells for display.` : '';
@@ -431,7 +485,10 @@ export function mount(root, life) {
           ['Tokenize', () => `<p class="explain">The text is split into <b>tokens</b>. Each token maps to an integer id in the vocabulary. ${full ? 'These are GPT-2\'s real tokens and ids: byte-pair encoding over 50,257 sub-word pieces, where a leading space belongs to the token. The embedding numbers in the next steps are GPT-2\'s own too.' : R.source === 'gpt2' ? 'These are GPT-2\'s real tokens and ids: byte-pair encoding over 50,257 sub-word pieces, where a leading space belongs to the token. The embedding numbers in the next steps are illustrative, from the tiny model.' : 'GPT-2 uses about 50k sub-word tokens; the tiny model splits on words and punctuation.'}</p>
             <div>${R.tokens.map((t, i) => `<span class="tok-chip" style="animation-delay:${i * 80}ms">${esc(t.text)}<small>${t.id}</small></span>`).join('')}</div>`],
           ['Token embedding', () => `<p class="explain">Each id looks up a row in the <b>token embedding matrix</b>: a learned vector of ${Dm.D} numbers that captures what the token means. Blue is positive, orange is negative.${embNote}</p>${matHTML(fit(R.tokEmb, EC), { rowLabels: toks, cell: cellE, cap: poolNote(Dm.D, EC) })}`],
-          [full ? 'Position embedding' : 'Positional encoding', () => `<p class="explain">Attention by itself ignores word order, so a <b>positional vector</b> is added for each position ${full ? 'GPT-2 learned one vector for each of its 1,024 positions.' : '(sinusoidal here; GPT-2 learns them).'}${embNote}</p>${matHTML(fit(R.posEmb, EC), { rowLabels: toks.map((t, i) => 'pos ' + i), cell: cellE, cap: poolNote(Dm.D, EC) })}`],
+          [full ? 'Position embedding' : 'Positional encoding', () => `<p class="explain">Attention by itself ignores word order, so a <b>positional vector</b> is added for each position ${full ? 'GPT-2 learned one vector for each of its 1,024 positions.' : '(sinusoidal here; GPT-2 learns them).'}${embNote}</p>${matHTML(fit(R.posEmb, EC), { rowLabels: toks.map((t, i) => 'pos ' + i), cell: cellE, cap: poolNote(Dm.D, EC) })}
+            <p class="explain" style="margin-top:18px">${full ? 'The original transformer (2017) used a formula instead of learned vectors, shown below for comparison.' : 'The vectors above come from a formula.'} Dimension pair (2k, 2k+1) gets PE(pos, 2k) = sin(pos / 10000<sup>2k/d</sup>) and PE(pos, 2k+1) = cos(pos / 10000<sup>2k/d</sup>), with d = ${Dm.D}. Low pairs are fast waves that tell neighbouring tokens apart; high pairs are slow waves that give a rough sense of where in the text a token sits. Together every position gets a unique pattern, and moving k places along is the same rotation wherever you start, so relative distance is easy to read. The dots are this text's ${n} position${n === 1 ? '' : 's'}.</p>
+            <div class="flowrow">${waveSvg(Dm.D, 0, n)}${waveSvg(Dm.D, Math.round(Dm.D / 10), n)}</div>
+            <p class="muted" style="font-size:12px">Most newer models use neither: rotary embeddings (RoPE) rotate each query and key by its position instead of adding a vector. See <a href="/transformer-tricks">Transformer tricks</a>.</p>`],
           ['Sum', () => `<p class="explain">Token embedding + positional ${full ? 'embedding' : 'encoding'} = the <b>input embedding</b> that enters Transformer Block 1.${poolNote(Dm.D, SC) ? ` Each row is ${Dm.D} numbers averaged into ${SC} cells for display.` : ''}</p>
             <div class="flowrow">${matHTML(fit(R.tokEmb, SC), { rowLabels: toks, cell: 5, cap: 'token' })}${op('+')}${matHTML(fit(R.posEmb, SC), { cell: 5, cap: 'position' })}${op('=')}${matHTML(fit(R.emb, SC), { cell: 5, cap: 'embedding' })}</div>`]
         ]
@@ -452,8 +509,46 @@ export function mount(root, life) {
           ['Scale', () => head + `<p class="explain">Scores are divided by √d<sub>k</sub> = ${+Math.sqrt(Dm.DH).toFixed(2)} so they don't grow too large for softmax.${L.habit ? ' (In this toy model each head\'s positional habit is also added here.)' : ''}</p>${matHTML(L.scaled[h], { rowLabels: toks, colLabels: toks, cell: 34, numbers: true })}`],
           ['Causal mask', () => head + `<p class="explain">A token may not look at tokens that come <b>after</b> it, so those scores are set to −∞. This is what lets GPT generate left to right.</p>${matHTML(L.masked[h], { rowLabels: toks, colLabels: toks, cell: 34, numbers: true })}`],
           ['Softmax', () => head + `<p class="explain">Softmax turns each row into weights that sum to 100%. Row <i>i</i> says how much token <i>i</i> attends to each earlier token.${full ? ' These are GPT-2\'s own attention weights.' : ''}</p>${matHTML(A, { rowLabels: toks, colLabels: toks, cell: 34, numbers: true, pct: true, color: COLORS.a, max: 1 })}`],
-          ['× V', () => head + `<p class="explain">Each token's output is the attention-weighted mix of the Value vectors. All ${Dm.H} heads' outputs are concatenated back to ${Dm.D} numbers and projected by W<sub>O</sub>.${qNote}</p>
-            <div class="flowrow">${matHTML(A, { rowLabels: toks, cell: 22, color: COLORS.a, max: 1, cap: 'attention' })}${op('×')}${matHTML(V, { color: COLORS.v, cell: pooled ? 14 : 22, cap: 'V' })}${op('=')}${matHTML(HO, { rowLabels: toks, color: COLORS.a, cell: cq, numbers: !pooled, cap: 'head output' })}</div>`]
+          ['× V', () => head + `<p class="explain">Each token's output is the attention-weighted mix of the Value vectors. That is this head's answer: ${Dm.DH} numbers per token. The next step joins all ${Dm.H} heads.${qNote}</p>
+            <div class="flowrow">${matHTML(A, { rowLabels: toks, cell: 22, color: COLORS.a, max: 1, cap: 'attention' })}${op('×')}${matHTML(V, { color: COLORS.v, cell: pooled ? 14 : 22, cap: 'V' })}${op('=')}${matHTML(HO, { rowLabels: toks, color: COLORS.a, cell: cq, numbers: !pooled, cap: 'head output' })}</div>`],
+          ['Concat · W<sub>O</sub>', () => {
+            // GPT-2: 768 numbers -> 96 cells, 8 per head, so no cell mixes two heads
+            const CC = Dm.D > 96 ? 96 : Dm.D, per = CC / Dm.H, cell = CC > 48 ? 7 : 12;
+            const heads = Array.from({ length: CC }, (_, j) => `head ${Math.floor(j / per) + 1}`);
+            const note = poolNote(Dm.D, CC) ? ` Each row is ${Dm.D} numbers averaged into ${CC} cells, ${per} per head.` : '';
+            return head + `<p class="explain">This is the <b>multi-head</b> part. All ${Dm.H} heads ran side by side on the same tokens, each with its own Q, K and V weights, so each could learn a different pattern. Their ${Dm.DH}-number outputs are placed end to end (concatenated) to give ${Dm.H} × ${Dm.DH} = ${Dm.D} numbers per token. One more learned matrix, <b>W<sub>O</sub></b> (${Dm.D} × ${Dm.D}), mixes what the heads found into the <b>attention output</b>, which is added to the residual stream.${note} Columns ${h * per + 1} to ${(h + 1) * per} come from head ${h + 1}, the one in the earlier steps.</p>
+              <div class="flowrow" style="flex-direction:column;align-items:flex-start">${matHTML(fit(L.concat, CC), { rowLabels: toks, colLabels: heads, colShow: j => j % per === 0, cell, cap: `${Dm.H} heads, concatenated` })}${op('× W<sub>O</sub> =')}${matHTML(fit(L.attnOut, CC), { rowLabels: toks, cell, cap: 'attention output' })}</div>`;
+          }]
+        ]
+      };
+    }
+    if (kind === 'block') {
+      const i = modal.row == null ? n - 1 : modal.row;
+      const picker = tokenPicker(i);
+      const LC = 64;
+      const lnNote = poolNote(Dm.D, LC) ? ` Grids show ${Dm.D} numbers averaged into ${LC} cells.` : '';
+      const x = L.input[i], y = L.res1[i], z = L.out[i];
+      const gaps = Math.max(worstGap(x, L.attnOut[i], y), worstGap(y, L.mlpOut[i], z));
+      const stream = [['embedding (into block 1)', length(R.layers[0].input[i])], ...R.layers.map((B, l) => [`after block ${l + 1}`, length(B.out[i])])];
+      const grew = stream[stream.length - 1][1] / stream[0][1];
+      return {
+        title: `Transformer Block ${state.layer + 1}`, steps: [
+          ['Layer norm', () => picker + `<p class="explain"><b>Layer norm</b> rescales each token's vector on its own: subtract its mean, divide by its spread, so every token enters attention at the same scale however large its residual stream has grown.${full ? ' GPT-2 then multiplies by a learned scale and adds a learned shift, so its output is not exactly mean 0 and spread 1.' : ' (The tiny model skips the learned scale and shift that GPT-2 adds.)'}${lnNote}</p>
+            <div class="flowrow">${matHTML(chunk(sv(x, LC), 16), { cell: 14, cap: `block input: mean ${fmt(mean(x))}, spread ${fmt(spread(x))}` })}${op('→ LN →')}${matHTML(chunk(sv(L.ln1[i], LC), 16), { cell: 14, cap: `into attention: mean ${fmt(mean(L.ln1[i]))}, spread ${fmt(spread(L.ln1[i]))}` })}</div>
+            <p class="explain" style="margin-top:14px">The same happens again before the MLP, and once more after the last block, before the output.</p>`],
+          ['One block', () => picker + `<p class="explain">GPT-2 normalises <b>before</b> each sub-layer and adds the result back to a running total, the <b>residual stream</b>:</p>
+            <p class="explain"><code>y = x + Attention(LN(x))</code><br><code>out = y + MLP(LN(y))</code></p>
+            ${blockSvg(...PRE_NORM)}
+            <p class="explain" style="margin-top:12px">The length of each vector for the token <b>${esc(toks[i])}</b> in block ${state.layer + 1}. Attention and the MLP each add a change; neither replaces the stream. Check: x + attention output and y + MLP output match the model's own sums to within ${gaps.toExponential(1)}.</p>
+            ${bars([['x, block input', length(x)], ['LN(x)', length(L.ln1[i])], ['attention output', length(L.attnOut[i])], ['y = x + attention', length(y)], ['MLP output', length(L.mlpOut[i])], ['out = y + MLP', length(z)]], 'length')}`],
+          ['Pre-norm vs post-norm', () => `<p class="explain">The original transformer (2017) put layer norm <b>after</b> each addition. Most diagrams, including many explainers, still draw it this way:</p>
+            <p class="explain"><code>y = LN(x + Attention(x))</code><br><code>out = LN(y + MLP(y))</code></p>
+            ${blockSvg(...POST_NORM)}
+            <p class="explain" style="margin-top:16px">GPT-2 moved it <b>before</b> each sub-layer (pre-norm) and added one final layer norm after the last block:</p>
+            ${blockSvg(...PRE_NORM)}
+            <p class="explain" style="margin-top:16px">Why it matters: in pre-norm the residual stream is a plain sum from the embedding to the last block, and nothing rescales it on the way. The training signal reaches the early blocks directly, so deep stacks train stably without a long learning-rate warm-up. Post-norm passes the stream through a norm in every block, which makes deep models harder to train. The cost is that the stream's size is left to grow, which is why pre-norm needs the final layer norm. Most large models since use pre-norm, often with the cheaper RMSNorm (see <a href="/transformer-tricks">Transformer tricks</a>).</p>`],
+          [`Repeat ×${Dm.L}`, () => picker + `<p class="explain">All ${Dm.L} blocks have the same shape but their own weights. Each one reads the residual stream, adds its attention and MLP changes, and passes it on. Below is the length of the vector for the token <b>${esc(toks[i])}</b> after each block: here it ${grew >= 1 ? `grows ${grew.toFixed(1)}× from the embedding to the last block` : `shrinks to ${(grew * 100).toFixed(0)}% of the embedding's length`}.${full ? ' In GPT-2 the first token\'s vector becomes far larger than any other within a few blocks; it is where many heads park spare attention. Pick token 0 to compare.' : ''} After the last block a final layer norm brings it back to a fixed scale for the output step.</p>
+            ${bars(stream, 'length')}`]
         ]
       };
     }
@@ -461,10 +556,9 @@ export function mount(root, life) {
       const i = modal.row == null ? n - 1 : modal.row;
       // average long vectors 8 to a cell (GPT-2: 768 -> 96, 3,072 -> 384) so the expansion still looks 4x wider
       const f = Math.max(1, Math.ceil(Dm.D / 96)), dc = Dm.D / f, fc = Dm.DFF / f;
-      const sv = (v, cells) => (v.length > cells ? pool(v, cells) : v);
       const capD = (name) => name + (f > 1 ? ', ' + poolNote(Dm.D, dc) : ` (${Dm.D})`);
       const capF = (name) => name + (f > 1 ? ', ' + poolNote(Dm.DFF, fc) : '');
-      const picker = `<p class="picker">Token: <select id="rowPick">${toks.map((t, j) => `<option value="${j}" ${j === i ? 'selected' : ''}>${j}: ${esc(t)}</option>`).join('')}</select> · Block ${state.layer + 1}</p>`;
+      const picker = tokenPicker(i);
       const geluSvg = (() => {
         const pts = []; for (let x = -4; x <= 4; x += 0.1) { const g = 0.5 * x * (1 + Math.tanh(Math.sqrt(2 / Math.PI) * (x + 0.044715 * x ** 3))); pts.push(`${(x + 4) * 20},${80 - g * 18}`); }
         return `<svg width="170" height="110" style="overflow:visible"><line x1="0" y1="80" x2="160" y2="80" stroke="var(--line2)"/><line x1="80" y1="0" x2="80" y2="100" stroke="var(--line2)"/><polyline fill="none" stroke="${COLORS.m}" stroke-width="2.5" points="${pts.join(' ')}" style="stroke-dasharray:400;animation:drawg 1.2s ease both"/><text x="4" y="104" font-size="11" fill="var(--muted2)">GELU(x)</text></svg><style>@keyframes drawg{from{stroke-dashoffset:400}to{stroke-dashoffset:0}}</style>`;
@@ -496,7 +590,7 @@ export function mount(root, life) {
     };
     return {
       title: 'Output probabilities', steps: [
-        ['Final state', () => `<p class="explain">After all ${Dm.L} blocks, the last token (<b>${esc(toks[n - 1])}</b>) holds everything needed to predict what comes next. It is layer-normed and multiplied by the embedding matrix to give one score (<b>logit</b>) per vocabulary token.${R.source === 'gpt2' ? ' Here the scores come from real GPT-2, whose state has 768 numbers and whose vocabulary has 50,257 tokens. The vector below is the tiny model\'s, shown for illustration.' : full ? ` These are GPT-2's own numbers: its final state has ${Dm.D} numbers and its vocabulary has ${num(R.vocabSize)} tokens. A few of the ${Dm.D} numbers are far larger than the rest, so most cells look pale.` : ''}</p>${matHTML(chunk(R.final.length > 96 ? pool(R.final, 96) : R.final, 48), { cell: 14, cap: 'final hidden state' + (R.final.length > 96 ? ', ' + poolNote(R.final.length, 96) : ' (' + Dm.D + ')') })}`],
+        ['Final state', () => `<p class="explain">After all ${Dm.L} blocks, the last token (<b>${esc(toks[n - 1])}</b>) holds everything needed to predict what comes next. It goes through the final layer norm and is multiplied by the embedding matrix to give one score (<b>logit</b>) per vocabulary token: <code>logits = LN(h) · Eᵀ</code>. That is the same matrix E from the Embedding step, used in reverse (<b>weight tying</b>), so there is no separate output matrix W<sub>vocab</sub>. For GPT-2 that saves 50,257 × 768 = 38.6 million parameters, almost a third of its 124 million. Some larger models learn a separate output matrix instead.${R.source === 'gpt2' ? ' Here the scores come from real GPT-2, whose state has 768 numbers and whose vocabulary has 50,257 tokens. The vector below is the tiny model\'s, shown for illustration.' : full ? ` These are GPT-2's own numbers: its final state has ${Dm.D} numbers and its vocabulary has ${num(R.vocabSize)} tokens. A few of the ${Dm.D} numbers are far larger than the rest, so most cells look pale.` : ''}</p>${matHTML(chunk(R.final.length > 96 ? pool(R.final, 96) : R.final, 48), { cell: 14, cap: 'final hidden state' + (R.final.length > 96 ? ', ' + poolNote(R.final.length, 96) : ' (' + Dm.D + ')') })}`],
         ['Logits', () => `<p class="explain">Higher logit means the model thinks that token is more likely.</p>` + table(1)],
         ['Temperature', () => `<p class="explain">Logits are divided by the temperature <b>T = ${state.T}</b>. T &lt; 1 sharpens the distribution (safer), T &gt; 1 flattens it (more creative). Try the slider above.</p>` + table(2)],
         ['Softmax', () => `<p class="explain">Softmax converts scores into probabilities that sum to 100%.</p>` + table(3)],
