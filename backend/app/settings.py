@@ -45,6 +45,8 @@ class Settings:
     foundry_project_endpoint: str = ""
     foundry_model: str = ""
     medassist_db: Path = ROOT / "examples" / "medassist" / "data" / "medassist.db"
+    # Azure Language in Foundry Tools, for the review dashboard. Signed in with your Azure login; empty means offline.
+    azure_language_endpoint: str = ""
 
     @classmethod
     def from_env(cls, env: EnvSettings | None = None) -> "Settings":
@@ -65,6 +67,7 @@ class Settings:
             azure_search_endpoint=env.azure_search_endpoint,
             foundry_project_endpoint=env.foundry_project_endpoint,
             foundry_model=env.foundry_model,
+            azure_language_endpoint=env.azure_language_endpoint,
         )
 
     @property

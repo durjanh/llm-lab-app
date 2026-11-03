@@ -142,6 +142,17 @@ class MessagesRequest(ModelChoice):
         return out
 
 
+class ReviewsAnalyze(BaseModel):
+    """Leave both out to analyse every sample review."""
+    ids: list[str] | None = Field(None, max_length=50)
+    text: str | None = Field(None, min_length=1, max_length=5000)
+
+
+class ReviewsCompare(ModelChoice):
+    id: str | None = Field(None, max_length=20)
+    text: str | None = Field(None, min_length=1, max_length=5000)
+
+
 class HarnessRequest(ModelChoice):
     scenario: Literal["chain", "parallel", "team", "bash", "web"] = "chain"
     number: int = Field(12, ge=2, le=1_000_000)

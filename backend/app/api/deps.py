@@ -14,6 +14,7 @@ from ..services.medassist import MedAssistService
 from ..services.casework import CaseworkService
 from ..services.harness import HarnessService
 from ..services.messages import MessagesService
+from ..services.reviews import ReviewsService
 from ..services.sites import SiteService
 from ..services.tutor import TutorService
 from ..services.skills import SkillsService
@@ -67,6 +68,10 @@ def casework(c: Container = Depends(container)) -> CaseworkService:
 
 def medassist(c: Container = Depends(container)) -> MedAssistService:
     return c.medassist
+
+
+def reviews(c: Container = Depends(container)) -> ReviewsService:
+    return c.reviews
 
 
 def require_lab_page(request: Request, c: Container = Depends(container)) -> None:

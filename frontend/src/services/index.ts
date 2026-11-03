@@ -93,3 +93,13 @@ export {
   type MedAssistStep,
   type PracticeState,
 } from './medassistService';
+export {
+  ReviewsService,
+  reviewsService,
+  type Analysis,
+  type AnalyzeResult,
+  type ClaudeReading,
+  type ProductReview,
+  type ReviewsInfo,
+  type Sentiment,
+} from './reviewsService';

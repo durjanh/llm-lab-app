@@ -39,6 +39,9 @@ GPT_PRICES: dict[str, dict[str, float]] = {
 }
 PRICES.update(GPT_PRICES)
 CACHE_WRITE_MULTIPLIER = 1.25  # 5-minute cache entries
+# Azure Language in Foundry Tools, Standard tier, first 500,000 text records a month, from the Azure retail price list
+# (UK South). Each feature bills one text record per started 1,000 characters of each document.
+LANGUAGE_PRICE_PER_1K_RECORDS = 1.00
 
 
 class Refused(RuntimeError):

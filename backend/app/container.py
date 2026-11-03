@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .gateways.azure_language import AzureLanguage, TextAnalyzer
 from .gateways.azure_openai import AzureOpenAI, StructuredModel
 from .gateways.azure_search import AzureSearch
 from .gateways.azure_speech import AzureSpeech, SpeechTokens
@@ -21,6 +22,7 @@ from .services.mcp_lab import McpLab
 from .services.medassist import MedAssistService
 from .services.harness import HarnessService
 from .services.messages import MessagesService
+from .services.reviews import ReviewsService
 from .services.runs import RunRegistry, RunStreamer
 from .services.sites import SiteService, SiteStore
 from .services.skills import MadeFiles, SkillsService
@@ -45,12 +47,14 @@ class Container:
     mcp_lab: McpLab
     casework: CaseworkService
     medassist: MedAssistService
+    reviews: ReviewsService
     runs: RunRegistry
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,
               speech: SpeechTokens | None = None, gpt: StructuredModel | None = None,
-              search: AzureSearch | None = None, foundry: AgentConversations | None = None) -> "Container":
+              search: AzureSearch | None = None, foundry: AgentConversations | None = None,
+              language: TextAnalyzer | None = None) -> "Container":
         claude = ClaudeGateway(client)
         spend = SpendTracker(settings.budget_usd)
         registry = RunRegistry()
@@ -61,6 +65,8 @@ class Container:
                               settings.azure_openai_embedding_deployment)
         if foundry is None and settings.foundry_project_endpoint and settings.foundry_model:
             foundry = FoundryAgent(settings.foundry_project_endpoint, settings.foundry_model)
+        if language is None and settings.azure_language_endpoint:
+            language = AzureLanguage(settings.azure_language_endpoint)
         return cls(
             settings=settings,
             spend=spend,
@@ -81,5 +87,6 @@ class Container:
             casework=CaseworkService(gpt, search or (AzureSearch(settings.azure_search_endpoint)
                                                      if settings.azure_search_endpoint else None), spend, settings.casework_dir),
             medassist=MedAssistService(foundry, spend, settings.medassist_db),
+            reviews=ReviewsService(language, claude, spend),
             runs=registry,
         )

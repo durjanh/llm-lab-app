@@ -35,6 +35,14 @@ class SpendTracker:
                  f"{u.output_tokens:,}", f"{getattr(u, 'cache_read_input_tokens', 0) or 0:,}", cost or 0, self.spent_usd)
         return cost
 
+    def charge_usd(self, cost: float, what: str) -> float:
+        """A charge in dollars, for services billed by something other than tokens (Azure Language text records)."""
+        with self._lock:
+            self.calls += 1
+            self.spent_usd += cost
+        log.info("%s: $%.4f · session total $%.4f", what, cost, self.spent_usd)
+        return cost
+
 
 def money(value: float) -> str:
     return f"${value:.4f}" if value < 0.1 else f"${value:.2f}"

@@ -52,6 +52,8 @@ class EnvSettings:
     # A Microsoft Foundry project and its model, for prompt agents such as MedAssist. Signed in with your Azure login.
     foundry_project_endpoint: str = ""
     foundry_model: str = ""
+    # Azure Language in Foundry Tools (an AI Services or Language resource), for the review dashboard.
+    azure_language_endpoint: str = ""
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
@@ -72,6 +74,7 @@ class EnvSettings:
             azure_search_endpoint=get("AZURE_SEARCH_ENDPOINT", ""),
             foundry_project_endpoint=get("FOUNDRY_PROJECT_ENDPOINT", ""),
             foundry_model=get("FOUNDRY_MODEL", ""),
+            azure_language_endpoint=get("AZURE_LANGUAGE_ENDPOINT", ""),
         )
 
 
