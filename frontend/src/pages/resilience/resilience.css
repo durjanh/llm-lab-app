@@ -1,0 +1,28 @@
+/* Scoped to .page-resilience, so it cannot affect other pages. */
+.page-resilience .card ul{margin:0;padding-left:18px}
+.page-resilience .card li{margin:5px 0}
+.page-resilience .card h3{margin-top:0}
+.page-resilience .grid2 > .card + .card{margin-top:0}
+.page-resilience .rs-controls{display:flex;flex-direction:column;gap:8px}
+.page-resilience .rs-slider{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+.page-resilience .rs-slider input{grid-column:1/-1;width:100%}
+.page-resilience .rs-slider b{color:var(--ink);font-weight:600;grid-row:1;grid-column:2}
+.page-resilience .rs-field{display:flex;flex-direction:column;gap:3px}
+.page-resilience .rs-field select{max-width:100%}
+.page-resilience .rs-check{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--ink)}
+.page-resilience .rs-derived{margin:12px 0 0}
+.page-resilience .rs-strategy{margin-top:16px}
+.page-resilience .rs-toggles{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 22px;margin-bottom:6px}
+.page-resilience .rs-chart-title{font-size:13px;font-weight:600;color:var(--ink);margin:16px 0 4px}
+.page-resilience .rs-charts{margin-top:4px}
+.page-resilience .rs-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;color:var(--ink2)}
+.page-resilience .rs-legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.page-resilience .rs-ladder tbody tr{cursor:pointer}
+.page-resilience .rs-ladder tbody tr:hover td{background:var(--soft2)}
+.page-resilience .rs-ladder tr.on td{background:var(--brand-soft)}
+.page-resilience .rs-ladder td{white-space:nowrap}
+.page-resilience .rs-ladder td:first-child{white-space:normal;min-width:220px}
+.page-resilience .rs-row{font:inherit;font-weight:600;color:var(--ink);background:none;border:0;padding:0;cursor:pointer;text-align:left}
+.page-resilience .rs-row:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.page-resilience .dl-plot{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface2)}
+.page-resilience .dl-plot canvas{display:block}

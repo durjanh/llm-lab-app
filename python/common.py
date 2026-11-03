@@ -9,37 +9,15 @@ so its requests use the standard endpoint.
 from __future__ import annotations
 
 import argparse
-import os
 import math
 import sys
 from typing import Any, Callable
 
-from pathlib import Path
-
 import anthropic
 
+from settings import ENV  # loads .env
 
-def _load_dotenv() -> None:
-    """Read KEY=VALUE lines from a .env file in the project root or this folder.
-
-    Variables already set in the environment win, so a key exported in your
-    shell overrides the file. The file is listed in .gitignore; never commit it.
-    """
-    here = Path(__file__).resolve().parent
-    for path in (here.parent / ".env", here / ".env"):
-        if not path.is_file():
-            continue
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-_load_dotenv()
-
-DEFAULT_MODEL = os.environ.get("LLM_LAB_MODEL", "claude-opus-5-5")
+DEFAULT_MODEL = ENV.model
 
 # Models that accept fallbacks="default" on the Claude API.
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5"}
@@ -53,6 +31,13 @@ PRICES: dict[str, dict[str, float]] = {
     "claude-sonnet-5-5": {"input": 2.00, "output": 10.00, "cache_read": 0.20},
     "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_read": 0.01},
 }
+# Azure OpenAI Global Standard list prices per million tokens, from the Azure retail price list (UK South).
+# Here so the backend's spend tracker and the scripts charge GPT calls from the same table as Claude's.
+GPT_PRICES: dict[str, dict[str, float]] = {
+    "gpt-5.4-mini": {"input": 0.75, "output": 4.50, "cache_read": 0.075},
+    "text-embedding-3-small": {"input": 0.02, "output": 0.0, "cache_read": 0.0},
+}
+PRICES.update(GPT_PRICES)
 CACHE_WRITE_MULTIPLIER = 1.25  # 5-minute cache entries
 
 
@@ -86,6 +71,13 @@ def stream(client: anthropic.Anthropic, **params: Any):
     return client.messages.stream(**params)
 
 
+def tool(name: str, description: str, properties: dict) -> dict:
+    """A tool definition whose inputs are all required and must match the schema exactly."""
+    return {"name": name, "description": description, "strict": True,
+            "input_schema": {"type": "object", "properties": properties,
+                             "required": list(properties), "additionalProperties": False}}
+
+
 def text_of(message) -> str:
     """The visible text of a response. Thinking and fallback blocks are skipped."""
     return "".join(block.text for block in message.content if block.type == "text")
@@ -101,6 +93,12 @@ def ensure_answered(message) -> None:
         raise RuntimeError("The response hit max_tokens and was cut off. Raise max_tokens and try again.")
 
 
+def cache_tokens(usage) -> tuple[int, int]:
+    """Tokens written to and read from the prompt cache, as (write, read). Zero when the response has none."""
+    return (getattr(usage, "cache_creation_input_tokens", None) or 0,
+            getattr(usage, "cache_read_input_tokens", None) or 0)
+
+
 def cost_usd(usage, model: str) -> float | None:
     """Estimated cost of one response at list prices. None when the model's price is unknown.
 
@@ -109,8 +107,7 @@ def cost_usd(usage, model: str) -> float | None:
     price = PRICES.get(model)
     if price is None:
         return None
-    cache_write = getattr(usage, "cache_creation_input_tokens", None) or 0
-    cache_read = getattr(usage, "cache_read_input_tokens", None) or 0
+    cache_write, cache_read = cache_tokens(usage)
     return (
         usage.input_tokens * price["input"]
         + cache_write * price["input"] * CACHE_WRITE_MULTIPLIER
@@ -122,8 +119,7 @@ def cost_usd(usage, model: str) -> float | None:
 def describe_usage(usage, model: str) -> str:
     cost = cost_usd(usage, model)
     parts = [f"input {usage.input_tokens:,}"]
-    cache_write = getattr(usage, "cache_creation_input_tokens", None) or 0
-    cache_read = getattr(usage, "cache_read_input_tokens", None) or 0
+    cache_write, cache_read = cache_tokens(usage)
     if cache_write or cache_read:
         parts += [f"cache write {cache_write:,}", f"cache read {cache_read:,}"]
     parts.append(f"output {usage.output_tokens:,}")

@@ -1,0 +1,4 @@
+azure-ai-projects>=2.7,<3   # Foundry projects: prompt agents, tools, vector stores, conversations
+openai>=3.41,<4              # the Responses and Conversations client that azure-ai-projects hands back
+azure-identity~=1.26         # sign in with az login; no keys
+python-dotenv>=1.0           # reads FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL from the lab's .env

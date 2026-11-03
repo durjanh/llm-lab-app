@@ -1,0 +1,89 @@
+/* Scoped to .page-tutor. The page fills the window under the nav: the tutor on the left, the
+   conversation on the right, each scrolling on its own. */
+.lab main.page-tutor{max-width:none;box-sizing:border-box;height:calc(100dvh - var(--nav-h,0px));min-height:560px;padding:16px 20px;display:grid;grid-template-columns:minmax(320px,1fr) minmax(360px,1.1fr);gap:16px}
+.page-tutor .tu-left{display:flex;flex-direction:column;min-height:0;gap:8px}
+.page-tutor h1{font-size:20px;margin:0}
+.page-tutor .tu-settings summary{cursor:pointer;color:var(--ink2)}
+.page-tutor .tu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;margin-top:8px}
+.page-tutor .tu-grid label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--ink2)}
+.page-tutor .tu-grid select,.page-tutor .tu-grid input:not([type]),.page-tutor .tu-grid input[type=text]{font:inherit;font-size:13px;min-width:0}
+.page-tutor .tu-check{flex-direction:row!important;align-items:center;grid-column:1/-1}
+.page-tutor .tu-stage{position:relative;flex:1;min-height:260px;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 35%,#f4efe6,#d9d2c5 70%)}
+.page-tutor .tu-stage canvas{display:block}
+.page-tutor .tu-overlay{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:#3b3127;font-weight:600}
+.page-tutor .tu-status{position:absolute;top:10px;left:10px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.85);color:#3b3127}
+.page-tutor .tu-status.s-listening{background:#dc2626;color:#fff}
+.page-tutor .tu-status.s-thinking{background:#f59e0b;color:#fff}
+.page-tutor .tu-status.s-speaking{background:var(--brand);color:#fff}
+.page-tutor .tu-caption{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:88%;text-align:center;font-size:16px;line-height:1.4;padding:6px 12px;border-radius:10px;background:rgba(17,24,39,.78);color:#fff}
+.page-tutor .tu-caption.heard{background:rgba(220,38,38,.85)}
+.page-tutor .tu-controls{gap:8px}
+.page-tutor .tu-mic{font-size:15px;padding:8px 18px}
+.page-tutor .tu-mic.on{background:#dc2626;border-color:#dc2626;color:#fff}
+.page-tutor .tu-note{margin:0}
+.page-tutor .tu-problem{color:var(--bad)}
+
+.page-tutor .tu-right{display:flex;flex-direction:column;min-height:0;padding:0;overflow:hidden;margin:0}
+.page-tutor .tu-log{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px;display:flex;flex-direction:column;gap:12px}
+.page-tutor .tu-intro{color:var(--ink2)}
+.page-tutor .tu-learner{align-self:flex-end;max-width:88%;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.page-tutor .tu-me{background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:14px 14px 4px 14px;padding:8px 12px;white-space:pre-wrap}
+.page-tutor .tu-me img{display:block;max-width:220px;max-height:160px;border-radius:6px;margin-bottom:6px}
+.page-tutor .tu-tutor{align-self:flex-start;max-width:96%;border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:10px 12px;background:var(--surface)}
+.page-tutor .tu-tutor.error{border-color:rgba(185,28,28,.4)}
+.page-tutor .tu-said{white-space:pre-wrap}
+.page-tutor .tu-board{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line2)}
+.page-tutor .tu-md{line-height:1.55;overflow-x:auto}
+.page-tutor .tu-md p{margin:.4em 0}
+.page-tutor .tu-md ol,.page-tutor .tu-md ul{padding-left:1.4em;margin:.4em 0}
+.page-tutor .tu-md pre{background:var(--surface2);padding:8px 10px;border-radius:8px;overflow-x:auto}
+.page-tutor .tu-md table{border-collapse:collapse}
+.page-tutor .tu-md td,.page-tutor .tu-md th{border:1px solid var(--line);padding:3px 8px}
+.page-tutor .tu-md .katex-display{overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.page-tutor .tu-card{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface);font-size:13.5px}
+.page-tutor .tu-card summary{cursor:pointer}
+.page-tutor .tu-praise{margin:0 0 6px}
+.page-tutor .tu-fix{padding:6px 0;border-top:1px solid var(--line)}
+.page-tutor .tu-fix s{color:var(--bad)}
+.page-tutor .tu-vocab{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid var(--line)}
+.page-tutor .tu-practice{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:4px}
+.page-tutor .tu-words{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.page-tutor .tu-word{padding:1px 6px;border-radius:5px;background:var(--soft)}
+.page-tutor .tu-word.good{background:#dcfce7;color:#14532d}
+.page-tutor .tu-word.fair{background:#fef3c7;color:#78350f}
+.page-tutor .tu-word.poor{background:#fee2e2;color:#7f1d1d}
+.page-tutor .tu-word.missed{text-decoration:line-through;color:var(--bad)}
+.page-tutor .tu-word.extra{border:1px dashed var(--bad)}
+.page-tutor .link-btn{border:0;background:none;color:var(--brand);cursor:pointer;padding:0;font:inherit}
+.page-tutor .tu-saved{padding:4px 14px;border-top:1px solid var(--line)}
+.page-tutor .tu-saved ul{margin:4px 0;padding-left:18px;max-height:120px;overflow:auto}
+.page-tutor .tu-composer{flex:none;border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+/* A long paste scrolls inside the box, so the buttons below it stay on screen. */
+.page-tutor .tu-composer textarea{width:100%;box-sizing:border-box;resize:vertical;font:inherit;min-height:56px;max-height:min(32vh,260px);overflow-y:auto}
+.page-tutor .tu-count{font-size:12px;color:var(--muted)}
+.page-tutor .tu-count.over{color:var(--bad);font-weight:600}
+.page-tutor .tu-log{min-height:120px}
+.page-tutor .tu-saved{flex:none;max-height:22vh;overflow:auto}
+.page-tutor .tu-thumbs{display:flex;gap:8px}
+.page-tutor .tu-thumbs span{position:relative}
+.page-tutor .tu-thumbs img{height:56px;border-radius:6px;border:1px solid var(--line);display:block}
+.page-tutor .tu-thumbs button{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:0;background:#111827;color:#fff;cursor:pointer;line-height:1}
+
+@media (max-width:900px){
+.lab main.page-tutor{grid-template-columns:1fr;height:auto}
+.page-tutor .tu-stage{min-height:360px}
+.page-tutor .tu-right{min-height:70dvh}
+}
+.page-tutor .tu-speak{font-weight:600}
+.page-tutor .tu-speak.on{background:#dc2626;border-color:#dc2626;color:#fff}
+.page-tutor .tu-listening{display:flex;align-items:center;gap:6px;color:#dc2626}
+.page-tutor .tu-dot{width:8px;height:8px;border-radius:50%;background:#dc2626;animation:tu-pulse 1s ease-in-out infinite}
+@keyframes tu-pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.page-tutor .tu-dot{animation:none}}
+.page-tutor .tu-hint{color:var(--muted)}
+.page-tutor .tu-better{border-color:var(--brand-line);background:var(--brand-soft)}
+.page-tutor .tu-better p{margin:4px 0 6px}
+.page-tutor .tu-better ul{margin:4px 0 0;padding-left:18px}
+.page-tutor .tu-better-actions{gap:8px;align-items:flex-start}
+.page-tutor .tu-brief{grid-column:1/-1}
+.page-tutor .tu-brief textarea{font:inherit;font-size:13px;width:100%;box-sizing:border-box;resize:vertical}

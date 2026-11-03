@@ -27,8 +27,8 @@ The numbers are written to `manifest.json` under `validation`. On the shipped mo
 
 ## Using it
 
-The explainer's "GPT-2 full internals" option loads this file with onnxruntime-web. Browsers block a page opened from disk from reading local model files, so serve the folder first:
+The explainer's "GPT-2 full internals" option loads this file with onnxruntime-web. The backend serves the `models/` folder, so start it and open the explainer:
 
 ```sh
-python python/server.py   # then open http://localhost:8000/transformer.html
+python -m backend   # then open http://localhost:8000/transformer
 ```

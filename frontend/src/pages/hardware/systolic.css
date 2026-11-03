@@ -1,0 +1,26 @@
+.page-hardware .sy-wrap{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);gap:18px;align-items:start}
+.page-hardware .sy-svg{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.page-hardware .sy-label{font:12px system-ui,sans-serif;fill:var(--muted)}
+.page-hardware .sy-cell rect{fill:var(--surface);stroke:var(--line2);stroke-width:1.5;transition:fill .25s,stroke .25s}
+.page-hardware .sy-cell.on rect{fill:var(--brand-soft);stroke:var(--brand);stroke-width:2.5}
+.page-hardware .sy-cell.done rect{fill:var(--ok-bg);stroke:var(--good)}
+.page-hardware .sy-acc{font:700 20px ui-monospace,Menlo,monospace;fill:var(--ink)}
+.page-hardware .sy-val{transition:transform .45s ease}
+.page-hardware .sy-val text{font:600 12px ui-monospace,Menlo,monospace}
+.page-hardware .sy-a text{fill:var(--s1)}
+.page-hardware .sy-b text{fill:var(--s2)}
+.page-hardware .sy-val:not(.in) text{opacity:.8}
+.page-hardware .sy-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.page-hardware .sy-readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+.page-hardware .sy-readout div{display:flex;flex-direction:column}
+.page-hardware .sy-readout b{font-size:18px;color:var(--ink)}
+.page-hardware .sy-readout span{font-size:12px;color:var(--muted)}
+.page-hardware .sy-mats{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.page-hardware .sy-mat{display:flex;flex-direction:column;gap:2px}
+.page-hardware .sy-mat table{border-collapse:collapse;font:12px ui-monospace,Menlo,monospace}
+.page-hardware .sy-mat td{border:1px solid var(--line);padding:2px 6px;text-align:right;color:var(--ink)}
+.page-hardware .sy-op{font-size:18px;color:var(--muted)}
+.page-hardware .sy-ok{color:var(--good);font-weight:600}
+.page-hardware .sy-bad{color:var(--bad);font-weight:600}
+@media (max-width:860px){.page-hardware .sy-wrap{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.page-hardware .sy-val,.page-hardware .sy-cell rect{transition:none}}

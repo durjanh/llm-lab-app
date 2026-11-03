@@ -1,0 +1,8 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+agent-framework-core==1.23.0
+agent-framework-openai==1.17.0
+agent-framework-orchestrations==1.4.0   # SequentialBuilder (task 5)
+mcp==2.3.0
+tenacity==9.2.1   # MCPStdioTool needs it, but agent-framework-core does not install it
+pydantic==2.14.2
+azure-identity==1.27.0

@@ -1,0 +1,12 @@
+# Exact versions this folder was built and run with (Python 3.12). Install: python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+azure-identity==1.27.0
+langchain==1.4.7
+langchain-core==1.7.3
+langchain-mcp-adapters==0.3.2
+langchain-openai==1.7.3
+langgraph==1.2.18
+langgraph-checkpoint==4.3.1
+langgraph-prebuilt==1.1.1
+mcp==1.30.0
+openai==3.41.0
+pydantic==2.14.2

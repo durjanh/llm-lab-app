@@ -1,0 +1,7 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+semantic-kernel[mcp]==1.46.0
+protobuf==7.36.2        # needed by the agent runtime behind orchestrations (task 5); not installed by semantic-kernel itself
+mcp==1.30.0             # the MCP client; semantic-kernel's mcp extra resolves to 1.x
+openai==3.41.0
+pydantic==2.13.5
+azure-identity==1.27.0

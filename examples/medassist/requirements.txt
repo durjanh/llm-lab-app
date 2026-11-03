@@ -1,0 +1,6 @@
+azure-ai-projects>=2.7,<3   # Foundry projects: prompt agents, tools, vector stores, conversations
+openai>=3.41,<4              # the Responses and Conversations client that azure-ai-projects hands back
+azure-identity~=1.26         # sign in with az login; no keys
+python-dotenv>=1.0           # reads FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL from the lab's .env
+agent-framework-core>=1.23,<2      # medassist_af.py only: the same agent on Microsoft Agent Framework
+agent-framework-foundry>=1.15,<2   # its FoundryChatClient (the Responses API on a Foundry project)

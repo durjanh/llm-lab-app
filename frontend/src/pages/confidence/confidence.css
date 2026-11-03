@@ -1,0 +1,28 @@
+/* Scoped to .page-confidence, so it cannot affect other pages. */
+.page-confidence .ok{color:var(--good);font-weight:700}
+.page-confidence .no{color:var(--bad);font-weight:700}
+.page-confidence .scroll{max-height:400px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.page-confidence .scroll table.t th{position:sticky;top:0;background:var(--surface);z-index:1;box-shadow:0 1px 0 var(--line)}
+.page-confidence .scroll table.t tr:last-child td{border-bottom:0}
+.page-confidence .kind{display:inline-block;font-size:11px;line-height:1.6;padding:0 8px;border-radius:999px;background:var(--soft);color:var(--ink2);white-space:nowrap}
+.page-confidence .cbar{display:inline-block;position:relative;width:64px;height:8px;background:var(--soft);border-radius:4px;vertical-align:middle;margin-right:6px}
+.page-confidence .cbar i{position:absolute;left:0;top:0;bottom:0;border-radius:0 4px 4px 0;background:var(--s1)}
+.page-confidence .chart{width:100%;max-width:660px;height:auto;display:block}
+.page-confidence .chart text{font-size:11px;fill:var(--muted);font-family:inherit}
+.page-confidence .chart .ax{font-size:12px;fill:var(--ink2)}
+.page-confidence .chart .hov{fill:transparent}
+.page-confidence .chart .hov:hover{fill:var(--soft);fill-opacity:.5}
+.page-confidence .chart-title{font-size:13px;font-weight:600;color:var(--ink);margin:4px 0 2px}
+.page-confidence .legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;margin:4px 0 8px;color:var(--ink2)}
+.page-confidence .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:-1px}
+.page-confidence .legend span.dash::before{width:16px;height:0;border-radius:0;background:none;border-top:2px dashed var(--c);vertical-align:3px}
+.page-confidence .legend span.dot::before{border-radius:50%}
+.page-confidence .run-row{margin:10px 0 4px}
+.page-confidence .run-row .progress{width:180px}
+.page-confidence .ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px 18px;align-items:end;margin-bottom:6px}
+.page-confidence .ctl label{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.page-confidence .ctl input[type=range]{grid-column:1/-1;width:100%}
+.page-confidence .ctl .mono{font-size:13px;color:var(--ink)}
+.page-confidence .tpl{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:pre-wrap;word-break:break-word;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:12px 14px;margin:6px 0 0}
+.page-confidence details summary{cursor:pointer;color:var(--brand);font-size:14px;margin-top:8px}
+.page-confidence .ece-line{font-size:14px;margin:6px 0 0}

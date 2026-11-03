@@ -1,0 +1,14 @@
+/* Scoped to .page-index, so it cannot affect other pages. */
+.page-index .hero{padding:12px 0 6px}
+.page-index .labs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;margin-top:18px}
+.page-index .lab-card{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:inherit;background:var(--surface);transition:border-color .15s,box-shadow .15s,transform .15s}
+.page-index .lab-card:hover{border-color:var(--brand-line);box-shadow:0 8px 24px rgba(91,79,214,.12);transform:translateY(-2px)}
+.page-index .lab-card .num{font-size:12px;font-weight:700;color:var(--brand);letter-spacing:.06em;text-transform:uppercase}
+.page-index .lab-card h3{margin:0;font-size:18px}
+.page-index .lab-card p{margin:0;font-size:14px;color:var(--ink2)}
+.page-index .lab-card .decides{font-size:13px;color:var(--muted);border-top:1px solid var(--soft);padding-top:8px;margin-top:auto}
+.page-index .lab-card .decides b{color:var(--ink2)}
+.page-index .lab-card .dl{font-size:12px;color:var(--muted)}
+.page-index .path{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px;color:var(--ink2);margin-top:8px}
+.page-index .path a{padding:3px 10px;border:1px solid var(--line);border-radius:999px;text-decoration:none}
+.page-index .path span{color:var(--faint)}

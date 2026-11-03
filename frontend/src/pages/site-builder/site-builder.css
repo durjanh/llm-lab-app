@@ -1,0 +1,66 @@
+/* Scoped to .page-sites, so it cannot affect other pages. The page fills the window under the nav:
+   the conversation scrolls on the left, the preview and code fill the right. */
+.lab main.page-sites{max-width:none;box-sizing:border-box;height:calc(100dvh - var(--nav-h,0px));min-height:520px;padding:16px 20px;display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:16px}
+.page-sites .sb-chat{display:flex;flex-direction:column;min-height:0;gap:8px}
+.page-sites h1{font-size:20px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.page-sites .sb-bar{gap:8px}
+.page-sites .sb-bar select{max-width:100%;flex:1 1 140px;min-width:0}
+.page-sites .sb-note{margin:0}
+.page-sites .sb-problem{color:var(--bad)}
+.page-sites .sb-log{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:14px;padding-right:4px}
+.page-sites .sb-intro .chips{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.page-sites .sb-intro .chip-btn{text-align:left;border-radius:10px}
+.page-sites .sb-turn{display:flex;flex-direction:column;gap:6px}
+.page-sites .sb-user{align-self:flex-end;max-width:90%;background:var(--brand-soft);border:1px solid var(--brand-line);border-radius:14px 14px 4px 14px;padding:8px 12px;white-space:pre-wrap;font-size:14px}
+.page-sites .sb-claude{border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:10px 12px;background:var(--surface);font-size:14px}
+.page-sites .sb-claude.error{border-color:rgba(185,28,28,.4)}
+.page-sites .sb-status{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.page-sites .sb-claude summary{cursor:pointer;color:var(--ink2);margin-top:6px}
+.page-sites .sb-steps{list-style:none;padding:0;margin:6px 0 0;max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.page-sites .sb-steps li{display:grid;grid-template-columns:24px 1fr;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line);font-size:12.5px}
+.page-sites .sb-steps li:last-child{border-bottom:0}
+.page-sites .sb-steps .detail{color:var(--ink2);white-space:pre-wrap;word-break:break-word}
+.page-sites .sb-icon{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff;background:var(--s2)}
+.page-sites .k-write .sb-icon{background:var(--s3)}
+.page-sites .k-read .sb-icon{background:var(--s1)}
+.page-sites .k-check .sb-icon{background:var(--brand)}
+.page-sites .k-error .sb-icon{background:var(--bad)}
+.page-sites .sb-reply{margin-top:8px;white-space:pre-wrap}
+.page-sites .sb-shots{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:flex-start}
+.page-sites .sb-shots img{display:block;height:84px;width:auto;border:1px solid var(--line);border-radius:4px;background:#fff}
+.page-sites .sb-shots a:hover img{border-color:var(--brand)}
+.page-sites .sb-shot-wait{display:block;height:84px;width:134px;border-radius:4px;background:var(--line)}
+.page-sites .sb-shot-wait.phone{width:39px}
+.page-sites .sb-composer{padding:10px;margin:0}
+.page-sites .sb-composer textarea{width:100%;box-sizing:border-box;resize:vertical;font:inherit}
+.page-sites .sb-composer .row{margin-top:8px}
+
+.page-sites .sb-work{display:flex;flex-direction:column;min-height:0;padding:0;overflow:hidden;margin:0}
+.page-sites .sb-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.page-sites .sb-tabs{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+.page-sites .sb-tabs button{font:inherit;font-size:13px;border:0;background:var(--surface);color:var(--ink2);padding:5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.page-sites .sb-tabs.small button{font-size:12px;padding:4px 9px}
+.page-sites .sb-tabs button + button{border-left:1px solid var(--line2)}
+.page-sites .sb-tabs button.on{background:var(--brand);color:#fff}
+.page-sites .sb-dot{width:7px;height:7px;border-radius:50%;background:var(--s3);animation:sb-pulse 1s ease-in-out infinite}
+@keyframes sb-pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.page-sites .sb-dot{animation:none}}
+.page-sites .sb-stage{flex:1;min-height:0;display:flex;justify-content:center;background:var(--soft);overflow:auto}
+.page-sites .sb-stage iframe{height:100%;border:0;background:#fff;box-shadow:0 0 0 1px var(--line);transition:width .2s}
+.page-sites .sb-empty{margin:auto;padding:24px;text-align:center}
+.page-sites .sb-code{flex:1;min-height:0;display:grid;grid-template-columns:minmax(140px,220px) minmax(0,1fr)}
+.page-sites .sb-files{list-style:none;margin:0;padding:6px;overflow:auto;border-right:1px solid var(--line)}
+.page-sites .sb-files button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;font:12.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;border:0;background:none;color:var(--ink2);padding:4px 6px;border-radius:6px;cursor:pointer;word-break:break-all}
+.page-sites .sb-files button.on{background:var(--brand-soft);color:var(--brand)}
+.page-sites .sb-viewer{display:flex;flex-direction:column;min-height:0}
+.page-sites .sb-viewer-head{padding:6px 10px;border-bottom:1px solid var(--line)}
+.page-sites .sb-viewer pre{flex:1;margin:0;overflow:auto;padding:10px 12px;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;tab-size:2;background:var(--surface2)}
+
+@media (max-width:900px){
+.lab main.page-sites{grid-template-columns:1fr;grid-template-rows:minmax(420px,55dvh) minmax(420px,1fr);height:auto}
+.page-sites .sb-code{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+.page-sites .sb-files{border-right:0;border-bottom:1px solid var(--line);max-height:120px}
+}
+.page-sites a.btn{text-decoration:none;color:inherit}
+.page-sites .sb-restore{align-self:flex-end;border:0;background:none;color:var(--muted);cursor:pointer;padding:0 2px;font:inherit;font-size:12px}
+.page-sites .sb-restore:hover{color:var(--brand);text-decoration:underline}

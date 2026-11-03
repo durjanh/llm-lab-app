@@ -1,0 +1,5 @@
+# Installed by Foundry's remote build when the hosted agent is deployed, and into .venv for local runs.
+agent-framework-core==1.24.0
+agent-framework-foundry==1.16.0
+agent-framework-foundry-hosting==1.0.0b261030   # ResponsesHostServer: serves the workflow on the Responses protocol (beta)
+python-dotenv>=1.0

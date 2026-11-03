@@ -1,0 +1,328 @@
+.page-medassist .ma-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--ink2);
+}
+.page-medassist .ma-bad {
+  color: var(--bad);
+}
+.page-medassist .ma-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin: 18px 0 22px;
+}
+
+/* The portal */
+.page-medassist .ma-portal {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line2);
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+  min-height: 560px;
+}
+.page-medassist .ma-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface2);
+}
+.page-medassist .ma-logo {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex: none;
+}
+.page-medassist .ma-title {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+  flex: 1;
+}
+.page-medassist .ma-title b {
+  font-size: 16px;
+}
+.page-medassist .ma-title span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.page-medassist .ma-who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.page-medassist .ma-who select {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--surface);
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+.page-medassist .ma-messages {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 560px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.page-medassist .ma-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 85%;
+}
+.page-medassist .ma-msg.patient {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.page-medassist .ma-msg.agent {
+  align-self: flex-start;
+}
+.page-medassist .ma-from {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.page-medassist .ma-bubble {
+  padding: 10px 13px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 15px;
+}
+.page-medassist .ma-msg.agent .ma-bubble {
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.page-medassist .ma-msg.patient .ma-bubble {
+  background: var(--brand);
+  color: #fff;
+}
+.page-medassist .ma-typing {
+  color: var(--muted);
+  font-style: italic;
+}
+.page-medassist .ma-cost {
+  font-size: 11px;
+  color: var(--muted);
+}
+.page-medassist .ma-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.page-medassist .ma-steps li {
+  font-size: 12.5px;
+  border: 1px dashed var(--line2);
+  border-radius: 8px;
+  padding: 4px 9px;
+  color: var(--ink2);
+  background: var(--surface);
+}
+.page-medassist .ma-steps li.ok {
+  border-style: solid;
+  border-color: var(--good);
+  color: var(--good);
+}
+.page-medassist .ma-steps li.stop {
+  border-style: solid;
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.page-medassist .ma-steps summary {
+  cursor: pointer;
+}
+.page-medassist .ma-steps pre,
+.page-medassist .ma-code {
+  font:
+    12px/1.5 ui-monospace,
+    Menlo,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0 2px;
+  max-height: 260px;
+  overflow: auto;
+  color: var(--ink2);
+}
+.page-medassist .ma-input {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface2);
+}
+.page-medassist .ma-input input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 15px;
+  padding: 9px 12px;
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.page-medassist .ma-input button {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+}
+.page-medassist .ma-input button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The practice's systems */
+.page-medassist .ma-systems h2 {
+  margin: 0 0 2px;
+  font-size: 18px;
+}
+.page-medassist .ma-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  margin-top: 10px;
+}
+.page-medassist .ma-card h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.page-medassist .ma-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: 13.5px;
+}
+.page-medassist .ma-card dt {
+  color: var(--muted);
+}
+.page-medassist .ma-card dd {
+  margin: 0;
+}
+.page-medassist .ma-list,
+.page-medassist .ma-audit {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+}
+.page-medassist .ma-audit li {
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.page-medassist .ma-audit li.new,
+.page-medassist .ma-sms.new {
+  background: var(--ok-bg);
+  outline: 1px solid var(--good);
+}
+.page-medassist .ma-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+.page-medassist .ma-sms {
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: 12px 12px 12px 4px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+}
+.page-medassist .ma-sms span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.page-medassist .ma-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.page-medassist .ma-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.page-medassist .ma-chips button {
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 6px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.page-medassist .ma-chips button:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.page-medassist .ma-chips button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 900px) {
+  .page-medassist .ma-layout {
+    grid-template-columns: 1fr;
+  }
+  .page-medassist .ma-msg {
+    max-width: 95%;
+  }
+  .page-medassist .ma-bar {
+    flex-wrap: wrap;
+  }
+}
+.page-medassist .grid2 {
+  align-items: start;
+}

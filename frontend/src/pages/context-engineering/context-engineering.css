@@ -1,0 +1,29 @@
+/* Scoped to .page-context-engineering, so it cannot affect other pages. */
+.page-context-engineering .builder{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){
+.page-context-engineering .builder{grid-template-columns:1fr}
+}
+.page-context-engineering .item-group{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--surface)}
+.page-context-engineering .item-group h4{margin:0 0 6px;font-size:13px;display:flex;align-items:center;gap:8px}
+.page-context-engineering .item-group h4 i{width:10px;height:10px;border-radius:2px;background:var(--c);display:inline-block}
+.page-context-engineering .opt{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:start;font-size:13px;padding:3px 0;cursor:pointer}
+.page-context-engineering .opt .tok{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.page-context-engineering .opt .facts{font-size:11.5px;color:var(--muted)}
+.page-context-engineering .stack{display:flex;height:34px;gap:2px;border-radius:6px;overflow:hidden;background:var(--soft);margin:10px 0 4px}
+.page-context-engineering .stack i{display:block;height:100%;transition:flex-basis .35s ease}
+.page-context-engineering .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink2)}
+.page-context-engineering .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:6px;vertical-align:-1px}
+.page-context-engineering .fact{display:flex;gap:8px;align-items:baseline;font-size:13.5px;margin:4px 0}
+.page-context-engineering .fact b.ok{color:var(--good)}
+.page-context-engineering .fact b.no{color:var(--bad)}
+.page-context-engineering .verdict{border-radius:10px;padding:10px 12px;margin-top:10px;font-size:14px;border:1px solid var(--line);background:var(--surface2)}
+.page-context-engineering .verdict.good{border-color:var(--ok-line);background:var(--ok-bg)}
+.page-context-engineering .verdict.bad{border-color:rgba(185,28,28,.35);background:rgba(185,28,28,.07)}
+.page-context-engineering .layout{display:grid;gap:4px;margin:10px 0}
+.page-context-engineering .blk{border-radius:6px;padding:7px 10px;font-size:13px;display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);background:var(--surface)}
+.page-context-engineering .blk.cached{background:rgba(27,175,122,.14);border-color:rgba(27,175,122,.5)}
+.page-context-engineering .blk.volatile{background:rgba(235,104,52,.12);border-color:rgba(235,104,52,.45)}
+.page-context-engineering .blk span:last-child{color:var(--muted);white-space:nowrap}
+.page-context-engineering .chart{width:100%;height:auto;display:block}
+.page-context-engineering .chart text{font-size:11px;fill:var(--muted)}
+.page-context-engineering pre.json{white-space:pre-wrap;word-break:break-word;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;max-height:280px;overflow:auto;margin:6px 0}

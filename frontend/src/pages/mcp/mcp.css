@@ -1,0 +1,22 @@
+.page-mcp .mc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.page-mcp .mc-grid .card h3{margin:0 0 6px}
+.page-mcp .mc-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px}
+.page-mcp .mc-bar select,.page-mcp .mc-bar input[type=text]{font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--ink)}
+.page-mcp .mc-body{width:100%;box-sizing:border-box;font:13px/1.5 ui-monospace,Menlo,monospace;padding:10px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--ink);resize:vertical}
+.page-mcp .mc-wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;margin-top:12px}
+.page-mcp .mc-wire pre{margin:0;max-height:420px;overflow:auto;font:12.5px/1.5 ui-monospace,Menlo,monospace;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:12px 14px;white-space:pre-wrap;word-break:break-word}
+.page-mcp .mc-wire h4{margin:0 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.page-mcp .mc-status{display:inline-block;font:600 12px/1 ui-monospace,Menlo,monospace;border-radius:6px;padding:4px 7px;margin-left:6px}
+.page-mcp .mc-status.ok{background:var(--ok-bg);color:var(--good)}
+.page-mcp .mc-status.bad{background:var(--note-bg);color:var(--warn)}
+.page-mcp .mc-steps{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.page-mcp .mc-step{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
+.page-mcp .mc-step summary{cursor:pointer}
+.page-mcp .mc-step pre{margin:8px 0 0;max-height:260px;overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:var(--ink2)}
+.page-mcp .mc-step.answer{border-color:var(--brand-line);background:var(--brand-soft)}
+.page-mcp .mc-step.declined{border-color:var(--warn)}
+.page-mcp .mc-tag{font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;margin-left:6px;border:1px solid var(--line2);color:var(--ink2)}
+.page-mcp .mc-tag.write{border-color:var(--warn);color:var(--warn)}
+.page-mcp .mc-tag.err{border-color:var(--bad);color:var(--bad)}
+.page-mcp .mc-problem{color:var(--bad)}
+.page-mcp ol.mc-design li,.page-mcp ul.mc-design li{margin-bottom:6px}

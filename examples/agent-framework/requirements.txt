@@ -1,0 +1,5 @@
+agent-framework-core>=1.23,<2      # Microsoft Agent Framework: agents, tools, workflows
+agent-framework-openai>=1.17,<2    # the OpenAI and Azure OpenAI chat clients
+agent-framework-devui==1.0.0b261022  # the developer UI (beta)
+agent-framework-foundry>=1.15,<2   # Foundry projects: FoundryChatClient (the weather sample)
+python-dotenv>=1.0                # the Microsoft sample reads .env itself

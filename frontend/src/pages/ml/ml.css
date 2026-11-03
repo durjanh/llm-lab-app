@@ -1,0 +1,42 @@
+/* Scoped to .page-ml, so it cannot affect other pages. */
+.page-ml .algo-groups{display:grid;gap:12px}
+.page-ml .algo-group h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.page-ml .algo-btns{display:flex;flex-wrap:wrap;gap:6px}
+.page-ml .algo-btns button{font:inherit;font-size:13px;border:1px solid var(--line2);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.page-ml .algo-btns button:hover{border-color:var(--brand)}
+.page-ml .algo-btns button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.page-ml .demo{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;margin-top:14px}
+@media (max-width:900px){
+.page-ml .demo{grid-template-columns:1fr}
+}
+.page-ml .plot-wrap{position:relative}
+.page-ml canvas.plot{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--surface);touch-action:none}
+.page-ml .ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 14px;margin:10px 0}
+.page-ml .ctrl label{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;font-size:13px}
+.page-ml .ctrl label > input[type=range],.page-ml .ctrl label > select{grid-column:1/-1;width:100%}
+.page-ml .ctrl .mono{font-size:12px;color:var(--ink)}
+.page-ml .readout{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--ink2);margin:6px 0}
+.page-ml .readout b{color:var(--ink);font-variant-numeric:tabular-nums}
+.page-ml .info h2{margin-top:0}
+.page-ml .info .formula{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;overflow-x:auto;white-space:pre}
+.page-ml .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:10px}
+.page-ml .facts div{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:13.5px}
+.page-ml .facts h4{margin:0 0 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.page-ml .facts ul{margin:0;padding-left:18px}
+.page-ml .ai-link{border-left:3px solid var(--brand);background:var(--brand-soft);border-radius:0 10px 10px 0;padding:9px 12px;font-size:14px;margin-top:10px}
+.page-ml .tree-text{font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;max-height:200px;overflow:auto;margin-top:8px}
+.page-ml .grid-img{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden;width:max-content;user-select:none;touch-action:none}
+.page-ml .grid-img i{display:block;width:var(--c);height:var(--c)}
+.page-ml .cnn-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.page-ml .cnn-row .cap{font-size:12px;color:var(--muted);margin-top:4px;max-width:200px}
+.page-ml .kernel{display:grid;grid-template-columns:repeat(3,36px);gap:2px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.page-ml .kernel span{background:var(--surface2);border:1px solid var(--line);border-radius:4px;text-align:center;padding:6px 0}
+.page-ml .helper{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 16px}
+.page-ml .helper label{display:flex;flex-direction:column;gap:3px;font-size:13px}
+.page-ml .recs{list-style:none;padding:0;margin:10px 0 0}
+.page-ml .recs li{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--surface);font-size:14px}
+.page-ml .recs li button{float:right}
+.page-ml .cmp td,.page-ml .cmp th{font-size:13px}
+.page-ml .cmp td:first-child{font-weight:600;white-space:nowrap}
+.page-ml .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;margin-top:6px;color:var(--ink2)}
+.page-ml .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:-1px}
