@@ -381,6 +381,19 @@ export default function IndexPage() {
           </span>
           <span className="dl">Needs the lab backend and an Azure AI Services or Language resource</span>
         </a>{' '}
+        <a className="lab-card" href="/aftercare">
+          <span className="num">Lab 37</span>
+          <h3>Aftercare follow-up agent</h3>
+          <p>
+            An agent contacts patients after discharge, by text or phone, in English or Spanish: medicines, warning
+            signs, a follow-up booking, and every answer written back to the record. Claude and Microsoft Agent
+            Framework run the same tools under the same rules.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which rules belong in code when an agent talks to patients, and how to test them.
+          </span>
+          <span className="dl">Needs the lab backend; Agent Framework needs a Microsoft Foundry project</span>
+        </a>{' '}
       </div>
       <h2>Quality and safety</h2>
       <p className="muted">How to know a change helped, when to trust an answer, and how to stay safe.</p>

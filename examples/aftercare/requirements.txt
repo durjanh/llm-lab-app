@@ -1,0 +1,5 @@
+anthropic>=1.9,<2            # aftercare.py: Claude, with our own tool loop; also the simulated patient
+python-dotenv>=1.0           # reads ANTHROPIC_API_KEY, FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL from the lab's .env
+agent-framework-core>=1.23,<2      # aftercare_af.py: the same agent on Microsoft Agent Framework
+agent-framework-foundry>=1.15,<2   # its FoundryChatClient (the Responses API on a Foundry project)
+azure-identity~=1.26               # sign in with az login; no keys
