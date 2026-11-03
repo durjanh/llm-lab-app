@@ -14,7 +14,11 @@ The ten tools
 
 Patterns taken from Claude Code and the Claude Agent SDK
   - The loop ends when Claude stops asking for tools. Turn and spending limits stop runaway loops.
-  - Each reply is appended with every block unchanged, so the history stays append-only.
+  - Each reply is appended with every block unchanged, so the history stays append-only, until it is
+    compacted: when the conversation has grown past --compact-at tokens, Claude summarises the older turns,
+    and the harness swaps them for that summary. The latest call and its results are kept as they were.
+    The long scenario compacts at 400 tokens so you can watch it happen; at that size a summary costs more
+    than it saves. Real harnesses compact near the context window, where it is the only way to carry on.
   - All results of one turn go back in one user message. Failures go back with is_error, not dropped.
   - Read-only tools asked for together run in parallel. A tool with side effects runs on its own.
   - A sub-agent starts with an empty context: its own system prompt, its own tools and the task text.
@@ -30,6 +34,7 @@ argument. Here each sub-agent is its own tool, so all ten are easy to see.
     python 11_harness_loop.py --scenario team        # three math_agent workers in parallel
     python 11_harness_loop.py --scenario bash        # a sub-agent with bash, behind permission rules
     python 11_harness_loop.py --scenario web         # a sub-agent with web search, next to a code tool
+    python 11_harness_loop.py --scenario long        # twenty steps in a row, compacted on the way
     python 11_harness_loop.py 360 "Is 360 prime? Find one fact about it online."
 """
 from __future__ import annotations
@@ -258,6 +263,32 @@ def trim_output(harness, who: str, depth: int, block, output: str) -> str:
 HOOKS = {"PreToolUse": [log_call], "PostToolUse": [trim_output]}
 
 
+# --- Compaction ----------------------------------------------------------------
+
+COMPACT_PROMPT = """You compact an agent's working history so it can carry on with a shorter context.
+Write a summary for the agent itself: every result found so far with its exact value, the decisions made,
+and what is left to do. Leave out anything superseded. Plain text, no preamble."""
+
+
+def transcript(messages: list[dict]) -> str:
+    """The history as plain text, for the model that writes the summary."""
+    lines = []
+    for m in messages:
+        if isinstance(m["content"], str):
+            lines.append(f"{m['role']}: {m['content']}")
+            continue
+        for block in m["content"]:
+            b = block if isinstance(block, dict) else dump(block)
+            kind = b.get("type")
+            if kind == "text" and b["text"].strip():
+                lines.append(f"{m['role']}: {b['text'].strip()}")
+            elif kind in ("tool_use", "server_tool_use"):
+                lines.append(f"tool call: {b['name']} {json.dumps(b['input'])}")
+            elif kind == "tool_result":
+                lines.append(f"tool result{' (error)' if b.get('is_error') else ''}: {b['content']}")
+    return "\n".join(lines)
+
+
 # --- The harness -------------------------------------------------------------
 
 def print_event(e: dict) -> None:
@@ -271,6 +302,8 @@ def print_event(e: dict) -> None:
         "agent_end": lambda: f"└ returns: {e['answer']}",
         "tool_use": lambda: f"→ tool_use {json.dumps({k: e[k] for k in ('id', 'name', 'input')})}",
         "parallel": lambda: f"⇉ running {e['count']} read-only calls in parallel",
+        "compact": lambda: f"⇊ compacted {e['messages']} messages ({e['tokens']:,} input tokens) into a summary:\n"
+                           + "\n".join("      " + line for line in e["summary"].splitlines()),
         "result": lambda: f"  ✗ {e['content']}" if e["is_error"] else
                           f"  ← {e['name']}: {e['content'].splitlines()[0][:100] if e['content'] else ''}  ({e['seconds']:.2f}s)",
     }.get(kind)
@@ -285,8 +318,10 @@ def dump(block) -> dict:
 class Harness:
     def __init__(self, client, model: str, *, effort: str = "low", latency: float = 0.5, budget: float = 0.25,
                  emit: Callable[[dict], None] = print_event, approve: Callable | None = None,
-                 permissions: dict = PERMISSIONS, on_response: Callable | None = None) -> None:
+                 permissions: dict = PERMISSIONS, on_response: Callable | None = None,
+                 compact_at: int = 0) -> None:
         self.client, self.model, self.effort = client, model, effort
+        self.compact_at = compact_at  # tokens of conversation growth that start a compaction; 0 never compacts
         self.latency, self.budget, self.permissions = latency, budget, permissions
         self._emit, self._approve, self.on_response = emit, approve, on_response
         self.cancelled = threading.Event()  # set by whoever started the run, to stop it early
@@ -336,11 +371,13 @@ class Harness:
         tools = {t.name: t for t in agent.tools}
         definitions = [t.definition for t in agent.tools] + agent.server_tools
         messages: list[dict] = [{"role": "user", "content": task}]
+        start_tokens = None  # input of the first request since the start or the last compaction
         for turn in range(1, agent.max_turns + 1):
             self.check_running()
             resp = create(self.client, model=self.model, max_tokens=16000, system=agent.prompt,
                           tools=definitions, messages=messages, output_config={"effort": self.effort})
             cost = self.record(agent.name, resp)
+            start_tokens = start_tokens or resp.usage.input_tokens
             messages.append({"role": "assistant", "content": resp.content})  # every block, unchanged
             ensure_answered(resp)  # a refusal or a reply cut off at max_tokens stops here
             self.emit({"type": "request", "who": who, "depth": depth, "agent": agent.name, "turn": turn,
@@ -363,10 +400,31 @@ class Harness:
             if text_of(resp).strip():
                 self.emit({"type": "says", "who": who, "depth": depth, "agent": agent.name, "text": text_of(resp).strip()})
             messages.append({"role": "user", "content": self.execute(calls, tools, who, depth)})
+            grown = resp.usage.input_tokens - start_tokens
+            if self.compact_at and grown >= self.compact_at and len(messages) > 3:
+                messages = self.compact(agent, task, messages, who, depth, resp.usage.input_tokens)
+                start_tokens = None  # measure growth again from the compacted conversation
 
         if depth:  # a stuck worker is reported to its parent, which can decide what to do
             raise ToolError(f"{agent.name} stopped after {agent.max_turns} turns without finishing.")
         raise StopRun(f"{agent.name} reached its limit of {agent.max_turns} turns")
+
+    def compact(self, agent: AgentDefinition, task: str, messages: list[dict], who: str, depth: int,
+                tokens: int) -> list[dict]:
+        """Swaps the older turns for a summary Claude writes. The latest call and its results stay as they were."""
+        older, latest = messages[:-2], messages[-2:]
+        self.check_running()
+        resp = create(self.client, model=self.model, max_tokens=4000, system=COMPACT_PROMPT,
+                      output_config={"effort": "low"},
+                      messages=[{"role": "user", "content": f"<history>\n{transcript(older)}\n</history>"}])
+        self.record(f"{agent.name} (compact)", resp)
+        ensure_answered(resp)
+        summary = text_of(resp).strip()
+        first = {"role": "user", "content": f"{task}\n\n<progress_so_far>\n{summary}\n</progress_so_far>\n"
+                                            "Earlier turns were compacted into the summary above. Carry on from it."}
+        self.emit({"type": "compact", "who": who, "depth": depth, "agent": agent.name, "messages": len(older),
+                   "tokens": tokens, "summary": summary})
+        return [first, *latest]
 
     def execute(self, calls: list, tools: dict[str, Tool], who: str, depth: int) -> list[dict]:
         """Runs one turn's tool calls and returns all the results, in order, for a single user message.
@@ -449,6 +507,9 @@ SCENARIOS = {
             "Then check its product with your multiply tool.",
     "web": "Ask the web_agent for one notable fact about the number {n}, and at the same time check whether "
            "{n} is prime.",
+    "long": "Start at {n}. Ten times in a row: add 7 to the current number, then check whether the new number "
+            "is prime. Take one step at a time, each with a tool. Finally list every number you reached and "
+            "say which were prime.",
 }
 
 
@@ -458,7 +519,9 @@ def main() -> None:
     parser.add_argument("task", nargs="?", help="your own task, instead of a scenario")
     parser.add_argument("--scenario", choices=list(SCENARIOS), default="chain")
     parser.add_argument("--effort", default="low", choices=["low", "medium", "high", "xhigh", "max"])
-    parser.add_argument("--max-turns", type=int, default=10, help="requests the main agent may make")
+    parser.add_argument("--max-turns", type=int, help="requests the main agent may make (default: 10; 30 for long)")
+    parser.add_argument("--compact-at", type=int, metavar="TOKENS",
+                        help="compact when the conversation has grown by this many tokens (default: off; 400 for long)")
     parser.add_argument("--budget", type=float, default=0.25, help="stop when the estimated spend reaches this many dollars")
     parser.add_argument("--latency", type=float, default=0.5, help="seconds each code tool waits, like a slow API")
     parser.add_argument("--yes", action="store_true", help="approve every permission prompt without asking")
@@ -474,12 +537,15 @@ def main() -> None:
 
     n = args.number
     task = args.task or SCENARIOS[args.scenario].format(n=n, n2=n + 5, n3=n * 30)
+    long = args.scenario == "long" and not args.task
+    max_turns = args.max_turns or (30 if long else 10)
+    compact_at = args.compact_at if args.compact_at is not None else (400 if long else 0)
     harness = Harness(make_client(), args.model, effort=args.effort, latency=args.latency, budget=args.budget,
-                      approve=ask_in_terminal)
+                      approve=ask_in_terminal, compact_at=compact_at)
     print(f"User: {task}\n")
     start = time.perf_counter()
     try:
-        answer = harness.run_agent(build_agents(args.model, args.max_turns), task)
+        answer = harness.run_agent(build_agents(args.model, max_turns), task)
         outcome = "done: Claude answered without asking for another tool"
     except StopRun as exc:
         answer, outcome = None, f"stopped by the harness: {exc}"
