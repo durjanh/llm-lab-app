@@ -24,5 +24,4 @@ async def main() -> None:
         print(f"\n[{name}]\n{reply.text}")
     checks.update_ok(replies[-1].text)
 
-
 asyncio.run(main())
