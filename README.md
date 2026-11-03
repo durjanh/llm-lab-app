@@ -196,6 +196,7 @@ Each page's CSS is scoped under its root class, `.page-<page>`, so pages cannot 
 | | `/mcp` | MCP servers: a real server in the backend; raw requests with and without tokens, Claude using its tools with writes gated by the harness | Needs the backend |
 | | `/casework` | Case handling on Azure: multi-agent complaint handling with Azure OpenAI and Azure AI Search, groundedness and rule checks, caseworker approval, a hash-chained audit trail and an evaluation gate | Needs the backend, Azure OpenAI and Azure AI Search |
 | | `/medassist` | MedAssist on Foundry: a patient portal chat with a Microsoft Foundry prompt agent that reads the signed-in patient's record, shows free slots, books the one they choose and texts them, beside the practice's systems (record, appointments, texts, audit log) | Needs the backend and a Foundry project with the agent created (`examples/medassist`) |
+| | `/reviews` | Review analysis: a dashboard of 30 product reviews in eight languages. Azure Language in Foundry Tools detects each language, then runs sentiment analysis with opinion mining, key phrase extraction and entity recognition (products, brands, places) with that language set; Claude can read the same review beside it, with English key phrases and a translation | Needs the backend and an AI Services or Language resource (`AZURE_LANGUAGE_ENDPOINT`) |
 | | `/claude-code` | Claude Code setup: CLAUDE.md, skills, hooks, subagents and plugins, with best practices | None |
 | | `/claude-code-inside` | Claude Code behind the scenes: an animated, step-by-step tour for presenting, from `/init` to rewind. Press P for presenter mode | None |
 | Quality and safety | `/evals` | Test sets, three kinds of grader, confidence intervals, run-to-run variance | GPT-2, 128 MB |
@@ -253,6 +254,8 @@ A case costs about 2 to 4 cents and takes about 30 seconds; the release-gate eva
 
 The MedAssist lab (`/medassist`) talks to the `MedAssist` prompt agent in the Foundry project named by `FOUNDRY_PROJECT_ENDPOINT` (`FOUNDRY_MODEL` is its model, for pricing). Create the agent first with `python examples/medassist/medassist.py create`. Your account needs the **Foundry User** role on the Foundry resource. The agent's function tools run in the backend against the example's SQLite database, `examples/medassist/data/medassist.db` (ignored by git), so the page and the example's command line see the same bookings. A booking conversation costs well under a cent in model tokens; File Search and the Code Interpreter are charged separately by Azure.
 
+The review analysis lab (`/reviews`) calls Azure Language on the resource named by `AZURE_LANGUAGE_ENDPOINT`, such as `https://ai-llm-lab-0eevth.cognitiveservices.azure.com` (the same AI Services resource), signed in with `az login`; keys can stay off. Azure bills one text record per feature for every started 1,000 characters of a review, at $1 per 1,000 records, so analysing all 30 reviews with four features costs about $0.12. The backend keeps each analysis for the session and charges it to `--budget`. Sentiment analysis, opinion mining and key phrase extraction retire from Azure Language on 31 March 2029.
+
 ### GPT in the document automation lab
 
 Document automation (Lab 22) can use a GPT model in Azure AI Foundry for each of its AI steps instead of Claude, with the same prompts and schemas, to compare the two. Pick it under **GPT (Azure AI Foundry)** in the page's model list. Other pages use Claude only.
@@ -280,7 +283,7 @@ Live features use Claude Haiku 5.5 by default, where each action costs a small f
 ## What has been tested
 
 - All 20 pages in headless Chrome, on the production build served by FastAPI and on the Vite dev server, with no JavaScript or React errors. That includes moving through every page inside the app without a reload, then pressing the keys pages listen for, to check nothing from a previous page keeps running.
-- The backend, with 115 tests against fake Claude, Azure, Foundry and browser clients, so they need no network, key or credit: routing to the fallback endpoint, streaming, the spending cap, request validation, the protections against other websites and serving the frontend, plus the harness and skills runs, the deck builder, the site builder, the tutor, document automation, the MCP lab, case handling and MedAssist.
+- The backend, with 121 tests against fake Claude, Azure, Foundry and browser clients, so they need no network, key or credit: routing to the fallback endpoint, streaming, the spending cap, request validation, the protections against other websites and serving the frontend, plus the harness and skills runs, the deck builder, the site builder, the tutor, document automation, the MCP lab, case handling, MedAssist and review analysis.
 - Live features against a local mock of the Claude API. No real API calls were made while building this version.
 
 ## Sharing

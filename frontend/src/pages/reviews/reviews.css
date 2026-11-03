@@ -1,0 +1,414 @@
+.page-reviews .rv-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: var(--ink2);
+}
+.page-reviews .rv-bad {
+  color: var(--bad);
+}
+.page-reviews .rv-warn {
+  color: var(--warn);
+}
+
+/* The dashboard */
+.page-reviews .rv-dash {
+  margin: 18px 0 8px;
+  padding: 20px;
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  background: var(--surface2);
+}
+.page-reviews .rv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.page-reviews .rv-head h2 {
+  margin: 0 0 2px;
+}
+.page-reviews .rv-retailer {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: var(--surface);
+  white-space: nowrap;
+}
+.page-reviews .rv-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.page-reviews .rv-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.page-reviews .rv-tile .v {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.page-reviews .rv-tile .k {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.page-reviews .rv-run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 14px;
+}
+.page-reviews .rv-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.page-reviews .rv-panels.three {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+.page-reviews .rv-panel {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+}
+.page-reviews .rv-panel h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.page-reviews .rv-panel p {
+  margin: 10px 0 0;
+}
+.page-reviews .rv-link {
+  font: inherit;
+  color: var(--brand);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Bars */
+.page-reviews .rv-bars,
+.page-reviews .rv-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page-reviews .rv-scores {
+  margin-top: 8px;
+  max-width: 380px;
+}
+.page-reviews .rv-bar {
+  display: grid;
+  grid-template-columns: 70px 1fr 72px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.page-reviews .rv-bar-k {
+  color: var(--ink2);
+}
+.page-reviews .rv-bar-n {
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.page-reviews .rv-bar-track {
+  height: 9px;
+  border-radius: 5px;
+  background: var(--line);
+  overflow: hidden;
+}
+.page-reviews .rv-bar-track i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--brand);
+  transition: width 0.4s ease;
+}
+.page-reviews .rv-bar-track i.positive {
+  background: var(--good);
+}
+.page-reviews .rv-bar-track i.negative {
+  background: var(--bad);
+}
+.page-reviews .rv-bar-track i.neutral {
+  background: var(--faint);
+}
+.page-reviews .rv-bar-track i.mixed {
+  background: var(--warn);
+}
+
+/* Tags */
+.page-reviews .rv-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line2);
+  background: var(--surface);
+  color: var(--ink2);
+  white-space: nowrap;
+}
+.page-reviews .rv-tag small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.page-reviews .rv-tag.positive {
+  color: var(--good);
+  border-color: currentColor;
+}
+.page-reviews .rv-tag.negative {
+  color: var(--bad);
+  border-color: currentColor;
+}
+.page-reviews .rv-tag.mixed,
+.page-reviews .rv-tag.warn {
+  color: var(--warn);
+  border-color: currentColor;
+}
+.page-reviews .rv-tag.neutral {
+  color: var(--muted);
+}
+.page-reviews .rv-tag.cat {
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  color: var(--brand);
+}
+.page-reviews .rv-tag.ent-Product {
+  border-color: var(--s1);
+}
+.page-reviews .rv-tag.ent-Organization {
+  border-color: var(--s5);
+}
+.page-reviews .rv-tag.ent-Location {
+  border-color: var(--s3);
+}
+
+/* Filters and cards */
+.page-reviews .rv-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 12px 14px;
+  margin: 6px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.page-reviews .rv-filters input[type='text'] {
+  flex: 1 1 200px;
+}
+.page-reviews .rv-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
+.page-reviews .rv-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: pointer;
+  min-width: 0;
+}
+.page-reviews .rv-card:hover {
+  border-color: var(--brand-line);
+}
+.page-reviews .rv-card:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.page-reviews .rv-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.page-reviews .rv-stars {
+  color: var(--s2);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.page-reviews .rv-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.page-reviews .rv-verified {
+  font-size: 12px;
+  color: var(--good);
+}
+.page-reviews .rv-card-text {
+  font-size: 13.5px;
+  color: var(--ink2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.page-reviews .rv-card-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: auto;
+}
+
+/* Review details */
+.page-reviews .rv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: start center;
+  padding: 5vh 16px;
+  background: rgb(15 17 21 / 0.45);
+  overflow-y: auto;
+}
+.page-reviews .rv-modal {
+  width: min(720px, 100%);
+  padding: 20px 22px;
+  border-radius: 16px;
+  border: 1px solid var(--line2);
+  background: var(--surface);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.25);
+}
+.page-reviews .rv-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.page-reviews .rv-modal-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page-reviews .rv-modal-head > .btn {
+  align-self: flex-start;
+}
+.page-reviews .rv-modal-head h3 {
+  margin: 0;
+  font-size: 20px;
+}
+.page-reviews .rv-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+}
+.page-reviews .rv-text {
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+}
+.page-reviews .rv-analysis {
+  align-self: stretch;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface2);
+}
+.page-reviews .rv-analysis.claude {
+  border-color: var(--brand-line);
+}
+.page-reviews .rv-analysis h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.page-reviews .rv-field {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.page-reviews .rv-label {
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 2px;
+}
+.page-reviews .rv-sentences {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page-reviews .rv-opinions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 4px;
+  color: var(--ink2);
+}
+.page-reviews .rv-opinions b.positive {
+  color: var(--good);
+}
+.page-reviews .rv-opinions b.negative {
+  color: var(--bad);
+}
+.page-reviews .rv-how {
+  margin: 12px 0 16px;
+}
+.page-reviews .card h3 {
+  margin-top: 0;
+}
+.page-reviews .rv-how .card + .card {
+  margin-top: 0;
+}
+.page-reviews .grid2 .card + .card {
+  margin-top: 0;
+}
+
+@media (max-width: 640px) {
+  .page-reviews .rv-dash {
+    padding: 14px;
+  }
+  .page-reviews .rv-tiles {
+    grid-template-columns: 1fr 1fr;
+  }
+  .page-reviews .rv-tile .v {
+    font-size: 24px;
+  }
+  .page-reviews .rv-field {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .page-reviews .rv-bar {
+    grid-template-columns: 62px 1fr 64px;
+  }
+}

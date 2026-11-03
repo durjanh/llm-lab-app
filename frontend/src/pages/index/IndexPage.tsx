@@ -369,6 +369,18 @@ export default function IndexPage() {
           </span>
           <span className="dl">Needs the lab backend and a Microsoft Foundry project</span>
         </a>{' '}
+        <a className="lab-card" href="/reviews">
+          <span className="num">Lab 36</span>
+          <h3>Review analysis</h3>
+          <p>
+            A dashboard of product reviews in eight languages. Azure Language detects each language, scores sentiment,
+            pulls out key phrases and finds products, brands and places; Claude can read the same review beside it.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> when a prebuilt language service is enough, and when a language model fits better.
+          </span>
+          <span className="dl">Needs the lab backend and an Azure AI Services or Language resource</span>
+        </a>{' '}
       </div>
       <h2>Quality and safety</h2>
       <p className="muted">How to know a change helped, when to trust an answer, and how to stay safe.</p>

@@ -177,6 +177,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./medassist/MedAssistPage')),
   },
   {
+    id: 'reviews',
+    path: '/reviews',
+    title: 'Review Analysis with Azure Language',
+    label: 'Review analysis',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./reviews/ReviewsPage')),
+  },
+  {
     id: 'mcp',
     path: '/mcp',
     title: 'MCP Servers',
