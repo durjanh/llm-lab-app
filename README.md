@@ -8,7 +8,7 @@ This is the full-stack version: a **FastAPI** backend and a **React + TypeScript
 llm-lab-app/
 ├── backend/     FastAPI: the /api routes, the spending cap, and serving the built frontend
 ├── frontend/    React + TypeScript, built with Vite: one route per lab
-├── python/      runnable lesson scripts (01 to 15), a sample skill, and the shared prices, settings and data
+├── python/      runnable lesson scripts (01 to 18), a sample skill, and the shared prices, settings and data
 ├── tools/       rebuilds the 134 MB GPT-2 model with its internals exposed
 ├── examples/    copyable Claude Code setup: CLAUDE.md, skills, hooks, a subagent, a plugin
 └── models/      the local GPT-2 model (not in git)
