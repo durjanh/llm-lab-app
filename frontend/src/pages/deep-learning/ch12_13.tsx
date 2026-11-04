@@ -998,6 +998,482 @@ function GraphClassification() {
   );
 }
 
+/* ---------- 12.5 Encoders, decoders and encoder–decoders (lab extra) ---------- */
+
+type Arch = 'encoder' | 'decoder' | 'encdec';
+type Link = 'self' | 'cross' | 'causal' | null;
+
+const SRC = ['the', 'black', 'cat', 'sat', 'on', 'the', 'mat'];
+const TGT = ['le', 'chat', 'noir', "s'est", 'assis', 'sur', 'le', 'tapis'];
+const DEC_IN = ['<s>', ...TGT]; // what the decoder reads: the translation so far, after a start token
+const DEC_OUT = [...TGT, '</s>']; // what it must predict at each position
+
+const ARCHS: { id: Arch; label: string; example: string }[] = [
+  { id: 'encoder', label: 'Encoder-only', example: 'BERT' },
+  { id: 'decoder', label: 'Decoder-only', example: 'GPT' },
+  { id: 'encdec', label: 'Encoder–decoder', example: 'T5' },
+];
+
+const LINK_COLOUR: Record<Exclude<Link, null>, string> = {
+  self: 'var(--brand)',
+  causal: 'var(--s3)',
+  cross: 'var(--s2)',
+};
+
+/** The tokens each architecture attends over, and which query (row) may look at which key (column). */
+function layoutFor(arch: Arch): { tokens: string[]; split: number; link: (i: number, j: number) => Link } {
+  if (arch === 'encoder') return { tokens: SRC, split: SRC.length, link: () => 'self' };
+  if (arch === 'decoder') return { tokens: SRC, split: SRC.length, link: (i, j) => (j <= i ? 'causal' : null) };
+  const n = SRC.length;
+  return {
+    tokens: [...SRC, ...DEC_IN],
+    split: n,
+    link: (i, j) => {
+      if (i < n) return j < n ? 'self' : null; // the encoder never sees the translation
+      if (j < n) return 'cross'; // every decoder position reads the whole source
+      return j <= i ? 'causal' : null; // and only the translation up to itself
+    },
+  };
+}
+
+interface MaskGridProps {
+  arch: Arch;
+  labels?: string[];
+  selected: number | null;
+  onSelect?: (i: number) => void;
+  compact?: boolean;
+}
+
+/** An attention mask as a grid: rows are the position asking, columns the positions it may look at. */
+function MaskGrid({ arch, labels, selected, onSelect, compact }: MaskGridProps) {
+  const { tokens, split, link } = layoutFor(arch);
+  const names = labels ?? tokens;
+  const size = compact ? 9 : arch === 'encdec' ? 17 : 22;
+  const border = (j: number) => (arch === 'encdec' && j === split ? '2px solid var(--ink2)' : undefined);
+  return (
+    <div className="dl-scroll">
+      <table className="dl-table" style={{ tableLayout: 'fixed' }}>
+        {!compact && (
+          <thead>
+            <tr>
+              <th />
+              {names.map((t, j) => (
+                <th
+                  key={j}
+                  className="mono"
+                  style={{ writingMode: 'vertical-rl', fontSize: 11, padding: '4px 2px', borderLeft: border(j) }}
+                >
+                  {t}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {names.map((t, i) => (
+            <tr key={i} style={{ borderTop: arch === 'encdec' && i === split ? '2px solid var(--ink2)' : undefined }}>
+              {!compact && (
+                <th
+                  className="mono"
+                  style={{
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    outline: i === selected ? '2px solid var(--brand)' : undefined,
+                    outlineOffset: -2,
+                  }}
+                  onClick={() => onSelect?.(i)}
+                >
+                  {t}
+                </th>
+              )}
+              {names.map((_, j) => {
+                const kind = link(i, j);
+                const on = i === selected;
+                return (
+                  <td
+                    key={j}
+                    onClick={() => onSelect?.(i)}
+                    style={{
+                      width: size,
+                      height: size,
+                      minWidth: size,
+                      padding: 0,
+                      cursor: onSelect ? 'pointer' : undefined,
+                      borderLeft: border(j),
+                      background: kind
+                        ? `color-mix(in srgb, ${LINK_COLOUR[kind]} ${selected === null || on ? 70 : 28}%, transparent)`
+                        : 'transparent',
+                      outline: on && !compact ? '1px solid var(--ink2)' : undefined,
+                    }}
+                    title={compact ? undefined : `${names[i]} → ${names[j]}: ${kind ? 'may attend' : 'masked'}`}
+                  />
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Which positions of the source and the translation each design may attend to, and what it learns to predict. */
+function EncoderDecoder() {
+  const [arch, setArch] = useState<Arch>('encoder');
+  const [selected, setSelected] = useState<number | null>(3);
+  const [rate, setRate] = useState(0.15);
+  const [seed, setSeed] = useState(1);
+  const { tokens, split, link } = layoutFor(arch);
+  const sel = selected !== null && selected < tokens.length ? selected : null;
+
+  // Masked-language-modelling: hide a share of the words, at least one, chosen at random.
+  const masked = useMemo(() => {
+    const k = Math.max(1, Math.round(rate * SRC.length));
+    return new Set(shuffled(SRC.length, seed * 31 + 7).slice(0, k));
+  }, [rate, seed]);
+  const labels = arch === 'encoder' ? SRC.map((w, i) => (masked.has(i) ? '[MASK]' : w)) : undefined;
+  const names = labels ?? tokens;
+
+  const open = sel === null ? [] : tokens.map((_, j) => link(sel, j));
+  const pairs = tokens.reduce((s, _, i) => s + tokens.filter((__, j) => link(i, j)).length, 0);
+  const choose = (a: Arch) => {
+    setArch(a);
+    setSelected(a === 'encdec' ? SRC.length + 2 : 3);
+  };
+
+  const strip = (from: number, to: number, title: string) => (
+    <div>
+      <div className="small muted" style={{ marginBottom: 3 }}>
+        {title}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {names.slice(from, to).map((t, k) => {
+          const j = from + k;
+          const kind = open[j];
+          return (
+            <button
+              key={j}
+              className="mono"
+              onClick={() => setSelected(j)}
+              style={{
+                font: 'inherit',
+                fontSize: 13,
+                padding: '2px 7px',
+                borderRadius: 5,
+                cursor: 'pointer',
+                color: 'var(--ink)',
+                border: j === sel ? '2px solid var(--ink)' : '1px solid var(--line2)',
+                background: kind ? `color-mix(in srgb, ${LINK_COLOUR[kind]} 35%, transparent)` : 'var(--surface)',
+                opacity: sel !== null && !kind && j !== sel ? 0.45 : 1,
+              }}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const seen = sel === null ? '' : names.filter((_, j) => open[j]).join(' · ');
+
+  return (
+    <Notebook
+      id="12.5"
+      title="Encoders, decoders and encoder–decoders (lab extra)"
+      intro={
+        <>
+          A lab extra: chapter 12 of the book describes these three designs, but its notebooks do not cover them. All
+          three are built from the same transformer layers. What differs is the attention mask, which says which
+          positions each position may look at, and what the model is trained to predict. Pick a design, then click a
+          word to see what it may attend to.
+        </>
+      }
+      tryThis={[
+        'Click "sat" in each design. The encoder sees both sides of it; the decoder sees only "the black cat sat".',
+        'Raise the mask rate. More words are hidden, so each sentence gives more training targets but less context to guess them from.',
+        'In the encoder–decoder, click "chat" in the translation: it can read every source word through cross-attention, but no later French word.',
+        'Compare the number of open pairs: the causal mask allows about half as many as the full one.',
+      ]}
+      takeaway={
+        <>
+          The mask and the objective decide what a transformer is good at. Seeing both sides makes good representations
+          for understanding text; seeing only the past is what lets a model generate text one token at a time; a
+          separate encoder suits tasks that turn one sequence into a different one.
+        </>
+      }
+    >
+      <div className="dl-cols">
+        {ARCHS.map((a) => (
+          <div
+            key={a.id}
+            onClick={() => choose(a.id)}
+            style={{
+              cursor: 'pointer',
+              borderRadius: 8,
+              padding: 8,
+              border: a.id === arch ? '2px solid var(--brand)' : '1px solid var(--line)',
+            }}
+          >
+            <div className="small" style={{ fontWeight: 600, marginBottom: 4 }}>
+              {a.label} <span className="muted">(like {a.example})</span>
+            </div>
+            <MaskGrid arch={a.id} selected={null} compact />
+          </div>
+        ))}
+      </div>
+      <p className="dl-caption">
+        The three masks side by side. Coloured cells may attend; blank cells are masked out (their score is set to −∞
+        before the softmax). The encoder–decoder grid has the source in the top-left block and the translation below it.
+      </p>
+      <div className="dl-controls">
+        <Chips
+          options={ARCHS.map((a) => ({ id: a.id, label: `${a.label} (${a.example})` }))}
+          value={arch}
+          onChange={choose}
+        />
+      </div>
+      <div className="dl-cols">
+        <div>
+          <div className="small" style={{ fontWeight: 600, marginBottom: 4 }}>
+            Attention mask: click a row or a word
+          </div>
+          <MaskGrid arch={arch} labels={labels} selected={sel} onSelect={setSelected} />
+          <div className="dl-legend" style={{ marginTop: 6 }}>
+            {arch === 'encoder' && (
+              <span>
+                <i style={{ background: LINK_COLOUR.self }} />
+                bidirectional self-attention
+              </span>
+            )}
+            {arch !== 'encoder' && (
+              <span>
+                <i style={{ background: LINK_COLOUR.causal }} />
+                causal self-attention
+              </span>
+            )}
+            {arch === 'encdec' && (
+              <>
+                <span>
+                  <i style={{ background: LINK_COLOUR.self }} />
+                  encoder self-attention
+                </span>
+                <span>
+                  <i style={{ background: LINK_COLOUR.cross }} />
+                  cross-attention
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {arch === 'encdec' ? (
+            <>
+              {strip(0, split, 'Source, read by the encoder')}
+              {strip(split, tokens.length, 'Translation so far, read by the decoder')}
+            </>
+          ) : (
+            strip(0, tokens.length, 'Sentence')
+          )}
+          <p className="small" style={{ margin: 0 }}>
+            {sel === null ? (
+              'Click a word.'
+            ) : (
+              <>
+                <b className="mono">{names[sel]}</b> may attend to: <span className="mono">{seen}</span>
+              </>
+            )}
+          </p>
+          <Readout
+            items={[
+              ['open query–key pairs', `${pairs} of ${tokens.length ** 2}`],
+              ['positions', arch === 'encdec' ? `${SRC.length} + ${DEC_IN.length}` : tokens.length],
+            ]}
+          />
+        </div>
+      </div>
+
+      <div className="small" style={{ fontWeight: 600, marginTop: 4 }}>
+        Training objective on the same sentence
+      </div>
+      {arch === 'encoder' && (
+        <>
+          <div className="dl-controls">
+            <Slider
+              label="Mask rate"
+              value={rate}
+              min={0.05}
+              max={0.6}
+              step={0.05}
+              onChange={setRate}
+              show={(v) => `${Math.round(v * 100)}%`}
+            />
+            <button className="btn small" onClick={() => setSeed((s) => s + 1)}>
+              New mask
+            </button>
+          </div>
+          <div className="dl-scroll">
+            <table className="dl-table">
+              <tbody>
+                <tr>
+                  <th>input</th>
+                  {SRC.map((w, i) => (
+                    <td
+                      key={i}
+                      className="mono"
+                      style={{
+                        background: masked.has(i) ? 'color-mix(in srgb, var(--s2) 25%, transparent)' : undefined,
+                      }}
+                    >
+                      {masked.has(i) ? '[MASK]' : w}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>predict</th>
+                  {SRC.map((w, i) => (
+                    <td key={i} className="mono">
+                      {masked.has(i) ? w : '–'}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="dl-caption">
+            Masked-language modelling: the loss counts only the {masked.size} hidden word{masked.size === 1 ? '' : 's'}{' '}
+            of {SRC.length}. Each guess can use the words on both sides. BERT hides 15%, and sometimes swaps in a random
+            word or leaves the word in place, so the model cannot rely on seeing [MASK].
+          </p>
+        </>
+      )}
+      {arch === 'decoder' && (
+        <>
+          <div className="dl-scroll">
+            <table className="dl-table">
+              <tbody>
+                <tr>
+                  <th>input</th>
+                  {SRC.map((w, i) => (
+                    <td key={i} className="mono">
+                      {w}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>predict</th>
+                  {SRC.map((_, i) => (
+                    <td key={i} className="mono">
+                      {i + 1 < SRC.length ? SRC[i + 1] : '<end>'}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="dl-caption">
+            Next-token prediction: every position predicts the word after it, so one sentence gives {SRC.length}{' '}
+            training targets in a single pass. The causal mask stops a position from reading the answer. To translate, a
+            decoder-only model is given the source as the start of its text ("the black cat sat on the mat → French:")
+            and continues it.
+          </p>
+        </>
+      )}
+      {arch === 'encdec' && (
+        <>
+          <div className="dl-scroll">
+            <table className="dl-table">
+              <tbody>
+                <tr>
+                  <th>encoder input</th>
+                  {SRC.map((w, i) => (
+                    <td key={i} className="mono">
+                      {w}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+            <table className="dl-table" style={{ marginTop: 6 }}>
+              <tbody>
+                <tr>
+                  <th>decoder input</th>
+                  {DEC_IN.map((w, i) => (
+                    <td key={i} className="mono">
+                      {w}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>predict</th>
+                  {DEC_OUT.map((w, i) => (
+                    <td key={i} className="mono">
+                      {w}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="dl-caption">
+            Sequence-to-sequence: the encoder reads the whole source once. The decoder predicts the translation one word
+            at a time, from the source (through cross-attention to the encoder's last layer) and the French words before
+            it. The loss counts only the {DEC_OUT.length} target positions. T5 is also pre-trained this way: spans of
+            the input are hidden and the decoder writes them out.
+          </p>
+        </>
+      )}
+
+      <div className="dl-scroll">
+        <table className="dl-table" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>design</th>
+              <th style={{ textAlign: 'left' }}>mask</th>
+              <th style={{ textAlign: 'left' }}>trained to</th>
+              <th style={{ textAlign: 'left' }}>suits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              [
+                'Encoder-only (BERT)',
+                'every word sees every word',
+                'fill in hidden words',
+                'classification, tagging names and places, embeddings for search, picking an answer out of a passage',
+              ],
+              [
+                'Decoder-only (GPT)',
+                'each word sees itself and earlier words',
+                'predict the next word',
+                'writing text, chat and code; most other tasks by putting them in the prompt',
+              ],
+              [
+                'Encoder–decoder (T5)',
+                'full in the encoder, causal in the decoder, plus cross-attention',
+                'write the target given the source',
+                'translation, summarising, speech to text: one sequence in, a different one out',
+              ],
+            ].map(([d, m, o, s], i) => (
+              <tr
+                key={i}
+                style={{
+                  background: ARCHS[i].id === arch ? 'color-mix(in srgb, var(--brand) 12%, transparent)' : undefined,
+                }}
+              >
+                <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{d}</td>
+                <td style={{ textAlign: 'left' }}>{m}</td>
+                <td style={{ textAlign: 'left' }}>{o}</td>
+                <td style={{ textAlign: 'left' }}>{s}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Notebook>
+  );
+}
+
 export const CHAPTERS: ChapterDef[] = [
   {
     n: 12,
@@ -1008,6 +1484,7 @@ export const CHAPTERS: ChapterDef[] = [
       { id: '12.2', title: 'Multi-head self-attention', Component: MultiHead },
       { id: '12.3', title: 'Tokenization', Component: Tokenization },
       { id: '12.4', title: 'Decoding strategies', Component: Decoding },
+      { id: '12.5', title: 'Encoders, decoders and encoder–decoders (lab extra)', Component: EncoderDecoder },
     ],
   },
   {

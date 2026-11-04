@@ -76,6 +76,137 @@ class AftercareEvaluate(ModelChoice):
         return list(dict.fromkeys(value))
 
 
+class GuardText(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+
+
+class GuardShield(BaseModel):
+    prompt: str = Field(min_length=1, max_length=5000)
+    documents: list[str] = Field(default_factory=list, max_length=5)
+
+
+class GuardGrounded(BaseModel):
+    answer: str = Field(min_length=1, max_length=5000)
+    query: str = Field(default="", max_length=1000)
+    source: str = Field(default="", max_length=10000)
+
+
+class GuardImage(BaseModel):
+    """A sample image by id, or the page's own image as base64 (PNG or JPEG, up to about 4 MB)."""
+    image_id: str = Field(default="", max_length=20)
+    data: str = Field(default="", max_length=6_000_000)
+    question: str = Field(default="What does this image show?", min_length=1, max_length=500)
+
+
+class GuardPipeline(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    document: str = Field(default="", max_length=10000)
+    threshold: int = Field(default=4, ge=1, le=7)
+
+
+class GuardEvaluate(BaseModel):
+    threshold: int = Field(default=4, ge=1, le=7)
+
+
+class UnderstandAnalyze(BaseModel):
+    sample: str = Field(min_length=1, max_length=30)
+    analyzer: str = Field(min_length=1, max_length=40)
+
+
+class UnderstandVision(BaseModel):
+    images: list[str] = Field(min_length=1, max_length=4)
+    task: str = Field(min_length=1, max_length=20)
+    question: str = Field(default="", max_length=500)
+
+
+class ImageGenerate(BaseModel):
+    prompt: str = Field(min_length=1, max_length=4000)
+    size: Literal["1024x1024", "1536x1024", "1024x1536"] = "1024x1024"
+    quality: Literal["low", "medium", "high"] = "low"
+    background: Literal["auto", "opaque", "transparent"] = "auto"
+    n: int = Field(default=1, ge=1, le=2)
+
+
+class ImageEdit(BaseModel):
+    """Reference images by id (or sample:<name>), and optionally a mask as a PNG data URL: transparent means change."""
+    prompt: str = Field(min_length=1, max_length=4000)
+    images: list[str] = Field(min_length=1, max_length=4)
+    mask: str = Field(default="", max_length=8_000_000)
+    size: Literal["1024x1024", "1536x1024", "1024x1536"] = "1024x1024"
+    quality: Literal["low", "medium", "high"] = "low"
+
+
+class ImageRef(BaseModel):
+    id: str = Field(min_length=1, max_length=40)
+    text: str = Field(default="AI-generated", max_length=40)
+
+
+class SearchQuery(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    mode: Literal["keyword", "vector", "hybrid", "semantic"] = "hybrid"
+
+
+class SearchAsk(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+
+
+class TranslateText(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+    targets: list[str] = Field(min_length=1, max_length=8)
+    glossary: bool = True
+    profanity: Literal["NoAction", "Marked", "Deleted"] = "NoAction"
+
+
+class TranslateLlm(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+    target: str = Field(min_length=2, max_length=10)
+    tone: str = Field(default="formal and warm", max_length=80)
+    glossary: bool = True
+
+
+class Transliterate(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+    language: str = Field(max_length=10)
+    from_script: str = Field(max_length=10)
+    to_script: str = Field(max_length=10)
+
+
+class DictionaryLookup(BaseModel):
+    word: str = Field(min_length=1, max_length=100)
+    source: str = Field(default="en", max_length=10)
+    target: str = Field(default="es", max_length=10)
+
+
+class AudioQuestion(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+
+
+class TraceRequest(BaseModel):
+    question: str = Field(default="Is the kitchen leak covered?", min_length=1, max_length=500)
+
+
+class DataAsk(ModelChoice):
+    question: str = Field(min_length=1, max_length=2000)
+    session_id: str | None = Field(default=None, max_length=40)
+
+
+class DataQuery(BaseModel):
+    """A query from the field picker, in the same shape the agent's run_query tool takes."""
+    topic: str = Field(max_length=40)
+    dimensions: list[str] = Field(default_factory=list, max_length=6)
+    measures: list[str] = Field(default_factory=list, max_length=8)
+    filters: list[dict[str, Any]] = Field(default_factory=list, max_length=10)
+    sorts: list[dict[str, Any]] = Field(default_factory=list, max_length=4)
+    limit: int = Field(default=500, ge=1, le=5000)
+    custom_fields: list[dict[str, Any]] = Field(default_factory=list, max_length=12)  # fields the agent made
+
+
+class DataSql(BaseModel):
+    """SQL typed or edited in the workbook's SQL tab. It runs under the same checks as the agent's run_sql."""
+    sql: str = Field(min_length=1, max_length=8000)
+    limit: int = Field(default=500, ge=1, le=5000)
+
+
 class McpAskRequest(ModelChoice):
     """A question for Claude to answer with the MCP lab server's tools."""
     task: str = Field(min_length=1, max_length=2000)

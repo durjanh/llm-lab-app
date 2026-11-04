@@ -36,12 +36,28 @@ PRICES: dict[str, dict[str, float]] = {
 GPT_PRICES: dict[str, dict[str, float]] = {
     "gpt-5.4-mini": {"input": 0.75, "output": 4.50, "cache_read": 0.075},
     "text-embedding-3-small": {"input": 0.02, "output": 0.0, "cache_read": 0.0},
+    "gpt-4.1-mini": {"input": 0.40, "output": 1.60, "cache_read": 0.10},
+    "text-embedding-3-large": {"input": 0.13, "output": 0.0, "cache_read": 0.0},
+    # gpt-image-2 is not in the retail list yet: gpt-image-1's Global Standard rates (Sweden Central) stand in.
+    # Text input, image output; image input (reference images, masks) is $10 per million tokens.
+    "gpt-image-2": {"input": 5.00, "output": 40.00, "cache_read": 1.25},
 }
+IMAGE_INPUT_PRICE_PER_M = 10.00
 PRICES.update(GPT_PRICES)
 CACHE_WRITE_MULTIPLIER = 1.25  # 5-minute cache entries
 # Azure Language in Foundry Tools, Standard tier, first 500,000 text records a month, from the Azure retail price list
 # (UK South). Each feature bills one text record per started 1,000 characters of each document.
 LANGUAGE_PRICE_PER_1K_RECORDS = 1.00
+# Other Foundry Tools the AI-103 labs call, Standard tier, from the same price list (UK South).
+TOOL_PRICES = {
+    "content_safety_text_per_1k": 0.375,  # one text record per started 1,000 characters
+    "content_safety_image_per_1k": 0.75,
+    "translator_per_1m_chars": 10.00,  # S1 text translation
+    "cu_page_per_1k": 5.00,  # Content Understanding document content extraction, standard pages
+    "cu_context_per_1k_tokens": 0.001,  # contextualization tokens; the model tokens are billed by the model
+    "cu_audio_per_hour": 0.36,
+    "cu_video_per_hour": 1.00,
+}
 
 
 class Refused(RuntimeError):

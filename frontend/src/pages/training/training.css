@@ -80,3 +80,23 @@
 .page-training .cmp td:first-child{white-space:normal;min-width:110px}
 .page-training .cmp td{min-width:160px}
 }
+/* The tiny transformer section. */
+.page-training #atCard .controls{margin-bottom:4px}
+.page-training #atCard .controls select{margin-left:4px}
+.page-training .at-lr{display:inline-flex;align-items:center;gap:6px}
+.page-training .at-lr input{width:110px}
+.page-training #atNote{min-height:0}
+.page-training #atCard h3{margin:16px 0 6px}
+.page-training .at-attn{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:16px;align-items:start;margin-top:8px}
+.page-training .at-attn p{margin:0 0 8px;max-width:60ch}
+.page-training .at-grid{width:100%;height:auto;display:block}
+.page-training .at-grid text{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;fill:var(--ink2)}
+.page-training .at-grid .cell{fill:var(--brand);cursor:crosshair}
+.page-training .at-grid .masked{fill:none;stroke:var(--line);stroke-dasharray:2 2}
+.page-training .at-grid .target{fill:none;stroke:var(--s2);stroke-width:2;pointer-events:none}
+.page-training .at-key{display:inline-block;width:12px;height:12px;border:2px solid var(--s2);border-radius:2px;vertical-align:-2px}
+.page-training #atSample{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--surface)}
+.page-training #atHistory .t{margin-top:4px}
+@media (max-width:640px){
+.page-training .at-attn{grid-template-columns:1fr}
+}

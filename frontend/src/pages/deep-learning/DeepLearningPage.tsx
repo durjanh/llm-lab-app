@@ -5,9 +5,18 @@ import { CHAPTERS as A } from './ch01_04';
 import { CHAPTERS as B } from './ch05_06';
 import { CHAPTERS as C } from './ch07_11';
 import { CHAPTERS as D } from './ch12_13';
+import { CHAPTERS as E } from './ch10';
+import { CHAPTERS as F } from './ch08_09';
+import { NOTEBOOKS_13 } from './ch13_more';
+import { CHAPTERS as G } from './ch15_17';
+import { CHAPTERS as H } from './ch18_19';
+import { CHAPTERS as I } from './ch20_21';
 import './deep-learning.css';
 
-const CHAPTERS: ChapterDef[] = [...A, ...B, ...C, ...D];
+// Chapters in book order, whichever file they live in.
+const CHAPTERS: ChapterDef[] = [...A, ...B, ...C, ...D, ...E, ...F, ...G, ...H, ...I]
+  .map((c) => (c.n === 13 ? { ...c, notebooks: [...c.notebooks, ...NOTEBOOKS_13] } : c))
+  .sort((a, b) => a.n - b.n);
 
 /**
  * The notebooks of Simon Prince's "Understanding Deep Learning" (udlbook.github.io), each rebuilt as a
@@ -15,15 +24,17 @@ const CHAPTERS: ChapterDef[] = [...A, ...B, ...C, ...D];
  */
 export default function DeepLearningPage() {
   const navHeight = useNavHeight();
-  const count = CHAPTERS.reduce((n, c) => n + c.notebooks.length, 0);
+  const all = CHAPTERS.flatMap((c) => c.notebooks);
+  const extras = all.filter((nb) => nb.title.includes('lab extra')).length;
   return (
     <main className="page-deep-learning" style={{ '--nav-h': `${navHeight}px` } as CSSProperties}>
       <div className="kicker">Lab 23 · Deep learning</div>
       <h1>Deep learning, notebook by notebook</h1>
       <p className="lede">
-        The {count} notebooks that accompany <i>Understanding Deep Learning</i> by Simon J. D. Prince, rebuilt as
-        interactive demos. Drag the sliders and points and watch the maths respond: from a single line, through
-        shallow and deep networks, losses and optimisers, backpropagation, residual networks and attention, to graphs.
+        All {all.length - extras} notebooks that accompany <i>Understanding Deep Learning</i> by Simon J. D. Prince,
+        rebuilt as interactive demos, plus {extras} of the lab&apos;s own. Drag the sliders and points and watch the maths respond: from a single line, through
+        shallow and deep networks, losses and optimisers, backpropagation, regularisation, convolutions, residual networks, attention and graphs, to
+        GANs, flows, VAEs, diffusion, reinforcement learning and fairness.
         Everything runs in your browser.
       </p>
       <p className="small muted">

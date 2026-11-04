@@ -54,6 +54,9 @@ class EnvSettings:
     foundry_model: str = ""
     # Azure Language in Foundry Tools (an AI Services or Language resource), for the review dashboard.
     azure_language_endpoint: str = ""
+    azure_media_endpoint: str = ""  # a second AI Services resource where gpt-image-2 and groundedness detection run
+    azure_ai_resource_id: str = ""  # ARM ids, for reading deployments, quotas, metrics and security settings
+    azure_media_resource_id: str = ""
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
@@ -75,6 +78,9 @@ class EnvSettings:
             foundry_project_endpoint=get("FOUNDRY_PROJECT_ENDPOINT", ""),
             foundry_model=get("FOUNDRY_MODEL", ""),
             azure_language_endpoint=get("AZURE_LANGUAGE_ENDPOINT", ""),
+            azure_media_endpoint=get("AZURE_MEDIA_ENDPOINT", ""),
+            azure_ai_resource_id=get("AZURE_AI_RESOURCE_ID", ""),
+            azure_media_resource_id=get("AZURE_MEDIA_RESOURCE_ID", ""),
         )
 
 

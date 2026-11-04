@@ -25,3 +25,6 @@ examples/aftercare/data/
 
 # The example agents: their dummy databases
 examples/agents/data/
+
+# Media the AI-103 labs generate (gpt-image-2 photos, the sample video)
+generated/
