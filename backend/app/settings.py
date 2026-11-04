@@ -18,6 +18,7 @@ class Settings:
     budget_usd: float = 2.0
     frontend_dist: Path = ROOT / "frontend" / "dist"
     models_dir: Path = ROOT / "models"
+    generated_dir: Path = ROOT / "generated"  # media the AI-103 labs make (photos, video); ignored by git
     # Pages may call the API from the backend itself or from the Vite dev server.
     extra_ports: tuple[int, ...] = field(default=(VITE_DEV_PORT,))
     run_budget_usd: float = 0.25  # the most one live agent run may spend, inside budget_usd
@@ -48,6 +49,9 @@ class Settings:
     aftercare_db: Path = ROOT / "examples" / "aftercare" / "data" / "aftercare.db"
     # Azure Language in Foundry Tools, for the review dashboard. Signed in with your Azure login; empty means offline.
     azure_language_endpoint: str = ""
+    azure_media_endpoint: str = ""
+    azure_ai_resource_id: str = ""
+    azure_media_resource_id: str = ""
 
     @classmethod
     def from_env(cls, env: EnvSettings | None = None) -> "Settings":
@@ -69,6 +73,9 @@ class Settings:
             foundry_project_endpoint=env.foundry_project_endpoint,
             foundry_model=env.foundry_model,
             azure_language_endpoint=env.azure_language_endpoint,
+            azure_media_endpoint=env.azure_media_endpoint,
+            azure_ai_resource_id=env.azure_ai_resource_id,
+            azure_media_resource_id=env.azure_media_resource_id,
         )
 
     @property

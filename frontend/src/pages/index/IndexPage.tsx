@@ -394,6 +394,103 @@ export default function IndexPage() {
           </span>
           <span className="dl">Needs the lab backend; Agent Framework needs a Microsoft Foundry project</span>
         </a>{' '}
+        <a className="lab-card" href="/data-agent">
+          <span className="num">Lab 45</span>
+          <h3>Data agent</h3>
+          <p>
+            Ask questions of a warehouse in plain words. Claude searches a semantic model, looks up values, runs queries
+            and draws charts and dashboards, and never writes SQL: code checks its fields and compiles the query.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> how to let an agent answer data questions without letting it write SQL.
+          </span>
+          <span className="dl">Needs the lab backend</span>
+        </a>{' '}
+        <a className="lab-card" href="/guardrails">
+          <span className="num">Lab 38</span>
+          <h3>Guardrails</h3>
+          <p>
+            Azure AI Content Safety, Prompt Shields, groundedness and PII detection around a Foundry model, a guarded
+            pipeline, a labelled test set, and the deployment's own content filter.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which checks belong in the deployment and which in your app, and where to set the
+            thresholds.
+          </span>
+          <span className="dl">Needs the backend and an AI Services resource</span>
+        </a>{' '}
+        <a className="lab-card" href="/content-understanding">
+          <span className="num">Lab 39</span>
+          <h3>Content Understanding</h3>
+          <p>
+            Documents, photos, audio and video as Markdown and fields with confidence and source boxes; custom and
+            agentic analyzers; captions, alt text and grounded answers from a multimodal model.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> when to extract with Content Understanding and when to ask a model.
+          </span>
+          <span className="dl">Needs the backend and an AI Services resource</span>
+        </a>{' '}
+        <a className="lab-card" href="/image-generation">
+          <span className="num">Lab 40</span>
+          <h3>Image generation</h3>
+          <p>
+            gpt-image-2 from prompts and reference images, inpainting with a painted mask, Content Credentials, a
+            watermark and brand checks. Video generation explained.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> how to control, check and label generated images.
+          </span>
+          <span className="dl">Needs the backend and a gpt-image-2 deployment</span>
+        </a>{' '}
+        <a className="lab-card" href="/search-pipeline">
+          <span className="num">Lab 41</span>
+          <h3>Search pipeline</h3>
+          <p>
+            Every modality into Azure AI Search with enrichment, then keyword, vector, hybrid and semantic search scored
+            on labelled questions, index health, and search as an agent's tool.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which search mode to use, measured on your own questions.
+          </span>
+          <span className="dl">Needs the backend, AI Services and Azure AI Search</span>
+        </a>{' '}
+        <a className="lab-card" href="/translation-speech">
+          <span className="num">Lab 42</span>
+          <h3>Translation and speech</h3>
+          <p>
+            Azure Translator against a language model, with a glossary; a complaint in any language as a structured log
+            entry; speech to text with phrase lists, speech translation, and questions over audio.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> when to use Translator, a model, or both.
+          </span>
+          <span className="dl">Needs the backend, AI Services and Azure Speech</span>
+        </a>{' '}
+        <a className="lab-card" href="/foundry-operations">
+          <span className="num">Lab 43</span>
+          <h3>Foundry operations</h3>
+          <p>
+            Live deployments, quotas, rate-limit headers, Azure Monitor metrics and security posture, an evaluation with
+            a release gate, an OpenTelemetry trace, and CI/CD with Bicep.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> how to run, watch and release AI on Foundry.
+          </span>
+          <span className="dl">Needs the backend and an AI Services resource</span>
+        </a>{' '}
+        <a className="lab-card" href="/ai-103">
+          <span className="num">Lab 44</span>
+          <h3>AI-103 exam map</h3>
+          <p>
+            Every skill in Microsoft's AI-103 study guide, with where to practise it here: the six labs built for the
+            exam and the earlier ones that cover the rest.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> what to study for AI-103, and where to try each skill.
+          </span>
+          <span className="dl">Nothing: a map</span>
+        </a>{' '}
       </div>
       <h2>Quality and safety</h2>
       <p className="muted">How to know a change helped, when to trust an answer, and how to stay safe.</p>

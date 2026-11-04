@@ -8,7 +8,15 @@ from fastapi import Depends, Request
 from ..container import Container
 from ..core.errors import ApiError
 from ..services.aftercare import AftercareService
+from ..services.data_model import VIEWERS, Viewer
+from ..services.dataagent import DataAgentService
 from ..services.decks import DeckService
+from ..services.foundryops import FoundryOpsService
+from ..services.guardrails import GuardrailsService
+from ..services.translate import TranslateService
+from ..services.searchlab import SearchLabService
+from ..services.imagegen import ImageGenService
+from ..services.understanding import UnderstandingService
 from ..services.documents import DocumentService
 from ..services.mcp_lab import McpLab
 from ..services.medassist import MedAssistService
@@ -77,6 +85,47 @@ def reviews(c: Container = Depends(container)) -> ReviewsService:
 
 def aftercare(c: Container = Depends(container)) -> AftercareService:
     return c.aftercare
+
+
+def guardrails(c: Container = Depends(container)) -> GuardrailsService:
+    return c.guardrails
+
+
+def understanding(c: Container = Depends(container)) -> UnderstandingService:
+    return c.understanding
+
+
+def imagegen(c: Container = Depends(container)) -> ImageGenService:
+    return c.imagegen
+
+
+def searchlab(c: Container = Depends(container)) -> SearchLabService:
+    return c.searchlab
+
+
+def translate(c: Container = Depends(container)) -> TranslateService:
+    return c.translate
+
+
+def foundryops(c: Container = Depends(container)) -> FoundryOpsService:
+    return c.foundryops
+
+
+def dataagent(c: Container = Depends(container)) -> DataAgentService:
+    return c.dataagent
+
+
+def data_viewer(request: Request) -> Viewer:
+    """Who is signed in to the data agent, and so which company's rows every query is limited to.
+
+    The lab has no sign-in, so the page names a person in the x-lab-user header and this looks them up in a fixed
+    directory. In a product this is where the verified session or token is read; the company comes from there,
+    never from the request body or from the model.
+    """
+    viewer = VIEWERS.get(request.headers.get("x-lab-user", ""))
+    if not viewer:
+        raise ApiError(401, "not_signed_in", "Choose who is signed in: the data agent only answers for one company at a time.")
+    return viewer
 
 
 def require_lab_page(request: Request, c: Container = Depends(container)) -> None:

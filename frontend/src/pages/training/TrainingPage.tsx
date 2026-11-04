@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useRef } from 'react';
 import { useEngine } from '@/lib/useEngine';
 import { mount } from './engine';
+import { mount as mountAttention } from './attentionLab';
 import { CodeBlock } from '@/components/CodeBlock';
 import * as S from './snippets';
 import './training.css';
@@ -9,6 +10,7 @@ import './training.css';
 export default function TrainingPage() {
   const root = useRef<HTMLElement>(null);
   useEngine(root, mount);
+  useEngine(root, mountAttention);
   return (
     <main ref={root} className="page-training">
       <div className="kicker">Lab 9 · Training</div>
@@ -316,7 +318,242 @@ export default function TrainingPage() {
         </p>
         <div className="timeline" id="timeline" aria-live="polite" />
       </div>
-      <h2>5. Memorising is not learning</h2>
+      <h2>5. Train a tiny transformer and watch attention form</h2>
+      <p>
+        The model above sees a fixed window of characters through one hidden layer. Language models use a transformer
+        instead. Every position can look back at any earlier position through attention, and training decides where each
+        one looks. Here a very small transformer trains with the same loop, and you can watch its attention change as it
+        learns.
+      </p>
+      <p className="small muted">
+        Under the hood: each token has an embedding and each position has another, and the two are added. Each layer
+        runs causal self-attention, where a position can look only at itself and earlier positions, then an optional
+        small MLP. Each result is added back into a running total, the residual stream, and a layer norm comes before
+        each step. A final layer scores every token in the vocabulary. Each token is 32 numbers and the context is 16
+        tokens. Backpropagation is written out by hand in TypeScript and checked against finite differences.
+      </p>
+      <ul className="fixes">
+        <li>
+          <b>Repeated pattern.</b> Each sequence is a few random letters, then a run of random letters, then the same
+          run again. The run is 4 to 8 letters long, so the repeat starts in a different place each time and the model
+          cannot learn &ldquo;look back 6 places&rdquo;. In the second copy the next letter can be predicted exactly:
+          find where the current letter appeared before and read the letter that came after it. Nothing else predicts
+          it, because every letter is random.
+        </li>
+        <li>
+          <b>Short text.</b> Next-character prediction on four tongue-twisters, which repeat words such as
+          &ldquo;pickled peppers&rdquo; and &ldquo;woodchuck&rdquo; within a few characters.
+        </li>
+      </ul>
+      <div className="card" id="atCard">
+        <div className="controls">
+          <div className="chips" id="atTask">
+            <button className="chip-btn on" data-t="induction">
+              Repeated pattern
+            </button>
+            <button className="chip-btn" data-t="text">
+              Short text
+            </button>
+          </div>
+          <label className="small">
+            Layers{' '}
+            <select id="atLayers" defaultValue="2">
+              <option>1</option>
+              <option>2</option>
+            </select>
+          </label>
+          <label className="small">
+            Heads per layer{' '}
+            <select id="atHeads" defaultValue="1">
+              <option>1</option>
+              <option>2</option>
+            </select>
+          </label>
+          <label className="small">
+            <input type="checkbox" id="atMlp" /> MLP
+          </label>
+          <label className="small at-lr">
+            Learning rate <span className="mono" id="atLrV" />
+            <input type="range" id="atLr" min="-3.5" max="-1.5" step="0.1" defaultValue="-2.5" />
+          </label>
+          <span className="spacer" />
+          <button className="btn primary" id="atGo">
+            Train
+          </button>
+          <button className="btn" id="atPause" disabled>
+            Pause
+          </button>
+          <button className="btn" id="atReset">
+            Reset
+          </button>
+        </div>
+        <div className="stats">
+          <div className="stat">
+            <div className="v" id="atStep">
+              0
+            </div>
+            <div className="k" id="atStepK">
+              steps
+            </div>
+          </div>
+          <div className="stat">
+            <div className="v" id="atLoss">
+              –
+            </div>
+            <div className="k">loss, averaged over every position</div>
+          </div>
+          <div className="stat" id="atRepBox">
+            <div className="v" id="atRep">
+              –
+            </div>
+            <div className="k">loss on the second copy</div>
+          </div>
+          <div className="stat" id="atAccBox">
+            <div className="v" id="atAcc">
+              –
+            </div>
+            <div className="k">of the second copy predicted right</div>
+          </div>
+          <div className="stat" id="atIndBox">
+            <div className="v" id="atInd">
+              –
+            </div>
+            <div className="k">induction score, best head in the last layer</div>
+          </div>
+          <div className="stat">
+            <div className="v" id="atPrev">
+              –
+            </div>
+            <div className="k">previous-token score, best head in layer 1</div>
+          </div>
+        </div>
+        <div className="verdict" id="atNote" aria-live="polite" />
+        <div className="grid2">
+          <div>
+            <div className="key-row" aria-hidden="true">
+              <span>
+                <i className="lk" style={{ '--c': 'var(--s1)' } as CSSProperties} />
+                Every position
+              </span>{' '}
+              <span id="atLossKey2">
+                <i className="lk" style={{ '--c': 'var(--s2)' } as CSSProperties} />
+                Second copy
+              </span>{' '}
+              <span>
+                <i className="lk dash" />
+                Uniform guess
+              </span>
+            </div>
+            <div id="atLossWrap">
+              <svg className="chart" id="atLossChart" role="img" aria-label="Loss over training steps" />
+            </div>
+          </div>
+          <div>
+            <div className="key-row" aria-hidden="true">
+              <span id="atScoreKeyInd">
+                <i className="lk" style={{ '--c': 'var(--s1)' } as CSSProperties} />
+                Induction score
+              </span>{' '}
+              <span>
+                <i className="lk" style={{ '--c': 'var(--s3)' } as CSSProperties} />
+                Previous-token score
+              </span>{' '}
+              <span id="atScoreKeyAcc">
+                <i className="lk" style={{ '--c': 'var(--s2)' } as CSSProperties} />
+                Accuracy, second copy
+              </span>
+            </div>
+            <div id="atScoreWrap">
+              <svg
+                className="chart"
+                id="atScoreChart"
+                role="img"
+                aria-label="Induction score, previous-token score and accuracy over training steps"
+              />
+            </div>
+          </div>
+        </div>
+        <h3>Where one head looks</h3>
+        <div className="controls">
+          <div className="chips" id="atView" />
+          <span className="spacer" />
+          <button className="btn small" id="atNew">
+            New sequence
+          </button>
+        </div>
+        <div className="at-attn">
+          <svg
+            className="at-grid"
+            id="atGrid"
+            role="img"
+            aria-label="Attention weights of the chosen head on one sequence"
+          />
+          <div className="small">
+            <p id="atGridCap" className="muted" />
+            <p>
+              Each row is a position, and the shading shows how its attention is shared among itself and the positions
+              before it. Rows add up to 100%. The empty squares above the diagonal are masked: no position may look
+              ahead.
+            </p>
+            <p>
+              <span className="at-key" /> Outlined squares are where an induction head should look: one place after the
+              earlier copy of the current letter.
+            </p>
+          </div>
+        </div>
+        <div id="atSampleBox" hidden>
+          <h3>What it writes</h3>
+          <p className="small muted">
+            Every 250 steps the model continues the opening of the text, shown in grey, at temperature 0.7.
+          </p>
+          <div className="tl-text" id="atSample" />
+        </div>
+        <div id="atHistoryBox" hidden>
+          <h3>Earlier runs</h3>
+          <div className="table-wrap" id="atHistory" />
+        </div>
+      </div>
+      <h3>What to watch for</h3>
+      <ul className="fixes">
+        <li>
+          <b>A plateau, then a drop.</b> With 2 layers, the loss on the second copy sits near the uniform guess for a
+          few hundred steps, then falls steeply within about a hundred. Accuracy on the second copy jumps at the same
+          moment. The line on the charts marks it.
+        </li>
+        <li>
+          <b>Layer 1 learns to look one place back.</b> Pick layer 1: a stripe forms just below the diagonal. That head
+          copies &ldquo;the letter before me&rdquo; into each position. It is a previous-token head, and the
+          previous-token score is the average attention on that stripe.
+        </li>
+        <li>
+          <b>Layer 2 learns to look after the earlier copy.</b> Pick layer 2: in the rows of the second copy, the
+          attention moves onto the outlined squares. That head is an induction head. The induction score is the average
+          attention it gives the outlined squares.
+        </li>
+        <li>
+          <b>The MLP can get in the way.</b> Tick MLP and train the repeated pattern again. The model often finds a
+          partial shortcut first and the induction head forms later, or not within the run. The text task needs the MLP
+          to learn which letters usually follow which.
+        </li>
+      </ul>
+      <h3>Why one layer cannot do it</h3>
+      <p>
+        In one layer, the key at each position is built only from that position&rsquo;s own letter and place. The
+        current letter can find its earlier copy, because the copy has the same letter. But the answer sits one place
+        later, at a position whose key says nothing about the letter before it. To find it, the model needs keys that
+        say &ldquo;the letter before me was c&rdquo;, and that information only exists after an earlier layer has moved
+        it there. With 2 layers, the previous-token head in layer 1 writes it and the induction head in layer 2 searches
+        for it. Train 1 layer and it gets part of the way by guessing among letters it has seen recently, then stalls at
+        about a third right.
+      </p>
+      <p>
+        This two-head circuit was described by researchers at Anthropic in 2022 (Olsson and others, &ldquo;In-context
+        learning and induction heads&rdquo;). They found that induction heads form in a sudden step in large language
+        models too, and that they account for much of in-context learning: a model&rsquo;s ability to continue a pattern
+        it saw earlier in the prompt. The <a href="/transformer">Transformer lab</a> shows the attention heads of a real
+        model, GPT-2.
+      </p>
+      <h2>6. Memorising is not learning</h2>
       <p>
         Give a large model a small dataset and train it for long enough, and it stops learning general patterns. It
         starts storing the training text itself. Training loss keeps falling towards zero. Validation loss turns round
@@ -355,7 +592,7 @@ export default function TrainingPage() {
           one detail. This lab leaves them out so the effect is easy to see.
         </li>
       </ul>
-      <h2>6. What this means for fine-tuning</h2>
+      <h2>7. What this means for fine-tuning</h2>
       <p>
         Fine-tuning is this same loop, run on a model that is already trained, with your examples as the data.
         Everything above applies. Three results from this lab carry straight over.

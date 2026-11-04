@@ -63,3 +63,18 @@ class AzureSearch:
         if semantic_config:
             body.update({"queryType": "semantic", "semanticConfiguration": semantic_config})
         return self._call("POST", f"/indexes/{index}/docs/search", body)["value"]
+
+    # ----- for the search pipeline lab -----
+    def search(self, index: str, body: dict) -> dict:
+        """Any search request: keyword, vector, hybrid or semantic, with captions and scores."""
+        return self._call("POST", f"/indexes/{index}/docs/search", body)
+
+    def delete_index(self, name: str) -> None:
+        if self.index_exists(name):
+            self._call("DELETE", f"/indexes/{name}")
+
+    def index_stats(self, name: str) -> dict:
+        return self._call("GET", f"/indexes/{name}/stats")
+
+    def service_stats(self) -> dict:
+        return self._call("GET", "/servicestats")

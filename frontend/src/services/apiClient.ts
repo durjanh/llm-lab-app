@@ -28,6 +28,11 @@ export class ApiClient {
     this.http = axios.create({ baseURL, headers: { 'x-llm-lab': '1' } });
   }
 
+  /** Sends a header on every later call from this client. For a client of its own, such as one signed in as someone. */
+  setHeader(name: string, value: string): void {
+    this.http.defaults.headers.common[name] = value;
+  }
+
   async get<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
     try {
       return (await this.http.get<T>(path, config)).data;
@@ -38,7 +43,8 @@ export class ApiClient {
 
   async post<T>(path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
     try {
-      return (await this.http.post<T>(path, body, { ...config, headers: { ...bodyHeaders(body), ...config?.headers } })).data;
+      return (await this.http.post<T>(path, body, { ...config, headers: { ...bodyHeaders(body), ...config?.headers } }))
+        .data;
     } catch (err) {
       throw await toError(err);
     }
@@ -75,7 +81,14 @@ export class ApiClient {
   async stream<T>(path: string, body: unknown, onLine: (line: T) => void, signal?: AbortSignal): Promise<void> {
     let data: ReadableStream<Uint8Array>;
     try {
-      data = (await this.http.post(path, body, { adapter: 'fetch', responseType: 'stream', signal, headers: bodyHeaders(body) })).data;
+      data = (
+        await this.http.post(path, body, {
+          adapter: 'fetch',
+          responseType: 'stream',
+          signal,
+          headers: bodyHeaders(body),
+        })
+      ).data;
     } catch (err) {
       throw await toError(err);
     }

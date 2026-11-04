@@ -29,7 +29,7 @@ Layered, with one composition root:
 
 - `api/<area>.py`: thin routers (parse, call a service, shape the response), collected in `api/__init__.py` under `/api`. Routes get services only through `api/deps.py`, never by building them.
 - `api/deps.py` also holds the two guards paid routes depend on: `require_lab_page` (localhost `Host`/`Origin` plus the `X-LLM-Lab: 1` header, which forces a CORS preflight the server never approves) and `require_budget`. New paid routes need both.
-- `container.py`: `Container.build` constructs every service once. `main.create_app(settings, client, browser, speech, gpt, search, foundry, language, agents)` takes optional fakes, which is how tests replace Claude, Chrome, Azure Speech, Azure OpenAI, Azure Search, the Foundry agent, Azure Language and Microsoft Agent Framework.
+- `container.py`: `Container.build` constructs every service once. `main.create_app(settings, client, browser, speech, gpt, search, foundry, language, agents, tools)` takes optional fakes, which is how tests replace Claude, Chrome, Azure Speech, Azure OpenAI, Azure Search, the Foundry agent, Azure Language, Microsoft Agent Framework and the Foundry Tools gateway (`gateways/foundry_tools.py`: Content Safety, Translator, Content Understanding, gpt-image-2, models with images, and read-only Resource Manager calls, used by the AI-103 labs).
 - `gateways/`: the only code that touches external SDKs (`claude.py` for Anthropic, `azure_*.py`, `foundry_agent.py` and `agent_framework.py` with Entra/`az login` sign-in, `browser.py` driving Chrome over DevTools). Services depend on their small protocols.
 - `services/`: the work. Every reply is charged to `SpendTracker`. Long-running work (harness, skills, decks, sites, tutor) runs in a background thread as a `Run` (`services/runs.py`): the worker publishes events, `RunStreamer` sends them to the page as NDJSON, and approval requests wait on the run until the page answers.
 - `settings.py`: limits and config, read from the environment. `__main__.py` turns its CLI flags into `LLM_LAB_PORT`/`LLM_LAB_BUDGET` env vars so `--reload` workers see them.
@@ -39,7 +39,7 @@ Layered, with one composition root:
 
 **Environment variables are read only in `python/settings.py`** (`EnvSettings`, which also loads `.env`). Scripts use `settings.ENV`; the backend's `Settings.from_env()` copies from a fresh `EnvSettings`, and services get values from `Settings`, never `os.environ`. A new variable goes in `EnvSettings` first. `backend/__main__.py` writes `LLM_LAB_PORT`/`LLM_LAB_BUDGET` so `--reload` workers see the CLI flags. The standalone `examples/` projects keep their own config.
 
-The site builder writes into `sites/<id>/site/` through file tools confined to that folder, and `main.py` serves the sites sandboxed (CSP `sandbox`) at `/sites/<id>/`. `sites/`, `casework/` (audit logs), `models/` and `skill_outputs/` are gitignored runtime data.
+The site builder writes into `sites/<id>/site/` through file tools confined to that folder, and `main.py` serves the sites sandboxed (CSP `sandbox`) at `/sites/<id>/`. `sites/`, `casework/` (audit logs), `models/`, `skill_outputs/` and `generated/` (the AI-103 labs' photos, video and cached extractions, and the data agent's warehouse and dashboards) are gitignored runtime data. Routes that serve media to `<img>` or `<video>` tags sit on a separate router without `require_lab_page`, because those requests cannot send the lab header; they only serve files already made.
 
 ## Frontend architecture (`frontend/src/`)
 

@@ -16,10 +16,18 @@ from .gateways.azure_speech import AzureSpeech, SpeechTokens
 from .gateways.browser import ChromeScreenshotter, Screenshotter
 from .gateways.claude import ClaudeGateway
 from .gateways.foundry_agent import AgentConversations, FoundryAgent
+from .gateways.foundry_tools import FoundryTools
 from .services.aftercare import AftercareService
 from .services.casework import CaseworkService
+from .services.dataagent import DataAgentService
 from .services.decks import DeckChats, DeckService
 from .services.documents import DocumentService
+from .services.foundryops import FoundryOpsService
+from .services.guardrails import GuardrailsService
+from .services.translate import TranslateService
+from .services.searchlab import SearchLabService
+from .services.imagegen import ImageGenService
+from .services.understanding import UnderstandingService
 from .services.mcp_lab import McpLab
 from .services.medassist import MedAssistService
 from .services.harness import HarnessService
@@ -51,13 +59,21 @@ class Container:
     medassist: MedAssistService
     reviews: ReviewsService
     aftercare: AftercareService
+    guardrails: GuardrailsService
+    understanding: UnderstandingService
+    imagegen: ImageGenService
+    searchlab: SearchLabService
+    translate: TranslateService
+    foundryops: FoundryOpsService
+    dataagent: DataAgentService
     runs: RunRegistry
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,
               speech: SpeechTokens | None = None, gpt: StructuredModel | None = None,
               search: AzureSearch | None = None, foundry: AgentConversations | None = None,
-              language: TextAnalyzer | None = None, agents: FrameworkAgents | None = None) -> "Container":
+              language: TextAnalyzer | None = None, agents: FrameworkAgents | None = None,
+              tools: FoundryTools | None = None) -> "Container":
         claude = ClaudeGateway(client)
         spend = SpendTracker(settings.budget_usd)
         registry = RunRegistry()
@@ -70,8 +86,14 @@ class Container:
             foundry = FoundryAgent(settings.foundry_project_endpoint, settings.foundry_model)
         if agents is None and settings.foundry_project_endpoint and settings.foundry_model:
             agents = AgentFramework(settings.foundry_project_endpoint, settings.foundry_model)
+        if search is None and settings.azure_search_endpoint:
+            search = AzureSearch(settings.azure_search_endpoint)
+        if tools is None and settings.azure_language_endpoint:
+            tools = FoundryTools(settings.azure_language_endpoint, settings.azure_media_endpoint,
+                                 settings.azure_ai_resource_id, settings.azure_media_resource_id)
         if language is None and settings.azure_language_endpoint:
             language = AzureLanguage(settings.azure_language_endpoint)
+        understanding = UnderstandingService(tools, spend, settings.generated_dir / "understanding")
         return cls(
             settings=settings,
             spend=spend,
@@ -89,10 +111,16 @@ class Container:
                                                      settings.azure_speech_fallback_resource_id)),
             documents=DocumentService(claude, spend, gpt),
             mcp_lab=McpLab(claude, spend, settings.origin, settings.allowed_hosts),
-            casework=CaseworkService(gpt, search or (AzureSearch(settings.azure_search_endpoint)
-                                                     if settings.azure_search_endpoint else None), spend, settings.casework_dir),
+            casework=CaseworkService(gpt, search, spend, settings.casework_dir),
             medassist=MedAssistService(foundry, spend, settings.medassist_db),
             reviews=ReviewsService(language, claude, spend),
             aftercare=AftercareService(claude, agents, spend, streamer, settings.aftercare_db),
+            guardrails=GuardrailsService(tools, spend),
+            understanding=understanding,
+            translate=TranslateService(tools, spend, understanding),
+            foundryops=FoundryOpsService(tools, search, spend),
+            dataagent=DataAgentService(claude, spend, streamer, settings.generated_dir / "data-agent"),
+            searchlab=SearchLabService(tools, search, understanding, spend, settings.generated_dir / "search"),
+            imagegen=ImageGenService(tools, spend, settings.generated_dir / "images", settings.generated_dir / "understanding"),
             runs=registry,
         )
