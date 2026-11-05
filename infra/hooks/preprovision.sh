@@ -4,8 +4,21 @@
 set -eu
 
 RG="rg-${AZURE_ENV_NAME}"
+ENV="${AZURE_ENV_NAME}"
+
+# azd down deletes the whole group. Never provision into a group azd did not make for this environment, such as a
+# hand-made rg-llm-lab when the environment is called llm-lab.
+owner=$(az group show -n "$RG" --query 'tags."azd-env-name"' -o tsv 2>/dev/null || echo "none")
+if [ "$owner" != "none" ] && [ "$owner" != "$ENV" ]; then
+  echo "$RG already exists and azd did not make it for this environment, so azd down would delete what is in it."
+  echo "Use another environment name: azd env new <name>"
+  exit 1
+fi
+
+# The free tiers: one free search service per subscription, one free Speech resource per region. This
+# environment's own (tagged with its name) does not count.
 if [ "${AZURE_SEARCH_SKU:-free}" = "free" ]; then
-  other=$(az search service list --query "[?sku.name=='free' && resourceGroup!='$RG'].name | [0]" -o tsv 2>/dev/null || true)
+  other=$(az resource list --resource-type Microsoft.Search/searchServices --query "[?sku.name=='free' && tags.\"azd-env-name\"!='$ENV'].name | [0]" -o tsv 2>/dev/null || true)
   if [ -n "$other" ]; then
     echo "A subscription has one free search service, and $other already is it."
     echo "Delete it (az search service delete -n $other -g <its group>), or use the paid tier: azd env set AZURE_SEARCH_SKU basic"
@@ -13,7 +26,7 @@ if [ "${AZURE_SEARCH_SKU:-free}" = "free" ]; then
   fi
 fi
 if [ "${AZURE_SPEECH_SKU:-S0}" = "F0" ]; then
-  other=$(az cognitiveservices account list --query "[?kind=='SpeechServices' && sku.name=='F0' && location=='${AZURE_LOCATION:-uksouth}' && resourceGroup!='$RG'].name | [0]" -o tsv 2>/dev/null || true)
+  other=$(az cognitiveservices account list --query "[?kind=='SpeechServices' && sku.name=='F0' && location=='${AZURE_LOCATION:-uksouth}' && tags.\"azd-env-name\"!='$ENV'].name | [0]" -o tsv 2>/dev/null || true)
   if [ -n "$other" ]; then
     echo "A subscription has one free Speech resource per region, and $other already is it. Use S0: azd env set AZURE_SPEECH_SKU S0"
     exit 1
