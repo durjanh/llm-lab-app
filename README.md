@@ -236,7 +236,7 @@ A key exported in your shell with `export ANTHROPIC_API_KEY=...` takes priority 
 
 The tutor (Lab 21) speaks and listens with Azure Speech. Without it, the tutor writes instead of speaking. The backend signs in to Azure in one of two ways; the browser only ever gets a 10-minute token.
 
-- **With your Azure login (no key).** Add the region and the resource ID of an Azure AI Services or Speech resource to `.env`, and sign in with `az login`. Your account needs the **Cognitive Services Speech User** role on that resource; being its Owner is not enough. The resource must have a custom domain.
+- **With your Azure login (no key).** Add the region and the resource ID of an Azure AI Services or Speech resource to `.env`, and sign in with `az login`. Your account needs the **Cognitive Services Speech User** role on that resource; being its Owner is not enough. Training custom speech models (`examples/custom-speech/`) also needs **Cognitive Services Speech Contributor**. The resource must have a custom domain.
 
   ```sh
   AZURE_SPEECH_REGION=uksouth
@@ -296,6 +296,8 @@ Live features use Claude Haiku 5.5 by default, where each action costs a small f
 - `examples/agent-framework/`: the case-handling flow from Lab 25 rebuilt in Microsoft Agent Framework (Python), run in DevUI: typed agents, `@tool` systems of record, a workflow graph with a revision loop, and a human approval pause.
 - `examples/medassist/`: MedAssist, a patient portal agent built as a Microsoft Foundry prompt agent: File Search over practice documents, the Code Interpreter, and function tools that read a signed-in patient's record and book or cancel appointments in a dummy SQLite database, with the safety rules enforced in code and nine checked test cases.
 - `examples/aftercare/`: Aftercare, a post-discharge follow-up agent. Its hospital record, LACE risk, routing, tools and rules are in `ward.py`. `aftercare.py` runs it on Claude with our own tool loop, and `aftercare_af.py` runs the same tools on Microsoft Agent Framework. Both are tested against eight simulated patients, checked on what each call left in the record.
+- `examples/support-agent/`: a Foundry Agent Service agent with the Azure AI Search tool (grounded answers from an index), the OpenAPI tool (an order-status API in Container Apps) and a conversation for multi-turn context.
+- `examples/custom-speech/`: a custom speech model for product names the base model mishears: training text, test calls, an evaluation against the base model, an endpoint for live calls, and a phrase list for comparison.
 - `examples/foundry-sdk/`: a tour of the Foundry project client: connections, deployments, datasets, indexes, a cloud evaluation with built-in evaluators, and tracing.
 - `examples/foundry-cicd/`: the evaluation gate the pipeline runs, and model deployments as Bicep for an account that already exists.
 - `examples/agents/`: three more Foundry prompt agents, one per common use case: SalesDesk (leads, scoring, follow-ups, calls), ResearchDesk (monitoring, cited reports) and DayPlanner (calendar, inbox, to-do list), each with a dummy database, its rules enforced in its tools, and six checked test cases.

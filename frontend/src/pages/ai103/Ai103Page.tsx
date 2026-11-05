@@ -427,7 +427,7 @@ const AREAS: Area[] = [
               ['Aftercare', '/aftercare'],
               ['Translation: phrase lists', TR],
             ],
-            note: 'Phrase lists run; trained custom speech models are explained.',
+            note: 'Phrase lists run. examples/custom-speech trains, tests and deploys a custom model; it needs a paid Speech tier, as F0 refuses custom speech.',
           },
           {
             skill: 'Multimodal reasoning from audio inputs',
