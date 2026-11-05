@@ -129,6 +129,7 @@ const AREAS: Area[] = [
           },
           {
             skill: 'Apply responsible AI instrumentation: evaluators, safety evaluations, explanation tooling',
+            note: "examples/foundry-sdk: built-in evaluators in Foundry. The safety evaluators are not offered in UK South, the lab's region.",
             labs: [
               ['Guardrails: test set', G],
               ['Foundry operations: evaluators', OPS],
@@ -193,6 +194,7 @@ const AREAS: Area[] = [
               ['Guardrails', G],
               ['Evals', '/evals'],
             ],
+            note: "examples/foundry-sdk/tour.py evaluate: Foundry's built-in evaluators run as a cloud evaluation, with the report in the portal.",
           },
           {
             skill: 'Integrate generative workflows with Foundry SDKs and connectors',
@@ -200,6 +202,7 @@ const AREAS: Area[] = [
               ['MedAssist (azure-ai-projects)', '/medassist'],
               ['Aftercare (Agent Framework)', '/aftercare'],
             ],
+            note: 'examples/foundry-sdk/tour.py: connections, deployments, datasets, indexes, evaluations and tracing through the project client.',
           },
           {
             skill: 'Configure an application to connect to a Foundry project',
@@ -282,6 +285,7 @@ const AREAS: Area[] = [
           {
             skill: 'Set up observability: tracing, token analytics, safety signals, latency breakdowns',
             labs: [['Foundry operations: tracing and metrics', OPS]],
+            note: "examples/foundry-sdk/tour.py trace: the SDK's own OpenTelemetry spans, one per model call, with tokens and timing.",
           },
           {
             skill: 'Orchestrate multiple models, flows, or hybrid LLM and rules engines',
