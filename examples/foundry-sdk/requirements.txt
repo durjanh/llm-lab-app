@@ -1,0 +1,7 @@
+azure-ai-projects>=2.7,<3              # the Foundry project client
+azure-identity                         # Entra sign-in (az login); the project client takes no keys
+openai>=3.41,<4                        # Responses and Evals, through project.get_openai_client()
+python-dotenv                          # reads the lab's .env
+opentelemetry-sdk                      # collects the spans in trace
+azure-core-tracing-opentelemetry       # the SDK makes its spans through azure-core's tracing setting
+# azure-monitor-opentelemetry          # only to send spans to Application Insights, once the project has one
