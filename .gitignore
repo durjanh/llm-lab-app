@@ -28,3 +28,6 @@ examples/agents/data/
 
 # Media the AI-103 labs generate (gpt-image-2 photos, the sample video)
 generated/
+
+# azd environments (values for this machine)
+.azure/

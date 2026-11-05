@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+# The lab's Azure resources. `azd up` provisions them and writes the lab's .env; `azd down --purge` removes them.
+# The lab itself still runs on your machine (python -m backend); see infra/README.md.
+name: llm-lab
+infra:
+  provider: bicep
+  path: infra
+  module: main
+hooks:
+  preprovision:
+    shell: sh
+    run: ./infra/hooks/preprovision.sh
+  postprovision:
+    shell: sh
+    run: ./infra/hooks/postprovision.sh
+  postdown:
+    shell: sh
+    run: ./infra/hooks/postdown.sh

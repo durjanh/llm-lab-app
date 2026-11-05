@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 
 import httpx
 from azure.identity import DefaultAzureCredential
@@ -30,22 +31,36 @@ def main() -> None:
     p.add_argument("--deployment", default="gpt-5.4-mini")
     p.add_argument("--min-groundedness", type=float, default=4.0)
     p.add_argument("--min-relevance", type=float, default=4.0)
+    p.add_argument("--wait-for-access", type=int, default=0, metavar="SECONDS",
+                   help="keep retrying a 401 or 403 this long: a role given earlier in the same pipeline run takes minutes to apply")
     a = p.parse_args()
-    token = DefaultAzureCredential().get_token("https://cognitiveservices.azure.com/.default").token
+    credential = DefaultAzureCredential()
+    deadline = time.monotonic() + a.wait_for_access
     scores = []
     for context, question, response in CASES:
-        r = httpx.post(f"{a.endpoint.rstrip('/')}/openai/v1/chat/completions", timeout=60,
-                       headers={"Authorization": f"Bearer {token}"},
-                       json={"model": a.deployment, "max_completion_tokens": 100,
-                             "messages": [{"role": "user", "content": f"Score 1 to 5 using only the context.\nContext: {context}\n"
-                                                                      f"Question: {question}\nResponse: {response}"}],
-                             "response_format": {"type": "json_schema", "json_schema": {"name": "s", "schema": SCHEMA, "strict": True}}})
+        while True:
+            token = credential.get_token("https://cognitiveservices.azure.com/.default").token
+            r = post(a, token, context, question, response)
+            if r.status_code not in (401, 403) or time.monotonic() > deadline:
+                break
+            print(f"{r.status_code}: the role has not applied yet; trying again in 30 seconds")
+            time.sleep(30)
         r.raise_for_status()
         scores.append(json.loads(r.json()["choices"][0]["message"]["content"]))
     g = sum(s["groundedness"] for s in scores) / len(scores)
     rel = sum(s["relevance"] for s in scores) / len(scores)
     print(f"groundedness {g:.2f} (min {a.min_groundedness}), relevance {rel:.2f} (min {a.min_relevance})")
     sys.exit(0 if g >= a.min_groundedness and rel >= a.min_relevance else 1)
+
+
+def post(a: argparse.Namespace, token: str, context: str, question: str, response: str) -> httpx.Response:
+    """Ask the judge deployment to score one response, as JSON that matches SCHEMA."""
+    return httpx.post(f"{a.endpoint.rstrip('/')}/openai/v1/chat/completions", timeout=60,
+                      headers={"Authorization": f"Bearer {token}"},
+                      json={"model": a.deployment, "max_completion_tokens": 100,
+                            "messages": [{"role": "user", "content": f"Score 1 to 5 using only the context.\nContext: {context}\n"
+                                                                     f"Question: {question}\nResponse: {response}"}],
+                             "response_format": {"type": "json_schema", "json_schema": {"name": "s", "schema": SCHEMA, "strict": True}}})
 
 
 if __name__ == "__main__":

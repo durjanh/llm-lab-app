@@ -1,19 +1,21 @@
 # Foundry CI/CD: deployments as code, and an evaluation gate
 
-The lab's model deployments as a Bicep template, a GitHub Actions workflow that deploys them and gates the release on
-an evaluation, and the gate as a script you can run locally.
+The lab's own pipeline is `.github/workflows/infra.yml`. On every push to main it provisions the lab's Azure
+resources with azd (`infra/`), model deployments included, then runs the gate here. `infra/README.md` says how
+to set it up. This folder keeps the two pieces you can also use on their own.
 
 | File | What it does |
 |---|---|
-| `deployments.bicep` | The `gpt-5.4-mini` and `text-embedding-3-small` deployments: SKU, capacity, model version, upgrade policy and the guardrail (content filter) attached. |
-| `foundry-deploy.yml` | GitHub Actions: sign in with OpenID Connect (no secrets), `what-if`, deploy, then run the gate. A protected `staging` environment adds a human approval. |
-| `eval_gate.py` | Scores a few labelled cases with an LLM judge and exits 1 when groundedness or relevance falls under its threshold. |
+| `eval_gate.py` | Scores a few labelled cases with an LLM judge and exits 1 when groundedness or relevance falls under its threshold. The pipeline runs it after provisioning. |
+| `deployments.bicep` | Two model deployments as code (SKU, capacity, model version, upgrade policy, guardrail) for an account that already exists. azd's `infra/resources.bicep` does the same for the account it makes. |
 
 ```sh
-az deployment group what-if -g rg-llm-lab -f examples/foundry-cicd/deployments.bicep -p accountName=ai-llm-lab-0eevth
-python examples/foundry-cicd/eval_gate.py --endpoint https://ai-llm-lab-0eevth.cognitiveservices.azure.com
+python examples/foundry-cicd/eval_gate.py --endpoint "$(azd env get-value AZURE_OPENAI_ENDPOINT)"
+az deployment group what-if -g <group> -f examples/foundry-cicd/deployments.bicep -p accountName=<AI account>
 ```
 
-Checked on 3 November 2026: the Bicep compiles, `what-if` against the lab's resource group reports the two deployments
-to deploy and nothing to delete, and the gate passes (groundedness 5.00, relevance 5.00). The workflow has not run in
-GitHub Actions: it needs an Entra app registration with a federated credential for your repository.
+`--wait-for-access 600` makes the gate retry a 401 or 403 for up to ten minutes. A role given earlier in the same
+pipeline run takes a few minutes to apply. It never retries a low score.
+
+Checked on 5 November 2026: the gate passes locally (groundedness 5.00, relevance 5.00), the workflow passes
+actionlint, and `what-if` of `infra/main.bicep` with the pipeline's role lists 25 resources to create.

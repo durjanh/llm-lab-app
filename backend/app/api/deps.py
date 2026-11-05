@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 from ..container import Container
 from ..core.errors import ApiError
 from ..services.aftercare import AftercareService
+from ..services.coding import CodingService
 from ..services.data_model import VIEWERS, Viewer
 from ..services.dataagent import DataAgentService
 from ..services.decks import DeckService
@@ -113,6 +114,10 @@ def foundryops(c: Container = Depends(container)) -> FoundryOpsService:
 
 def dataagent(c: Container = Depends(container)) -> DataAgentService:
     return c.dataagent
+
+
+def coding(c: Container = Depends(container)) -> CodingService:
+    return c.coding
 
 
 def data_viewer(request: Request) -> Viewer:

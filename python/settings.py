@@ -39,6 +39,14 @@ class EnvSettings:
     budget_usd: float = 2.0  # LLM_LAB_BUDGET
     dev_port: int = 5173  # LLM_LAB_DEV_PORT: the Vite dev server, allowed to call the API
     chrome_path: str = ""  # LLM_LAB_CHROME: Chrome for the site builder's screenshots, if not in a usual place
+    # LLM_LAB_SANDBOX: how the coding agent's auto mode contains its commands. auto picks sandbox-exec on macOS and
+    # bubblewrap on Linux; sessions sends commands to Azure Container Apps dynamic sessions; container says each
+    # session already runs in its own disposable container; none turns it off.
+    coding_sandbox: str = "auto"
+    coding_sessions_endpoint: str = ""  # LLM_LAB_SESSIONS_ENDPOINT: the sandbox, for LLM_LAB_SANDBOX=sessions
+    # LLM_LAB_SESSIONS_SCOPE: the token scope for it. Empty for a session pool (https://dynamicsessions.io); the
+    # sandbox container app's api://<app id>/.default for the Consumption option.
+    coding_sessions_scope: str = ""
     # The tutor's voice: a key and region, or a resource ID signed in with your Azure login.
     azure_speech_key: str = field(default="", repr=False)
     azure_speech_region: str = ""
@@ -67,6 +75,9 @@ class EnvSettings:
             budget_usd=float(get("LLM_LAB_BUDGET") or cls.budget_usd),
             dev_port=int(get("LLM_LAB_DEV_PORT") or cls.dev_port),
             chrome_path=get("LLM_LAB_CHROME", ""),
+            coding_sandbox=(get("LLM_LAB_SANDBOX") or cls.coding_sandbox).strip().lower(),
+            coding_sessions_endpoint=get("LLM_LAB_SESSIONS_ENDPOINT", "").rstrip("/"),
+            coding_sessions_scope=get("LLM_LAB_SESSIONS_SCOPE", ""),
             azure_speech_key=get("AZURE_SPEECH_KEY", ""),
             azure_speech_region=get("AZURE_SPEECH_REGION", ""),
             azure_speech_resource_id=get("AZURE_SPEECH_RESOURCE_ID", ""),

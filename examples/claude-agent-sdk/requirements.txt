@@ -1,0 +1,2 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+claude-agent-sdk==0.2.178   # bundles the Claude Code CLI it drives

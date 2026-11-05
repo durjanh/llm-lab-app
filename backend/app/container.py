@@ -19,6 +19,7 @@ from .gateways.foundry_agent import AgentConversations, FoundryAgent
 from .gateways.foundry_tools import FoundryTools
 from .services.aftercare import AftercareService
 from .services.casework import CaseworkService
+from .services.coding import CodingService
 from .services.dataagent import DataAgentService
 from .services.decks import DeckChats, DeckService
 from .services.documents import DocumentService
@@ -66,6 +67,7 @@ class Container:
     translate: TranslateService
     foundryops: FoundryOpsService
     dataagent: DataAgentService
+    coding: CodingService
     runs: RunRegistry
 
     @classmethod
@@ -120,6 +122,8 @@ class Container:
             translate=TranslateService(tools, spend, understanding),
             foundryops=FoundryOpsService(tools, search, spend),
             dataagent=DataAgentService(claude, spend, streamer, settings.generated_dir / "data-agent"),
+            coding=CodingService(claude, spend, registry, streamer, settings.generated_dir / "coding-agent", gpt=gpt,
+                                 run_budget_usd=settings.run_budget_usd, approval_timeout_s=settings.approval_timeout_s),
             searchlab=SearchLabService(tools, search, understanding, spend, settings.generated_dir / "search"),
             imagegen=ImageGenService(tools, spend, settings.generated_dir / "images", settings.generated_dir / "understanding"),
             runs=registry,

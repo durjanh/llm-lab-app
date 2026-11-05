@@ -398,13 +398,29 @@ export default function IndexPage() {
           <span className="num">Lab 45</span>
           <h3>Data agent</h3>
           <p>
-            Ask questions of a warehouse in plain words. Claude searches a semantic model, looks up values, runs queries
-            and draws charts and dashboards, and never writes SQL: code checks its fields and compiles the query.
+            Ask questions of a warehouse in plain words. Claude queries a semantic model, adds fields it lacks, or
+            writes read-only SQL, then draws charts and dashboards. Each signed-in person sees only their company&apos;s
+            rows.
           </p>
           <span className="decides">
-            <b>Helps you decide:</b> how to let an agent answer data questions without letting it write SQL.
+            <b>Helps you decide:</b> when an agent should use a semantic model and when SQL, and where row-level
+            security belongs.
           </span>
           <span className="dl">Needs the lab backend</span>
+        </a>{' '}
+        <a className="lab-card" href="/coding-agent">
+          <span className="num">Lab 46</span>
+          <h3>Coding agent</h3>
+          <p>
+            A harness built the way Claude Code is: file tools that refuse blind edits, a shell behind permission rules
+            and modes, hooks, CLAUDE.md, a to-do list, undo, and a read-only sub-agent. The same task also runs on the
+            Claude Agent SDK.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> whether to build your own agent harness or use the Agent SDK, and which rules it
+            needs.
+          </span>
+          <span className="dl">Needs the lab backend; the SDK version needs its own environment</span>
         </a>{' '}
         <a className="lab-card" href="/guardrails">
           <span className="num">Lab 38</span>

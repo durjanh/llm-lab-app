@@ -24,6 +24,7 @@ from settings import EnvSettings  # noqa: E402
 # The live runs reuse the lesson scripts themselves. Their names start with a digit, so they need importlib.
 harness_script = importlib.import_module("11_harness_loop")
 skills_script = importlib.import_module("12_agent_skills")
+coding_script = importlib.import_module("19_coding_agent")
 
 
 def _load_example(name: str, path: Path):
@@ -42,4 +43,4 @@ medassist_clinic = _load_example("medassist_clinic", ROOT / "examples" / "medass
 aftercare_ward = _load_example("aftercare_ward", ROOT / "examples" / "aftercare" / "ward.py")
 
 __all__ = ["ROOT", "DEFAULT_MODEL", "IMAGE_INPUT_PRICE_PER_M", "LANGUAGE_PRICE_PER_1K_RECORDS", "PRICES", "TOOL_PRICES", "HANDBOOK", "EnvSettings", "Refused", "cost_usd", "create", "describe_usage",
-           "make_client", "stream", "text_of", "harness_script", "skills_script", "medassist_clinic", "aftercare_ward"]
+           "make_client", "stream", "text_of", "harness_script", "skills_script", "coding_script", "medassist_clinic", "aftercare_ward"]
