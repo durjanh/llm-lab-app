@@ -9,6 +9,10 @@ the model follows most of the time, so anything that sends, books or changes dat
 - `ToolSession.confirm`: an action with consequences (sending an email) takes two calls in two turns; the first
   only returns what would happen and asks for a yes.
 - `ToolSession.audit`: every change is logged.
+- `ToolSession.submit_for_review`: work a person must approve (an orientation pack, a restock order, a reply to a
+  resident) goes into a review queue. The agent can add to the queue, never decide it: `run.py <agent> review` is
+  where a person approves or rejects. This is the human in the loop of every intended use in Microsoft's
+  Transparency Note for the Agent Service.
 
 The loop (`run_turn`) is the same one examples/medassist uses: the agent returns function calls, this code runs
 them and sends back the results, until the agent answers in words. Each agent module defines an `AgentSpec`;
@@ -29,6 +33,9 @@ from typing import Any
 HERE = Path(__file__).resolve().parent
 DATA = HERE / "data"  # the dummy databases; ignored by git
 AUDIT_TABLE = "CREATE TABLE audit (id INTEGER PRIMARY KEY, at TEXT, action TEXT, detail TEXT);"
+REVIEW_TABLE = ("CREATE TABLE reviews (id INTEGER PRIMARY KEY, kind TEXT, ref TEXT, summary TEXT, body TEXT, "
+                "reviewer TEXT, status TEXT, created TEXT, decided TEXT, note TEXT);")
+AWAITING = "awaiting review"
 
 
 def now() -> str:
@@ -46,7 +53,7 @@ def fresh_database(path: Path, schema: str) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.unlink(missing_ok=True)
     db = sqlite3.connect(path)
-    db.executescript(schema + AUDIT_TABLE)
+    db.executescript(schema + AUDIT_TABLE + REVIEW_TABLE)
     return db
 
 
@@ -72,6 +79,19 @@ class ToolSession:
     def audit(self, action: str, detail: str = "") -> None:
         self.db.execute("INSERT INTO audit (at, action, detail) VALUES (?, ?, ?)", (now(), action, detail))
         self.db.commit()
+
+    def submit_for_review(self, kind: str, ref: str, summary: str, body: str, reviewer: str) -> dict:
+        """Put work in front of a person. Nothing in the queue takes effect until they approve it, outside the agent."""
+        cur = self.db.execute("INSERT INTO reviews (kind, ref, summary, body, reviewer, status, created) "
+                              "VALUES (?, ?, ?, ?, ?, ?, ?)", (kind, ref, summary, body, reviewer, AWAITING, now()))
+        self.db.commit()
+        self.audit(f"{kind} submitted for review", f"#{cur.lastrowid} {ref}: {summary} -> {reviewer}")
+        return {"submitted": True, "review_id": cur.lastrowid, "status": f"{AWAITING} by {reviewer}",
+                "note": f"Nothing takes effect until {reviewer} approves it. You cannot approve, send or apply it."}
+
+    def reviews(self, status: str | None = None) -> list[dict]:
+        return self.rows("SELECT * FROM reviews" + (" WHERE status = ?" if status else "") + " ORDER BY id",
+                         (status,) if status else ())
 
     def offer(self, ids: list[str]) -> None:
         for i in ids:
@@ -165,6 +185,34 @@ def run_turn(respond: Callable[[object], object], session: ToolSession, text: st
             return reply_text(response), steps
         response = respond(outputs)
     return "(Stopped: too many tool calls in one turn.)", steps
+
+
+def print_reviews(session: ToolSession) -> None:
+    print("\nReview queue:")
+    for r in session.reviews() or [{"id": "", "kind": "(empty)", "ref": "", "summary": "", "status": "", "reviewer": ""}]:
+        print(f"  #{r['id']} {r['kind']} {r['ref']}: {r['summary']}  [{r['status']}{' by ' + r['reviewer'] if r['reviewer'] else ''}]")
+
+
+def review(spec: "AgentSpec") -> None:
+    """The person's side of the queue: read each item the agent submitted, then approve or reject it."""
+    path = DATA / f"{spec.key}.db"
+    if not path.exists():
+        sys.exit(f"No database yet: run python run.py {spec.key} chat first.")
+    session = spec.session(path)
+    waiting = session.reviews(AWAITING)
+    if not waiting:
+        print("Nothing is waiting for review.")
+    for r in waiting:
+        print(f"\n#{r['id']} {r['kind']} for {r['ref']}, submitted {r['created']}, for {r['reviewer']}\n{r['summary']}\n")
+        print(r["body"])
+        choice = input("\n[a]pprove, [r]eject or [s]kip? ").strip().lower()[:1]
+        if choice in ("a", "r"):
+            status = "approved" if choice == "a" else "rejected"
+            note = input("Note (optional): ").strip()
+            session.db.execute("UPDATE reviews SET status = ?, decided = ?, note = ? WHERE id = ?",
+                               (status, now(), note, r["id"]))
+            session.audit(f"{r['kind']} {status} by a person", f"#{r['id']} {note}")
+            print(f"#{r['id']} {status}.")
 
 
 def print_step(step: dict) -> None:

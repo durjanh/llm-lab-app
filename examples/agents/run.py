@@ -1,15 +1,18 @@
-"""Run the example agents: SalesDesk, ResearchDesk and DayPlanner, each a Microsoft Foundry prompt agent.
+"""Run the example agents, each a Microsoft Foundry prompt agent: SalesDesk, ResearchDesk and DayPlanner, and the
+five intended uses from the Agent Service's Transparency Note: OrientationDesk, GiftGuide, CityDesk, LessonFinder
+and StockWatch.
 
     python run.py sales create        # save the agent (and any documents) in your Foundry project
     python run.py sales chat          # talk to it; every tool call is shown
     python run.py sales test          # its checked cases, each on a fresh database
     python run.py sales test 2 4      # only cases 2 and 4
     python run.py sales records       # what is in its database now
+    python run.py city review         # approve or reject what the agent submitted: you are the reviewer
     python run.py sales reset         # a fresh database
     python run.py sales delete        # remove it from Foundry
     python run.py all create|test|delete
 
-Agents: sales, research, planner. Reads FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL from the lab's .env; sign in with
+Agents: sales, research, planner, orientation, gifts, city, lesson, stock. Reads FOUNDRY_PROJECT_ENDPOINT and FOUNDRY_MODEL from the lab's .env; sign in with
 `az login`.
 """
 from __future__ import annotations
@@ -17,21 +20,29 @@ from __future__ import annotations
 import argparse
 
 import agentkit
+import city_agent
+import gift_agent
+import lesson_agent
+import orientation_agent
 import planner_agent
 import research_agent
 import sales_agent
+import stock_agent
 
-AGENTS = {"sales": sales_agent.SPEC, "research": research_agent.SPEC, "planner": planner_agent.SPEC}
+AGENTS = {"sales": sales_agent.SPEC, "research": research_agent.SPEC, "planner": planner_agent.SPEC,
+          # the five intended uses in Microsoft's Transparency Note for the Agent Service
+          "orientation": orientation_agent.SPEC, "gifts": gift_agent.SPEC, "city": city_agent.SPEC,
+          "lesson": lesson_agent.SPEC, "stock": stock_agent.SPEC}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("agent", choices=[*AGENTS, "all"])
-    parser.add_argument("command", choices=["create", "chat", "test", "records", "reset", "delete"])
+    parser.add_argument("command", choices=["create", "chat", "test", "records", "review", "reset", "delete"])
     parser.add_argument("cases", nargs="*", type=int, help="test only these case numbers")
     args = parser.parse_args()
     specs = list(AGENTS.values()) if args.agent == "all" else [AGENTS[args.agent]]
-    if args.agent == "all" and args.command in ("chat", "records", "reset"):
+    if args.agent == "all" and args.command in ("chat", "records", "review", "reset"):
         parser.error(f"{args.command} works on one agent at a time")
     totals = []
     for spec in specs:
@@ -46,6 +57,8 @@ def main() -> None:
             if not path.exists():
                 spec.create_database(path)
             spec.records(path)
+        elif args.command == "review":
+            agentkit.review(spec)
         elif args.command == "reset":
             spec.create_database(path)
             print(f"New database at {path}")

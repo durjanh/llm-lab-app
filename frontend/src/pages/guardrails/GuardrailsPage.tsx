@@ -12,6 +12,7 @@ import {
   type Shield,
 } from '@/services';
 import { Chips, Marked, Panel, Problem, readFile, useCall, usd } from '@/pages/ai103/shared';
+import UseCases from './UseCases';
 
 const KIND = {
   moderation: 'Harm categories',
@@ -575,6 +576,8 @@ export default function GuardrailsPage() {
         )}
       </Panel>
 
+      <UseCases />
+
       <h2>What this covers in AI-103</h2>
       <div className="az-table-wrap">
         <table className="az-table">
@@ -616,12 +619,20 @@ export default function GuardrailsPage() {
               <td>Govern agent behaviour with oversight modes and approval flows</td>
               <td>6: block, review or send, decided in code</td>
             </tr>
+            <tr>
+              <td>Implement responsible AI across generative AI and agentic systems: intended and supported uses</td>
+              <td>9: sort scenarios against the Agent Service&apos;s Transparency Note</td>
+            </tr>
           </tbody>
         </table>
       </div>
 
       <h2>What to take away</h2>
       <ul>
+        <li>
+          Choose the use case first. An agent that gathers, drafts or recommends while a person decides is a supported
+          use; one that diagnoses, gives legal advice or decides on credit or jobs is not, whatever guardrails it has.
+        </li>
         <li>
           Content Safety returns scores, not decisions. The threshold is a product choice. Measure it on your own cases
           before you set it.

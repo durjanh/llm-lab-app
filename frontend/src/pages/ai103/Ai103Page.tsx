@@ -151,6 +151,7 @@ const AREAS: Area[] = [
               ['Aftercare (rules in code)', '/aftercare'],
               ['MCP servers (gated writes)', '/mcp'],
               ['Coding agent: permission modes, deny rules, sandbox', CODE],
+              ['Guardrails: supported uses', `${G}#use-cases`],
             ],
           },
         ],
