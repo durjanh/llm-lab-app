@@ -19,7 +19,7 @@ The lab itself still runs on your machine (`python -m backend`). Hosting the bac
 ```sh
 azd config set auth.useAzCliAuth true    # once: azd uses your az login, the same account the hooks use
 azd auth login --check-status            # or: az login
-azd up                                    # asks for an environment name (e.g. llm-lab) and the subscription
+azd up                                    # asks for an environment name (e.g. lab: not llm-lab, which is the hand-made group) and the subscription
 ```
 
 It takes about ten minutes. The hooks then:
