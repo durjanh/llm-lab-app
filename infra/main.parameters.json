@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "${AZURE_ENV_NAME}" },
+    "location": { "value": "${AZURE_LOCATION=uksouth}" },
+    "mediaLocation": { "value": "${AZURE_MEDIA_LOCATION=swedencentral}" },
+    "principalId": { "value": "${LAB_PRINCIPAL_ID}" },
+    "principalType": { "value": "${LAB_PRINCIPAL_TYPE=User}" },
+    "pipelinePrincipalId": { "value": "${LAB_PIPELINE_PRINCIPAL_ID=}" },
+    "sandboxAppId": { "value": "${SANDBOX_APP_ID=}" },
+    "sandboxImage": { "value": "${SANDBOX_IMAGE=ghcr.io/durjanh/coding-sandbox:1}" },
+    "searchSku": { "value": "${AZURE_SEARCH_SKU=free}" },
+    "speechSku": { "value": "${AZURE_SPEECH_SKU=S0}" }
+  }
+}

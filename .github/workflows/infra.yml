@@ -1,0 +1,84 @@
+# The lab's Azure resources as a pipeline: check the Bicep on every pull request; on main, show what would change,
+# provision with azd and gate on an evaluation. Set up once with infra/pipeline.sh, after a first `azd up`.
+#
+# Sign-in is OpenID Connect: GitHub issues a token for this run, Entra trusts tokens for main only, and no secret is
+# stored. The pipeline's roles let it deploy the template and grant the lab's own roles, nothing wider.
+name: infra
+
+on:
+  pull_request:
+    paths: [infra/**, azure.yaml, examples/foundry-cicd/eval_gate.py, .github/workflows/infra.yml]
+  push:
+    branches: [main]
+    paths: [infra/**, azure.yaml, examples/foundry-cicd/eval_gate.py, .github/workflows/infra.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # A pull request gets no Azure sign-in, so a branch cannot reach the subscription. Reviewing it is the approval.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The Bicep compiles
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+      - name: The hooks parse
+        run: |
+          for f in infra/hooks/*.sh; do sh -n "$f"; done
+          bash -n infra/pipeline.sh examples/coding-sandbox/app-registration.sh
+
+  provision:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets the run ask GitHub for its OpenID Connect token
+    concurrency:
+      group: infra-${{ vars.AZURE_ENV_NAME }}
+      cancel-in-progress: false # never stop a deployment half way
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_MEDIA_LOCATION: ${{ vars.AZURE_MEDIA_LOCATION }}
+      AZURE_SEARCH_SKU: ${{ vars.AZURE_SEARCH_SKU }}
+      AZURE_SPEECH_SKU: ${{ vars.AZURE_SPEECH_SKU }}
+      SANDBOX_APP_ID: ${{ vars.SANDBOX_APP_ID }}
+      SANDBOX_IMAGE: ${{ vars.SANDBOX_IMAGE }}
+      LAB_PRINCIPAL_ID: ${{ vars.LAB_PRINCIPAL_ID }}
+      LAB_PIPELINE_PRINCIPAL_ID: ${{ vars.LAB_PIPELINE_PRINCIPAL_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Azure (for az, which the hooks use)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: Azure/setup-azd@v2
+
+      - name: Sign in to Azure (for azd)
+        run: azd auth login --client-id "$AZURE_CLIENT_ID" --tenant-id "$AZURE_TENANT_ID" --federated-credential-provider github
+
+      - name: What would change
+        run: azd provision --preview --no-prompt
+
+      - name: Provision
+        run: azd provision --no-prompt
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Evaluation gate
+        run: |
+          pip install --quiet httpx azure-identity
+          python examples/foundry-cicd/eval_gate.py --endpoint "$(azd env get-value AZURE_OPENAI_ENDPOINT)" \
+            --deployment gpt-5.4-mini --min-groundedness 4.0 --min-relevance 4.0 --wait-for-access 600

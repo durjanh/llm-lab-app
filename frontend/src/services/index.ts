@@ -198,3 +198,14 @@ export {
   type Viewer as DataViewer,
   type Viz,
 } from './dataagentService';
+export {
+  CodingService,
+  codingService,
+  type CodingEvent,
+  type CodingInfo,
+  type CodingMode,
+  type CodingState,
+  type CodingWorkspace,
+  type ShotImage,
+  type Todo as CodingTodo,
+} from './codingService';

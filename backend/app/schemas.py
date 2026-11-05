@@ -325,6 +325,25 @@ class ApproveRequest(BaseModel):
     allow: bool
 
 
+class CodingRun(BaseModel):
+    """A request for the coding agent. Without a session_id, it starts on a fresh copy of the project. The model is
+    a Claude model or a GPT deployment (gpt-...); the service checks the deployment exists."""
+    model: str | None = Field(default=None, pattern=r"^(claude-[a-z0-9-]+|gpt-[A-Za-z0-9.\-]+)$", max_length=60)
+    prompt: str = Field(min_length=1, max_length=4000)
+    session_id: str | None = Field(default=None, max_length=40)
+    mode: Literal["default", "accept_edits", "plan", "bypass", "auto"] = "default"
+
+
+class CodingSession(BaseModel):
+    workspace: Literal["practice", "files"] = "practice"
+
+
+class CodingSdkRun(ModelChoice):
+    """The same request for the Agent SDK version, which always starts on a fresh copy."""
+    prompt: str = Field(min_length=1, max_length=4000)
+    mode: Literal["default", "accept_edits", "plan", "bypass", "auto"] = "default"
+
+
 class SkillsRequest(ModelChoice):
     skill: Literal["xlsx", "pptx", "docx", "pdf"] = "xlsx"
     upto: int = Field(20, ge=2, le=200)

@@ -10,7 +10,9 @@ const G = '/guardrails',
   IMG = '/image-generation',
   SRCH = '/search-pipeline',
   TR = '/translation-speech',
-  OPS = '/foundry-operations';
+  OPS = '/foundry-operations',
+  CODE = '/coding-agent',
+  DATA = '/data-agent';
 
 /** The study guide's skills measured as of 16 April 2026, each mapped to where the lab lets you practise it. */
 const AREAS: Area[] = [
@@ -52,6 +54,7 @@ const AREAS: Area[] = [
               ['MedAssist (File Search, Code Interpreter)', '/medassist'],
               ['Context engineering', '/context-engineering'],
               ['MCP servers', '/mcp'],
+              ['Data agent (a semantic model as knowledge)', DATA],
             ],
           },
         ],
@@ -64,7 +67,9 @@ const AREAS: Area[] = [
             labs: [
               ['Foundry operations', OPS],
               ['Rate limits and resilience', '/resilience'],
+              ['Coding agent: the sandbox in Container Apps', CODE],
             ],
+            note: 'infra/ in the repository: azd up builds every resource the lab uses in one resource group, and azd down removes it.',
           },
           { skill: 'Choose deployment options', labs: [['Foundry operations: deployment types', OPS]] },
           {
@@ -73,12 +78,13 @@ const AREAS: Area[] = [
               ['Foundry operations: live deployments and Bicep', OPS],
               ['MedAssist (agent versions)', '/medassist'],
             ],
+            note: 'infra/resources.bicep: capacity, version policy and guardrail for each deployment.',
           },
           {
             skill: 'Integrate Foundry projects with CI/CD pipelines',
-            labs: [['Foundry operations: workflow, Bicep, gate', OPS]],
+            labs: [['Foundry operations: the pipeline', OPS]],
             status: 'explained',
-            note: 'Bicep and the gate run here; the GitHub workflow is written, not run.',
+            note: '.github/workflows/infra.yml runs azd provision and then the evaluation gate, signed in with OpenID Connect; infra/pipeline.sh sets it up. The gate and what-if run here; the workflow has not had its first run in GitHub yet.',
           },
         ],
       },
@@ -106,8 +112,11 @@ const AREAS: Area[] = [
           },
           {
             skill: 'Configure security: managed identity, private networking, keyless credentials, role policies',
-            labs: [['Foundry operations: security posture', OPS]],
-            note: 'Every Azure call in the lab is keyless.',
+            labs: [
+              ['Foundry operations: security posture', OPS],
+              ['Coding agent: the sandbox sign-in', CODE],
+            ],
+            note: "Every Azure call in the lab is keyless. infra/ switches key sign-in off on every resource, grants data-plane roles, and lets the pipeline grant only the lab's roles, by a role-assignment condition.",
           },
         ],
       },
@@ -140,6 +149,7 @@ const AREAS: Area[] = [
               ['Harness', '/harness'],
               ['Aftercare (rules in code)', '/aftercare'],
               ['MCP servers (gated writes)', '/mcp'],
+              ['Coding agent: permission modes, deny rules, sandbox', CODE],
             ],
           },
         ],
@@ -158,6 +168,7 @@ const AREAS: Area[] = [
             labs: [
               ['Foundry operations', OPS],
               ['Content Understanding: vision', CU],
+              ['Coding agent (Claude or a GPT deployment)', CODE],
             ],
           },
           {
@@ -222,6 +233,7 @@ const AREAS: Area[] = [
               ['MCP servers', '/mcp'],
               ['Search pipeline', SRCH],
               ['Content Understanding', CU],
+              ['Data agent (read-only SQL)', DATA],
             ],
           },
           {
@@ -237,6 +249,7 @@ const AREAS: Area[] = [
               ['Harness', '/harness'],
               ['Case handling (caseworker approval)', '/casework'],
               ['Aftercare (nurse queue)', '/aftercare'],
+              ['Coding agent: auto mode and the Stop check', CODE],
             ],
           },
           {
@@ -275,6 +288,7 @@ const AREAS: Area[] = [
             labs: [
               ['Model routing', '/routing'],
               ['Aftercare (rules in code)', '/aftercare'],
+              ['Data agent (a model picks fields, code builds the SQL)', DATA],
             ],
           },
         ],
@@ -310,7 +324,13 @@ const AREAS: Area[] = [
       {
         title: 'Design and implement multimodal understanding workflows',
         skills: [
-          { skill: 'Analyse visual context with multimodal models', labs: [['Content Understanding: vision', CU]] },
+          {
+            skill: 'Analyse visual context with multimodal models',
+            labs: [
+              ['Content Understanding: vision', CU],
+              ['Coding agent: screenshots of its own work', CODE],
+            ],
+          },
           {
             skill: 'Concise or detailed captions for one or several images',
             labs: [['Content Understanding: vision', CU]],

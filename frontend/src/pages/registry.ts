@@ -123,6 +123,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./harness/HarnessPage')),
   },
   {
+    id: 'coding',
+    path: '/coding-agent',
+    title: 'Coding Agent',
+    label: 'Coding agent',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./coding/CodingAgentPage')),
+  },
+  {
     id: 'decks',
     path: '/decks',
     title: 'Deck Builder',

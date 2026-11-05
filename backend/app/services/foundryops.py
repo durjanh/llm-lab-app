@@ -48,6 +48,8 @@ JUDGE_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["g
                                "reason": {"type": "string", "description": "one sentence"}}}
 GATE = {"groundedness": 4.0, "relevance": 4.0, "coherence": 4.0, "f1": 0.3}
 CICD_DIR = ROOT / "examples" / "foundry-cicd"
+# The pipeline the lab runs itself: azd provision, then the gate (set up with infra/pipeline.sh).
+CICD_FILES = [ROOT / ".github" / "workflows" / "infra.yml", ROOT / "infra" / "pipeline.sh"]
 
 
 def f1(response: str, reference: str) -> float:
@@ -76,8 +78,8 @@ class FoundryOpsService:
         return [r for r in (t.resource_id, t.media_resource_id) if r]
 
     def info(self) -> dict[str, Any]:
-        files = {p.name: p.read_text() for p in sorted(CICD_DIR.glob("*")) if p.is_file() and p.suffix in (".yml", ".bicep", ".py")} \
-            if CICD_DIR.exists() else {}
+        examples = sorted(CICD_DIR.glob("*")) if CICD_DIR.exists() else []
+        files = {p.name: p.read_text() for p in CICD_FILES + examples if p.is_file() and p.suffix in (".yml", ".sh", ".bicep", ".py")}
         return {"configured": self.tools is not None and bool(self.tools.resource_id), "deployment_types": DEPLOYMENT_TYPES,
                 "gate": GATE, "eval_cases": len(EVAL_SET), "metrics": METRICS, "cicd": files}
 

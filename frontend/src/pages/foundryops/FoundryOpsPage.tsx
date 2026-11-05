@@ -417,11 +417,14 @@ export default function FoundryOpsPage() {
 
       <Panel title="8. CI/CD: deployments as code, and the gate in the pipeline">
         <p className="small">
-          <code>examples/foundry-cicd/</code>: the deployments as Bicep (capacity, version policy and guardrail in one
-          reviewed file), a GitHub Actions workflow that signs in with OpenID Connect, runs <code>what-if</code>,
-          deploys and runs the evaluation gate, and the gate as a script. Checked here: the Bicep compiles,{' '}
-          <code>what-if</code> against this resource group shows the two deployments and nothing to delete, and the gate
-          passes locally.
+          The lab's own pipeline, <code>.github/workflows/infra.yml</code>. A pull request only checks the Bicep
+          compiles: it gets no Azure sign-in. On main it signs in with OpenID Connect (no secret), shows what would
+          change, runs <code>azd provision</code> and then the evaluation gate, which fails the run below its
+          thresholds. <code>infra/pipeline.sh</code> sets it up: an app registration that trusts tokens for main only,
+          Contributor on the subscription, and the right to grant only the lab's own roles, only on its resource group.
+          The deployments themselves, with capacity, version policy and guardrail, are in{' '}
+          <code>infra/resources.bicep</code>; <code>deployments.bicep</code> is the same idea for an account that
+          already exists.
         </p>
         {info &&
           Object.entries(info.cicd).map(([name, text]) => (
