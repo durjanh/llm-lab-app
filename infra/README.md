@@ -10,7 +10,7 @@
 | Azure AI Search (free) | The case-handling lab, which makes its index on first use |
 | A Container Apps environment, and the coding sandbox container app from `ghcr.io/durjanh/coding-sandbox:1`, scaled to zero, with Entra sign-in | The coding agent's auto mode, run in the cloud |
 | The app registration `llm-lab-coding-sandbox-<env>` (made by a hook, because Entra objects are not in a resource group) | The sandbox's sign-in |
-| Roles for you: Cognitive Services OpenAI User, Speech User and User, Foundry User, Search Index Data Contributor, Search Service Contributor, and Reader on the group | The labs' data-plane calls. Owner alone does not grant these. |
+| Roles for you: Cognitive Services OpenAI User, Speech User, Speech Contributor (custom speech) and User, Foundry User, Search Index Data Contributor, Search Service Contributor, and Reader on the group | The labs' data-plane calls. Owner alone does not grant these. |
 
 The lab itself still runs on your machine (`python -m backend`). Hosting the backend in Azure is a separate step: the API only answers pages served from localhost.
 
@@ -57,7 +57,7 @@ It signs in with OpenID Connect: GitHub issues a token for each run, and Entra t
 | Role | Where | Why |
 |---|---|---|
 | Contributor | The subscription | The template creates the resource group. Contributor cannot grant access to anyone. |
-| Role Based Access Control Administrator, with a condition | The lab's resource group | The template grants roles. The condition allows only the lab's seven roles, only to you or the pipeline, so a changed template cannot make anyone an Owner. |
+| Role Based Access Control Administrator, with a condition | The lab's resource group | The template grants roles. The condition allows only the lab's nine roles, only to you, the pipeline or the Foundry project's identity, so a changed template cannot make anyone an Owner. |
 | Cognitive Services OpenAI User | The AI account (from the Bicep, `LAB_PIPELINE_PRINCIPAL_ID`) | The gate calls `gpt-5.4-mini`. |
 
 In the pipeline the hooks do not touch Entra or `.env`. The sandbox's app registration and your object id come from repository variables (`SANDBOX_APP_ID`, `LAB_PRINCIPAL_ID`), so the roles still go to you, not to the pipeline. azd fills `AZURE_PRINCIPAL_ID` with whoever is signed in, which is why the lab uses its own `LAB_PRINCIPAL_ID`.

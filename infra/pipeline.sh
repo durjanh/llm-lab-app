@@ -39,7 +39,8 @@ fi
 [[ -n "$REPO" ]] || { echo "Sign the GitHub CLI in first: gh auth login" >&2; exit 1; }
 RG=$(value AZURE_RESOURCE_GROUP)
 ME=$(value LAB_PRINCIPAL_ID)
-[[ -n "$RG" && -n "$ME" ]] || { echo "This azd environment has not been provisioned: run azd up first." >&2; exit 1; }
+PROJECT_MI=$(value FOUNDRY_PROJECT_PRINCIPAL_ID)  # the template gives the project's identity its search roles
+[[ -n "$RG" && -n "$ME" && -n "$PROJECT_MI" ]] || { echo "This azd environment has not been provisioned: run azd up first." >&2; exit 1; }
 TENANT=$(az account show --query tenantId -o tsv)
 
 # 1. The pipeline's identity: an app registration and its service principal.
@@ -58,8 +59,9 @@ if [[ -z "$(az ad app federated-credential list --id "$APP_ID" --query "[?subjec
 fi
 
 # 3. Roles. Contributor on the subscription, because the template makes the resource group; Contributor cannot
-#    grant access. Granting is a separate role, on the lab's group only, with a condition: only the lab's seven
-#    roles, and only to you or the pipeline. So a changed template cannot make anyone else an Owner.
+#    grant access. Granting is a separate role, on the lab's group only, with a condition: only the lab's nine
+#    roles, and only to you, the pipeline or the Foundry project's identity. So a changed template cannot make
+#    anyone else an Owner.
 grant() {  # role, scope, [condition]
   if [[ -z "$(az role assignment list --assignee "$SP" --role "$1" --scope "$2" --query "[0].id" -o tsv)" ]]; then
     az role assignment create --assignee-object-id "$SP" --assignee-principal-type ServicePrincipal \
@@ -68,10 +70,12 @@ grant() {  # role, scope, [condition]
 }
 LAB_ROLES="5e0bd9bd-7b93-4f28-af87-19fc36ad61bd, f2dc8367-1007-4938-bd23-fe263f013447, a97b65f3-24c7-4388-baec-2e87135dc908,\
  53ca6127-db72-4b80-b1b0-d745d6d5456d, 8ebe5a00-799e-43f5-93ac-243d3dce84a7, 7ca78c08-252a-4471-8644-bb5ff32d4ba0,\
- acdd72a7-3385-48ef-bd42-f606fba81ae7"
+ acdd72a7-3385-48ef-bd42-f606fba81ae7,\
+ 0e75ca1e-0464-4b4d-8b93-68208a576181,\
+ 1407120a-92aa-4202-b7e9-c0e197c71c8f"
 CONDITION="((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR \
 (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$LAB_ROLES} \
-AND @Request[Microsoft.Authorization/roleAssignments:PrincipalId] ForAnyOfAnyValues:GuidEquals {$ME, $SP})) \
+AND @Request[Microsoft.Authorization/roleAssignments:PrincipalId] ForAnyOfAnyValues:GuidEquals {$ME, $SP, $PROJECT_MI})) \
 AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR \
 (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$LAB_ROLES}))"
 grant Contributor "/subscriptions/$SUB"

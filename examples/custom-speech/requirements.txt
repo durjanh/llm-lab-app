@@ -1,0 +1,4 @@
+azure-cognitiveservices-speech   # synthesising the test calls, and real-time recognition (base, phrase list, endpoint)
+azure-identity                   # Entra sign-in (az login); no Speech key
+httpx                            # the speech-to-text REST API: datasets, models, evaluations, endpoints
+python-dotenv                    # reads the lab's .env
