@@ -7,7 +7,7 @@ from collections.abc import Iterator
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import DEFAULT_MODEL, skills_script as K
+from ..shared import CLAUDE_MODEL, skills_script as K
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
@@ -33,7 +33,7 @@ class SkillsService:
         self.claude, self.spend, self.streamer, self.files = claude, spend, streamer, files
 
     def run(self, skill: str, upto: int, model: str | None) -> Iterator[str]:
-        model = model or DEFAULT_MODEL
+        model = model or CLAUDE_MODEL  # skills run in Anthropic's code execution container
         task = K.TASKS[skill].format(upto=upto)
         skills = [{"type": "anthropic", "skill_id": skill, "version": "latest"}]
         run = Run()

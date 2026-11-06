@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sitesService, type SiteFile } from '@/services';
+import { modelName, modelNameStart } from '@/lib/models';
 import type { LiveFile } from './useSiteChat';
 
 type Tab = 'preview' | 'code';
@@ -12,7 +13,8 @@ interface Props {
   live: LiveFile | null;
   drafts: Record<string, string>; // written in this response, saved when it ends
   version: number;
-  following: boolean; // switch tabs to follow Claude, until you pick one yourself
+  following: boolean; // switch tabs to follow the model, until you pick one yourself
+  model: string; // named in the messages while it writes
   onTakeOver: () => void;
 }
 
@@ -20,7 +22,7 @@ interface Props {
  * The right-hand side: the site in a sandboxed frame, and its code. While Claude works it follows
  * along: the code tab shows each file as it is written, and the preview returns once it is saved.
  */
-export function Workspace({ siteId, title, files, live, drafts, version, following, onTakeOver }: Props) {
+export function Workspace({ siteId, title, files, live, drafts, version, following, model, onTakeOver }: Props) {
   const [tab, setTab] = useState<Tab>('preview');
   const [device, setDevice] = useState<keyof typeof DEVICES>('desktop');
   const [selected, setSelected] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function Workspace({ siteId, title, files, live, drafts, version, followi
           {(['preview', 'code'] as const).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => choose(t)}>
               {t === 'preview' ? 'Preview' : 'Code'}
-              {t === 'code' && live && <span className="sb-dot" title="Claude is writing" />}
+              {t === 'code' && live && <span className="sb-dot" title={`${modelNameStart(model)} is writing`} />}
             </button>
           ))}
         </div>
@@ -123,7 +125,7 @@ export function Workspace({ siteId, title, files, live, drafts, version, followi
               style={{ width: DEVICES[device] }}
             />
           ) : (
-            <p className="muted sb-empty">Your site appears here as Claude writes it.</p>
+            <p className="muted sb-empty">Your site appears here as {modelName(model)} writes it.</p>
           )}
         </div>
       ) : (
@@ -139,7 +141,7 @@ export function Workspace({ siteId, title, files, live, drafts, version, followi
                   }}
                 >
                   {f.path}
-                  {live?.path === f.path && <span className="sb-dot" title="Claude is writing this file" />}
+                  {live?.path === f.path && <span className="sb-dot" title={`${modelNameStart(model)} is writing this file`} />}
                 </button>
               </li>
             ))}
@@ -148,8 +150,8 @@ export function Workspace({ siteId, title, files, live, drafts, version, followi
           <div className="sb-viewer">
             <div className="small muted sb-viewer-head">
               {selected ?? live?.path ?? 'Pick a file'}
-              {showingLive && ` · Claude is ${live.tool === 'edit_file' ? 'writing an edit to' : 'writing'} this file…`}
-              {draft !== undefined && ' · written, saved when Claude finishes this response'}
+              {showingLive && ` · ${modelNameStart(model)} is ${live.tool === 'edit_file' ? 'writing an edit to' : 'writing'} this file…`}
+              {draft !== undefined && ` · written, saved when ${modelName(model)} finishes this response`}
             </div>
             <pre ref={codeBox}>
               <code>{shown}</code>

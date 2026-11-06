@@ -52,7 +52,7 @@ The site builder writes into `sites/<id>/site/` through file tools confined to t
 ## Conventions
 
 - Writing on pages, in docs and in code comments is plain British English: short sentences, says what something does and why, no marketing tone. Match the existing docstring style (a one-line summary that explains intent).
-- Claude model ids are `claude-haiku-5-5` (default), `claude-sonnet-5-5` and `claude-opus-5-5`; the backend rejects any other model.
+- Claude model ids are `claude-haiku-5-5` (default), `claude-sonnet-5-5` and `claude-opus-5-5`; the backend rejects any other model. With `LLM_LAB_LOCAL_MODEL` set, an open model in Docker Model Runner (`tools/local-model.sh`) is also accepted and becomes `DEFAULT_MODEL`. `python/local_model.py`'s `LabClient` (from `make_client()`) sends its requests to the local server's Anthropic-compatible API and refuses Claude-only features (server tools, files, containers, PDFs, MCP) with `LocalUnsupported`. Work that needs those defaults to `CLAUDE_MODEL`, and its pages offer `claude_models` from the status. `backend/tests/conftest.py` clears the local model, so tests always see Claude defaults.
 - Azure resources are keyless (Entra sign-in through `az login`); don't add key-based paths except where one already exists (Azure Speech).
 - `python/analysis_project/` is the coding agent's empty workspace for a person's own files (`inputs/`, `outputs/`, its own `CLAUDE.example.md`); `python/analysis_samples/` holds an invented workbook to try it with.
 - `python/coding_project/` is the coding agent's practice project. Its bugs and failing tests are deliberate; leave them. Its instructions are `CLAUDE.example.md`, renamed to `CLAUDE.md` only in the copies the agent works on.

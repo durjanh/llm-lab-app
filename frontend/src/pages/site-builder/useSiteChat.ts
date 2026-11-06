@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { modelName } from '@/lib/models';
 import { ApiError, sitesService, type SiteEvent, type SiteFile, type SiteShot } from '@/services';
 
 export interface Step {
@@ -30,14 +31,14 @@ export interface LiveFile {
 const addStep = (t: Turn, step: Step): Turn => ({ ...t, steps: [...t.steps, step] });
 
 /** How one event changes the turn it belongs to. Files and the live code are kept outside the turns. */
-function apply(t: Turn, ev: SiteEvent): Turn {
+function apply(t: Turn, ev: SiteEvent, model: string): Turn {
   switch (ev.type) {
     case 'text':
       return { ...t, draft: t.draft + ev.text };
     case 'request': {
       const said = t.draft.trim();
       return {
-        ...addStep(t, { kind: 'request', text: `Request ${ev.turn} to Claude · stop_reason ${ev.stop_reason}`, detail: ev.usage }),
+        ...addStep(t, { kind: 'request', text: `Request ${ev.turn} to ${modelName(model)} · stop_reason ${ev.stop_reason}`, detail: ev.usage }),
         draft: '',
         reply: said || t.reply,
       };
@@ -53,7 +54,7 @@ function apply(t: Turn, ev: SiteEvent): Turn {
     case 'check':
       return addStep(t, {
         kind: 'check',
-        text: ev.shots.length ? `Check ${ev.round}: showed Claude ${ev.shots.length} screenshots` : `Check ${ev.round}: skipped`,
+        text: ev.shots.length ? `Check ${ev.round}: showed ${modelName(model)} ${ev.shots.length} screenshots` : `Check ${ev.round}: skipped`,
         detail: ev.text ?? (ev.errors?.length ? `Console errors:\n${ev.errors.join('\n')}` : 'No console errors.'),
         shots: ev.shots,
       });
@@ -152,7 +153,7 @@ export function useSiteChat(model: string) {
             setLive(null);
             setDrafts({});
           }
-          update(id, (t) => apply(t, ev));
+          update(id, (t) => apply(t, ev, model));
         }, c.signal);
         update(id, (t) => (t.state === 'running' ? { ...t, state: 'done' } : t));
       } catch (err) {

@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 import anthropic
 
-from ..shared import DEFAULT_MODEL, create, stream
+from ..shared import CLAUDE_MODEL, create, stream
 
 
 class MessageSender(Protocol):
@@ -48,7 +48,7 @@ class ClaudeGateway:
         """Checked once, with a metadata call that generates nothing."""
         if self._has_credentials is None:
             try:
-                self.client.models.retrieve(DEFAULT_MODEL)
+                self.client.models.retrieve(CLAUDE_MODEL)
                 self._has_credentials = True
             except anthropic.AuthenticationError:
                 self._has_credentials = False

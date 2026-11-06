@@ -5,6 +5,9 @@ Anthropic's server-side refusal fallbacks: if the requested model declines a
 request on safety grounds, the API re-runs it on a recommended fallback model
 instead of returning the refusal. Claude Haiku 5.5 has no server-side fallback,
 so its requests use the standard endpoint.
+
+With LLM_LAB_LOCAL_MODEL set, an open model on this machine is the default model, and make_client() returns a client
+that sends its requests to the local server (local_model.py). Work only Claude can do uses CLAUDE_MODEL.
 """
 from __future__ import annotations
 
@@ -15,9 +18,11 @@ from typing import Any, Callable
 
 import anthropic
 
+from local_model import LOCAL_MODEL, LOCAL_PRICE, LabClient, LocalUnavailable, LocalUnsupported, is_local
 from settings import ENV  # loads .env
 
-DEFAULT_MODEL = ENV.model
+CLAUDE_MODEL = ENV.model  # the default for work that needs Claude (server tools, files, skills, code execution)
+DEFAULT_MODEL = LOCAL_MODEL or CLAUDE_MODEL  # the default everywhere else
 
 # Models that accept fallbacks="default" on the Claude API.
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5"}
@@ -44,6 +49,8 @@ GPT_PRICES: dict[str, dict[str, float]] = {
 }
 IMAGE_INPUT_PRICE_PER_M = 10.00
 PRICES.update(GPT_PRICES)
+if LOCAL_MODEL:
+    PRICES[LOCAL_MODEL] = LOCAL_PRICE  # runs on this machine: no charge per token
 CACHE_WRITE_MULTIPLIER = 1.25  # 5-minute cache entries
 # Azure Language in Foundry Tools, Standard tier, first 500,000 text records a month, from the Azure retail price list
 # (UK South). Each feature bills one text record per started 1,000 characters of each document.
@@ -65,8 +72,9 @@ class Refused(RuntimeError):
 
 
 def make_client() -> anthropic.Anthropic:
-    # Reads ANTHROPIC_API_KEY, or a profile created with `ant auth login`.
-    return anthropic.Anthropic()
+    # Reads ANTHROPIC_API_KEY, or a profile created with `ant auth login`. Requests for the local model, if one is
+    # configured, go to the local server instead.
+    return LabClient(anthropic.Anthropic()) if LOCAL_MODEL else anthropic.Anthropic()
 
 
 def fallback_params(model: str) -> dict[str, Any]:
@@ -156,8 +164,11 @@ def proportion_ci(successes: int, n: int, z: float = 1.96) -> tuple[float, float
     return max(0.0, centre - half), min(1.0, centre + half)
 
 
-def model_argument(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Claude model id (default: {DEFAULT_MODEL})")
+def model_argument(parser: argparse.ArgumentParser, claude_only: bool = False) -> None:
+    """--model. A script that needs something only Claude has passes claude_only, and defaults to CLAUDE_MODEL."""
+    default = CLAUDE_MODEL if claude_only else DEFAULT_MODEL
+    what = "Claude model id" if claude_only else "model id: a Claude model, or the local model"
+    parser.add_argument("--model", default=default, help=f"{what} (default: {default})")
 
 
 def run(main: Callable[[], None]) -> None:
@@ -167,6 +178,9 @@ def run(main: Callable[[], None]) -> None:
     except Refused as exc:
         print(exc, file=sys.stderr)
         sys.exit(2)
+    except (LocalUnsupported, LocalUnavailable) as exc:
+        print(exc, file=sys.stderr)
+        sys.exit(1)
     except anthropic.AuthenticationError:
         print("Authentication failed. Check ANTHROPIC_API_KEY, or run `ant auth login`.", file=sys.stderr)
         sys.exit(1)

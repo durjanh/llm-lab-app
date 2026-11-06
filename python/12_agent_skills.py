@@ -163,7 +163,7 @@ def main() -> None:
     parser.add_argument("--cleanup", action="store_true", help="delete the custom skill when finished")
     parser.add_argument("--out", type=Path, default=Path("skill_outputs"), help="folder for the files Claude makes")
     parser.add_argument("--max-continuations", type=int, default=5, help="how often to resume a paused turn")
-    model_argument(parser)
+    model_argument(parser, claude_only=True)
     args = parser.parse_args()
     client = make_client()
 

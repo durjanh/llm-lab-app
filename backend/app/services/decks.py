@@ -25,7 +25,7 @@ from pathlib import Path
 
 from ..core.errors import ApiError
 from ..gateways.claude import ClaudeGateway
-from ..shared import DEFAULT_MODEL, skills_script as K
+from ..shared import CLAUDE_MODEL, skills_script as K
 from .runs import Run, RunStreamer
 from .skills import SkillsService
 from .spend import SpendTracker
@@ -199,7 +199,7 @@ class DeckService:
                 self._forget(dropped)
         if not chat.busy.acquire(blocking=False):
             raise ApiError(409, "busy", "Claude is still working on this deck. Wait for it, or press Stop.")
-        model = model or DEFAULT_MODEL
+        model = model or CLAUDE_MODEL  # skills run in Anthropic's code execution container
         run = Run()
 
         def work() -> None:

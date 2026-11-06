@@ -512,10 +512,10 @@ export function mount(root, life) {
     const el = $('#liveStatus');
     if (st && st.available && st.has_credentials) {
       live = st; $('#liveBtn').disabled = false;
-      el.textContent = `Live Claude is ready, using ${st.default_model}. Each live run makes one to three real API requests.`;
+      el.textContent = `Live runs are ready, using ${st.default_model}. Each live run makes one to three real requests to it.`;
       el.classList.add('ok');
     } else {
-      el.textContent = 'Live Claude is unavailable. ' + ((st && st.reason) || 'No reason given.');
+      el.textContent = 'Live runs are unavailable. ' + ((st && st.reason) || 'No reason given.');
     }
   }
 

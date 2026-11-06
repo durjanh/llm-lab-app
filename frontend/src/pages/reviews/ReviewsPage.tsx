@@ -8,6 +8,7 @@ import {
   type ReviewsInfo,
   type Sentiment,
 } from '@/services';
+import { modelNameStart } from '@/lib/models';
 import './reviews.css';
 
 const FEATURES: { kind: string; name: string }[] = [
@@ -181,13 +182,13 @@ function Details(props: {
       )}
       {a && !c && (
         <button className="btn" disabled={busy} onClick={props.onCompare}>
-          {busy ? 'Asking Claude…' : 'Ask Claude the same'}
+          {busy ? 'Asking the language model…' : 'Ask a language model the same'}
         </button>
       )}
       {c && (
         <div className="rv-analysis claude">
           <h4>
-            Claude <span className="muted small">{c.model}, one structured-output call</span>
+            {modelNameStart(c.model)} <span className="muted small">{c.model}, one structured-output call</span>
           </h4>
           <div className="rv-field">
             <span className="rv-label">Language</span>
@@ -765,8 +766,8 @@ export default function ReviewsPage() {
       <h2>Azure Language or a language model?</h2>
       <p>
         Microsoft is retiring sentiment analysis, opinion mining and key phrase extraction from Azure Language on 31
-        March 2029, and directs new projects to models in Microsoft Foundry. Open a few reviews and press “Ask Claude
-        the same” to compare them on the same text.
+        March 2029, and directs new projects to models in Microsoft Foundry. Open a few reviews and press “Ask a
+        language model the same” to compare them on the same text.
       </p>
       <div className="table-wrap">
         <table className="t">

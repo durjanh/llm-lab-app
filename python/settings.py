@@ -34,6 +34,13 @@ def load_dotenv() -> None:
 class EnvSettings:
     """What the environment and .env say. ANTHROPIC_API_KEY is not here: the SDK reads it itself."""
     model: str = "claude-haiku-5-5"  # LLM_LAB_MODEL: the scripts' and the backend's default Claude model
+    # LLM_LAB_LOCAL_MODEL: an open model on this machine (Docker Model Runner, or Ollama). When set, it is the default
+    # wherever the work needs nothing only Claude has; LLM_LAB_MODEL stays the default for the rest.
+    local_model: str = ""
+    # LLM_LAB_LOCAL_URL: the local server's Anthropic-compatible API, and LLM_LAB_LOCAL_OPENAI_URL its OpenAI-compatible
+    # one (used for replies that must match a JSON schema). The defaults are Docker Model Runner's on port 12434.
+    local_url: str = "http://localhost:12434/anthropic"
+    local_openai_url: str = "http://localhost:12434/engines/v1"
     # The backend. `python -m backend` sets the first two from its --port and --budget flags.
     port: int = 8000  # LLM_LAB_PORT
     budget_usd: float = 2.0  # LLM_LAB_BUDGET
@@ -71,6 +78,9 @@ class EnvSettings:
         get = env.get
         return cls(
             model=get("LLM_LAB_MODEL") or cls.model,
+            local_model=get("LLM_LAB_LOCAL_MODEL", "").strip(),
+            local_url=(get("LLM_LAB_LOCAL_URL") or cls.local_url).rstrip("/"),
+            local_openai_url=(get("LLM_LAB_LOCAL_OPENAI_URL") or cls.local_openai_url).rstrip("/"),
             port=int(get("LLM_LAB_PORT") or cls.port),
             budget_usd=float(get("LLM_LAB_BUDGET") or cls.budget_usd),
             dev_port=int(get("LLM_LAB_DEV_PORT") or cls.dev_port),

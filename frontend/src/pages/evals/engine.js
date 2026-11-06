@@ -199,7 +199,7 @@ export function mount(root, life) {
     catch (e) { s = { available: false, reason: e.message }; }
     liveOK = !!(s && s.available && s.has_credentials);
     st.className = 'live-state ' + (liveOK ? 'on' : 'off');
-    st.innerHTML = liveOK ? `Live Claude is available. Judge model: <code>${esc(s.default_model || 'server default')}</code>.` : `Live Claude is not available. ${esc((s && s.reason) || '')}`;
+    st.innerHTML = liveOK ? `Live runs are available. Judge model: <code>${esc(s.default_model || 'server default')}</code>.` : `Live runs are not available. ${esc((s && s.reason) || '')}`;
     $('#liveHelp').innerHTML = liveOK ? '<span class="muted">Each call costs a little money. The time and the cost reported by the server are shown with each result.</span>' : HELP;
     setJudgeButtons();
   }

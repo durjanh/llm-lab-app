@@ -75,7 +75,7 @@ def main() -> None:
     parser.add_argument("--no-wait", action="store_true", help="submit the batch and exit")
     parser.add_argument("--resume", metavar="BATCH_ID", help="wait for and collect a batch submitted earlier")
     parser.add_argument("--poll", type=float, default=15.0, help="seconds between status checks (default: 15)")
-    model_argument(parser)
+    model_argument(parser, claude_only=True)
     args = parser.parse_args()
     requests = build_requests(args.model)
 
