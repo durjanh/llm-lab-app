@@ -81,7 +81,8 @@ export function mountSkills(life: Life): void {
     const ok = !!(s.available && s.has_credentials);
     $('#skRun').disabled = !ok;
     $('#skStatus').textContent = ok ? 'Live: this spends real credit, and code-execution container time is billed separately.' : s.reason;
-    $('#skModel').innerHTML = (s.models ?? []).map(m => `<option ${m === s.default_model ? 'selected' : ''}>${esc(m)}</option>`).join('');
+    // Skills run in Anthropic's code-execution container, so only Claude models are offered.
+    $('#skModel').innerHTML = (s.claude_models ?? []).map(m => `<option ${m === s.claude_model ? 'selected' : ''}>${esc(m)}</option>`).join('');
   });
   render();
 }

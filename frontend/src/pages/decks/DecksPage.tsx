@@ -26,7 +26,7 @@ export default function DecksPage() {
     statusService.status().then((s) => {
       if (!alive) return;
       setStatus(s);
-      setModel(s.default_model ?? '');
+      setModel(s.claude_model ?? ''); // the pptx skill runs in Anthropic's code-execution container: Claude only
     });
     return () => {
       alive = false;
@@ -71,8 +71,8 @@ export default function DecksPage() {
         <label>
           Model{' '}
           <select value={model} onChange={(e) => setModel(e.target.value)} disabled={!ready || running}>
-            {status?.models?.length ? (
-              status.models.map((m) => <option key={m}>{m}</option>)
+            {status?.claude_models?.length ? (
+              status.claude_models.map((m) => <option key={m}>{m}</option>)
             ) : (
               <option value="">{status === null ? 'Loading…' : 'No backend'}</option>
             )}

@@ -4,9 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .shared import ROOT, EnvSettings
+from .shared import LOCAL_MODEL, ROOT, EnvSettings
 
-MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
+CLAUDE_MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
+# The local open model, when one is configured (LLM_LAB_LOCAL_MODEL), comes first: it is the default where it can do
+# the work. Pages that need something only Claude has offer CLAUDE_MODELS.
+MODELS = ([LOCAL_MODEL] if LOCAL_MODEL else []) + CLAUDE_MODELS
 MAX_TOKENS_STREAMING = 32000
 MAX_TOKENS_NON_STREAMING = 16000  # the SDK requires streaming for larger values
 VITE_DEV_PORT = 5173

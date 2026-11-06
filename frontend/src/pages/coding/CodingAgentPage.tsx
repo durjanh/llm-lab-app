@@ -176,6 +176,7 @@ export default function CodingAgentPage() {
       .info()
       .then((i) => {
         setInfo(i);
+        if (i.default_model) setModel(i.default_model);
         setDraft(i.tasks.fix);
       })
       .catch((e: Error) => setError(e.message));
@@ -479,11 +480,11 @@ export default function CodingAgentPage() {
           <button
             className={sdk ? 'on' : ''}
             onClick={() => setSdk(true)}
-            disabled={busy || !info?.sdk || workspace === 'files' || model.startsWith('gpt-')}
+            disabled={busy || !info?.sdk || workspace === 'files' || !model.startsWith('claude-')}
             title={
               !info?.sdk
                 ? 'Install examples/claude-agent-sdk first (see below)'
-                : model.startsWith('gpt-')
+                : !model.startsWith('claude-')
                   ? 'The Agent SDK runs Claude Code, which uses Claude models only'
                   : ''
             }
@@ -507,7 +508,8 @@ export default function CodingAgentPage() {
             value={model}
             onChange={(e) => {
               setModel(e.target.value);
-              if (e.target.value.startsWith('gpt-')) setSdk(false); // GPT runs on the hand-built harness only
+              // GPT and the local model run on the hand-built harness only
+              if (!e.target.value.startsWith('claude-')) setSdk(false);
             }}
           >
             {(info?.models ?? MODELS).map((m) => (

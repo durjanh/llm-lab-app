@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   dataagentService as svc,
+  statusService,
   type AgentEvent,
   type DataQuery,
   type DataViewer,
@@ -13,7 +14,7 @@ import {
 import { Chart, label, Table } from './Chart';
 import './dataagent.css';
 
-const MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'];
+const MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']; // until the status says more
 const EXAMPLES = [
   'show me PRs merged to main in the harbour repo by week',
   'create a dashboard of engineering activity',
@@ -103,6 +104,7 @@ export default function DataAgentPage() {
   const [lines, setLines] = useState<Line[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [models, setModels] = useState(MODELS);
   const [model, setModel] = useState(MODELS[0]);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [viz, setViz] = useState<Viz | null>(null);
@@ -120,6 +122,14 @@ export default function DataAgentPage() {
   const session = useRef<string | undefined>(undefined);
   const scroller = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    statusService.status().then((s) => {
+      if (!s.models?.length) return;
+      setModels(s.models); // the local model first, when one is configured
+      setModel(s.default_model ?? s.models[0]);
+    });
+  }, []);
 
   const loadModel = () =>
     svc
@@ -325,7 +335,7 @@ export default function DataAgentPage() {
         <label className="small">
           Model{' '}
           <select value={model} onChange={(e) => setModel(e.target.value)}>
-            {MODELS.map((m) => (
+            {models.map((m) => (
               <option key={m}>{m}</option>
             ))}
           </select>

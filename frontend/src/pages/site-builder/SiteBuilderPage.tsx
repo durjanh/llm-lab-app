@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router';
+import { isLocalModel, modelName } from '@/lib/models';
 import { useNavHeight } from '@/lib/useNavHeight';
 import { sitesService, statusService, type LiveStatus, type SiteSummary } from '@/services';
 import { SiteTurnView } from './SiteTurnView';
@@ -130,8 +131,10 @@ export default function SiteBuilderPage() {
             ? 'Checking the lab backend…'
             : !ready
               ? status.reason
-              : `Live: spends real credit (about $${(status.spent_usd ?? 0).toFixed(2)} of $${(status.budget_usd ?? 0).toFixed(2)} used).` +
-                (screenshots ? '' : ' No Chrome was found, so Claude will not see screenshots.')}
+              : (isLocalModel(model)
+                  ? `Local model: runs on this machine at no cost. Claude models spend real credit (about $${(status.spent_usd ?? 0).toFixed(2)} of $${(status.budget_usd ?? 0).toFixed(2)} used).`
+                  : `Live: spends real credit (about $${(status.spent_usd ?? 0).toFixed(2)} of $${(status.budget_usd ?? 0).toFixed(2)} used).`) +
+                (screenshots ? '' : ` No Chrome was found, so ${modelName(model)} will not see screenshots.`)}
           {chat.problem && <span className="sb-problem"> {chat.problem}</span>}
         </p>
 
@@ -161,7 +164,7 @@ export default function SiteBuilderPage() {
             </div>
           ) : (
             chat.turns.map((t, i) => (
-              <SiteTurnView key={t.id} turn={t} siteId={chat.siteId} onRestore={chat.running || !chat.siteId ? undefined : () => void chat.restore(i)} />
+              <SiteTurnView key={t.id} turn={t} siteId={chat.siteId} model={model} onRestore={chat.running || !chat.siteId ? undefined : () => void chat.restore(i)} />
             ))
           )}
         </div>
@@ -199,6 +202,7 @@ export default function SiteBuilderPage() {
         drafts={chat.drafts}
         version={chat.version}
         following={following && chat.running}
+        model={model}
         onTakeOver={() => setFollowing(false)}
       />
     </main>

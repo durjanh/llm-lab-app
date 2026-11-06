@@ -16,8 +16,10 @@ sys.path.insert(0, str(ROOT / "python"))
 import importlib  # noqa: E402
 import importlib.util  # noqa: E402
 
-from common import (DEFAULT_MODEL, IMAGE_INPUT_PRICE_PER_M, LANGUAGE_PRICE_PER_1K_RECORDS, PRICES, TOOL_PRICES, Refused, cost_usd, create,  # noqa: E402
-                    describe_usage, make_client, stream, text_of)
+from common import (CLAUDE_MODEL, DEFAULT_MODEL, IMAGE_INPUT_PRICE_PER_M, LANGUAGE_PRICE_PER_1K_RECORDS, LOCAL_MODEL, PRICES,  # noqa: E402
+                    TOOL_PRICES, LocalUnavailable, LocalUnsupported, Refused, cost_usd, create, describe_usage, is_local,
+                    make_client, stream, text_of)
+from local_model import local_status  # noqa: E402
 from data import HANDBOOK  # noqa: E402
 from settings import EnvSettings  # noqa: E402
 
@@ -42,5 +44,6 @@ medassist_clinic = _load_example("medassist_clinic", ROOT / "examples" / "medass
 # Agent Framework command lines). Standard library only.
 aftercare_ward = _load_example("aftercare_ward", ROOT / "examples" / "aftercare" / "ward.py")
 
-__all__ = ["ROOT", "DEFAULT_MODEL", "IMAGE_INPUT_PRICE_PER_M", "LANGUAGE_PRICE_PER_1K_RECORDS", "PRICES", "TOOL_PRICES", "HANDBOOK", "EnvSettings", "Refused", "cost_usd", "create", "describe_usage",
+__all__ = ["ROOT", "CLAUDE_MODEL", "DEFAULT_MODEL", "LOCAL_MODEL", "LocalUnavailable", "LocalUnsupported", "is_local",
+           "local_status", "IMAGE_INPUT_PRICE_PER_M", "LANGUAGE_PRICE_PER_1K_RECORDS", "PRICES", "TOOL_PRICES", "HANDBOOK", "EnvSettings", "Refused", "cost_usd", "create", "describe_usage",
            "make_client", "stream", "text_of", "harness_script", "skills_script", "coding_script", "medassist_clinic", "aftercare_ward"]

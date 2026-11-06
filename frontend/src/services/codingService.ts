@@ -77,7 +77,8 @@ export type CodingEvent =
   | { type: 'error'; message: string };
 
 export interface CodingInfo {
-  models: string[]; // Claude models, then the GPT deployments the hand-built harness can use
+  models: string[]; // the local model (if any), Claude models, then the GPT deployments the hand-built harness can use
+  default_model?: string;
   gpt_models: string[];
   tasks: Record<string, string>;
   workspaces: Record<CodingWorkspace, string[]>; // the tasks that fit each workspace

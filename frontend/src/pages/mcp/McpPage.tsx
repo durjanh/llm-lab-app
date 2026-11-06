@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CodeBlock } from '@/components/CodeBlock';
+import { modelName, modelNameStart } from '@/lib/models';
 import { mcpLabService, statusService, type LiveStatus, type McpExchange, type McpStep } from '@/services';
 import './mcp.css';
 
@@ -367,7 +368,7 @@ function AskClaude({ status }: { status: LiveStatus | null }) {
             <input type="checkbox" checked={allowWrites} onChange={(e) => setAllowWrites(e.target.checked)} /> Allow writes
           </label>
           <button className="btn primary" disabled={!ready || busy || !task.trim()} onClick={() => void ask()}>
-            {busy ? 'Claude is working…' : 'Ask Claude'}
+            {busy ? `${modelNameStart(model)} is working…` : `Ask ${modelName(model)}`}
           </button>
           {cost !== null && <span className="small muted">about ${cost.toFixed(4)}</span>}
         </div>

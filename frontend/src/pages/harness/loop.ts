@@ -1,5 +1,6 @@
 import { Site } from '@/lib/site';
 import type { Life } from '@/lib/lifecycle';
+import { modelNameStart } from '@/lib/models';
 import { harnessService, statusService, type HarnessEvent, type Scenario } from '@/services';
 
 /**
@@ -35,6 +36,7 @@ interface LiveRun {
   controller: AbortController;
   start: number;
   runId: string | null;
+  who: string;  // the chosen model in words, for the step titles
   ctx: Record<string, number>;
   uses: Record<string, ToolUseEvent>;
   waiting: Record<string, Approval>;
@@ -301,9 +303,9 @@ export function mountLoop(life: Life): void {
         if (calls.length) L.awaiting[lane] = true;
         add({
           kind: calls.length ? 'request' : paused ? 'server' : 'final', tools: calls.map(c => String(c.name)),
-          title: calls.length ? `Claude replies with ${calls.length > 1 ? `${calls.length} tool calls` : 'a tool call'}: ${calls.map(c => c.name).join(', ')}`
+          title: calls.length ? `${L.who} replies with ${calls.length > 1 ? `${calls.length} tool calls` : 'a tool call'}: ${calls.map(c => c.name).join(', ')}`
             : paused ? 'A server tool paused; the harness sends the turn back'
-            : lane === 'main' ? 'Claude answers with no tool call, so the loop ends' : 'Claude answers with no tool call, so this agent is done',
+            : lane === 'main' ? `${L.who} answers with no tool call, so the loop ends` : `${L.who} answers with no tool call, so this agent is done`,
           detail: `stop_reason ${ev.stop_reason} · ${ev.input_tokens} tokens in, ${ev.output_tokens} out${said ? ` · ${said}` : ''}`,
           json: { stop_reason: ev.stop_reason, content: ev.content },
         });
@@ -360,7 +362,7 @@ export function mountLoop(life: Life): void {
     live?.controller.abort();
     steps = []; outcome = ''; idx = -1;
     const L: LiveRun = live = {
-      controller: new AbortController(), start: performance.now(), runId: null, ctx: {}, uses: {}, waiting: {},
+      controller: new AbortController(), start: performance.now(), runId: null, who: modelNameStart($('#hlModel').value), ctx: {}, uses: {}, waiting: {},
       awaiting: {}, done: null, cost: 0, toolCalls: 0, running: true,
     };
     setRunning(true); render();

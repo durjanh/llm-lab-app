@@ -276,7 +276,7 @@ The AI-103 labs (`/guardrails`, `/content-understanding`, `/image-generation`, `
 
 ### GPT in the document automation lab
 
-Document automation (Lab 22) can use a GPT model in Azure AI Foundry for each of its AI steps instead of Claude, with the same prompts and schemas, to compare the two. Pick it under **GPT (Azure AI Foundry)** in the page's model list. Other pages use Claude only.
+Document automation (Lab 22) can use a GPT model in Azure AI Foundry for each of its AI steps instead of Claude, with the same prompts and schemas, to compare the two. Pick it under **GPT (Azure AI Foundry)** in the page's model list. Other pages use Claude, or the local model described below.
 
 ```sh
 AZURE_OPENAI_ENDPOINT=https://ai-llm-lab-0eevth.openai.azure.com
@@ -285,7 +285,22 @@ AZURE_OPENAI_DEPLOYMENTS=gpt-5.4-mini
 
 The deployment `gpt-5.4-mini` (Global Standard) is in the same Foundry resource as the speech fallback, `ai-llm-lab-0eevth`, in its project `llm-lab`. Keys are off, so the backend signs in with `az login`; your account needs the **Cognitive Services OpenAI User** role on the resource. It is billed per token on the subscription, at $0.75 per million input tokens and $4.50 per million output tokens, and counts against the backend's `--budget` like Claude.
 
-Live features use Claude Haiku 5.5 by default, where each action costs a small fraction of a cent. The Live page lets you pick Claude Sonnet 5.5 or Claude Opus 5.5 instead, which cost more. The backend logs the estimated cost of every call, and the Live page shows the running total. Your Anthropic console shows the exact amount billed.
+### A local open model, at no cost per token
+
+An open model can run on this machine in Docker and be the default wherever the work allows. Docker Model Runner, which comes with Docker Desktop, runs it with llama.cpp on the host, so on a Mac it uses the GPU through Metal (an ordinary container cannot). One script sets it up:
+
+```sh
+./tools/local-model.sh             # enables Model Runner on port 12434, pulls the model (6.9 GB), sets a 32k context
+echo 'LLM_LAB_LOCAL_MODEL=ai/qwen3.5:9b-q4_K_XL' >> .env   # then restart the backend
+```
+
+The model is Qwen 3.5 9B (Apache 2.0): it calls tools, reads images and fits in 24 GB of memory with room to spare. On an M5 Pro it writes about 20 tokens a second, so a short answer takes a second or two and an agent run a minute or more. Claude is much faster and much better at long agent work; the local model is for practising without spending.
+
+With `LLM_LAB_LOCAL_MODEL` set, the model lists start with it and pages select it, and every call is charged at $0. The scripts in `python/` default to it too. `python/local_model.py` does the routing, in the client every page already uses: Model Runner serves the Anthropic Messages API at `http://localhost:12434/anthropic`, so requests keep their shape. It switches the model's thinking off unless a request asks for it, and sends a reply that must match a JSON schema to the server's OpenAI-compatible endpoint, where a grammar holds it to the schema.
+
+What only Anthropic runs is refused with a message saying to choose a Claude model, rather than quietly left out: web search (the harness's web scenario), PDFs, the Files API, code execution and skills, and MCP connectors. The skills page, the deck builder, the coding agent's Agent SDK mode and `python/12_agent_skills.py` and `14_batch_api.py` default to Claude (`LLM_LAB_MODEL`). Azure labs keep their Azure models. Ollama works the same way: set `LLM_LAB_LOCAL_URL=http://localhost:11434` and `LLM_LAB_LOCAL_OPENAI_URL=http://localhost:11434/v1`. `./tools/local-model.sh --stop` unloads the model; `--remove` deletes it.
+
+Live features otherwise use Claude Haiku 5.5 by default, where each action costs a small fraction of a cent. The Live page lets you pick Claude Sonnet 5.5 or Claude Opus 5.5 instead, which cost more. The backend logs the estimated cost of every call, and the Live page shows the running total. Your Anthropic console shows the exact amount billed.
 
 ## Other folders
 

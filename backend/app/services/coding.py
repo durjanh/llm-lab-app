@@ -25,7 +25,7 @@ from typing import Any
 from ..core.errors import ApiError
 from ..gateways.claude import ClaudeGateway
 from ..settings import MODELS
-from ..shared import DEFAULT_MODEL, ROOT, coding_script as C
+from ..shared import CLAUDE_MODEL, DEFAULT_MODEL, ROOT, coding_script as C, is_local
 from .runs import Run, RunRegistry, RunStreamer
 from .spend import SpendTracker
 
@@ -59,7 +59,7 @@ class CodingService:
         self._lock = threading.Lock()
 
     def info(self) -> dict[str, Any]:
-        return {"models": [*MODELS, *self.gpt_models()], "gpt_models": self.gpt_models(),
+        return {"models": [*MODELS, *self.gpt_models()], "default_model": DEFAULT_MODEL, "gpt_models": self.gpt_models(),
                 "tasks": C.TASKS, "workspaces": {k: tasks for k, (_, tasks) in C.WORKSPACES.items()},
                 "modes": C.MODES, "sdk": self.sdk_python.exists(), "sample": SAMPLE.name,
                 "screenshot": C.find_chrome() is not None, "sandbox": C.SANDBOX.kind if C.SANDBOX else None,
@@ -214,10 +214,10 @@ class CodingService:
         if not self.sdk_python.exists():
             raise ApiError(503, "sdk_missing", "The Agent SDK example is not installed. In examples/claude-agent-sdk run: "
                                                "python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt")
-        model = model or DEFAULT_MODEL
-        if C.is_gpt(model):
+        model = model or CLAUDE_MODEL
+        if C.is_gpt(model) or is_local(model):
             raise ApiError(400, "invalid_request", "The Agent SDK runs Claude Code, which uses Claude models only. "
-                                                   "Use the hand-built harness for GPT.")
+                                                   "Use the hand-built harness for GPT or the local model.")
         run = Run(self.approval_timeout_s)
         folder = C.new_project(self.folder / f"sdk-{run.id[:10]}" / "project")
         ws = C.Workspace(folder)  # remembers the files as they were, for the diff at the end

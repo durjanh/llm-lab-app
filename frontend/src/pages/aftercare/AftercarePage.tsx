@@ -9,6 +9,7 @@ import {
   type HospitalRecord,
   type StartResult,
   type TurnResult,
+  statusService,
   tutorService,
 } from '@/services';
 import { Speech } from '@/pages/tutor/speech';
@@ -152,6 +153,7 @@ export default function AftercarePage() {
   const [info, setInfo] = useState<AftercareInfo | null>(null);
   const [board, setBoard] = useState<Board | null>(null);
   const [engine, setEngine] = useState<Engine>('claude');
+  const [models, setModels] = useState(CLAUDE_MODELS);
   const [model, setModel] = useState(CLAUDE_MODELS[0]);
   const [patientId, setPatientId] = useState('');
   const [call, setCall] = useState<StartResult | null>(null);
@@ -193,6 +195,11 @@ export default function AftercarePage() {
         setBoard({ worklist: i.worklist, queue: i.queue });
       })
       .catch((e: Error) => setError(e.message));
+    statusService.status().then((s) => {
+      if (!s.models?.length) return;
+      setModels(s.models); // the local model first, when one is configured
+      setModel(s.default_model ?? s.models[0]);
+    });
     tutorService
       .config()
       .then((c) => setSpeechReady(c.speech))
@@ -459,9 +466,9 @@ export default function AftercarePage() {
             value={model}
             onChange={(e) => setModel(e.target.value)}
             disabled={engine !== 'claude'}
-            aria-label="Claude model"
+            aria-label="Model for our own loop"
           >
-            {CLAUDE_MODELS.map((m) => (
+            {models.map((m) => (
               <option key={m}>{m}</option>
             ))}
           </select>

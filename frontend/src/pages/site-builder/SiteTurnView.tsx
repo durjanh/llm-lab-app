@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { sitesService, type SiteShot } from '@/services';
+import { modelNameStart } from '@/lib/models';
 import type { Turn } from './useSiteChat';
 
 const ICON = { request: 'C', write: '✎', read: '⌕', check: '◉', error: '!' } as const;
 const STATUS = {
-  running: 'Claude is building. You can watch each file in Code, and the site in Preview.',
+  running: '{who} is building. You can watch each file in Code, and the site in Preview.',
   done: 'Done.',
-  stopped: 'Stopped. Files Claude had already saved are kept.',
+  stopped: 'Stopped. Files already saved are kept.',
   error: 'Something went wrong.',
 } as const;
 
 /** One message and Claude's work on it: its steps, what it says, and the screenshots it was shown. */
-export function SiteTurnView({ turn, siteId, onRestore }: { turn: Turn; siteId: string | null; onRestore?: () => void }) {
+export function SiteTurnView({ turn, siteId, model, onRestore }: { turn: Turn; siteId: string | null; model: string; onRestore?: () => void }) {
   const writes = turn.steps.filter((s) => s.kind === 'write').length;
   return (
     <div className="sb-turn">
@@ -29,7 +30,7 @@ export function SiteTurnView({ turn, siteId, onRestore }: { turn: Turn; siteId: 
       )}
       <div className={`sb-claude ${turn.state}`}>
         <div className="small sb-status">
-          {turn.state === 'running' && <span className="spinner" aria-hidden="true" />} {turn.error ?? STATUS[turn.state]}
+          {turn.state === 'running' && <span className="spinner" aria-hidden="true" />} {turn.error ?? STATUS[turn.state].replace('{who}', modelNameStart(model))}
           {turn.cost !== undefined && <span className="muted"> About ${turn.cost.toFixed(4)}.</span>}
         </div>
         {turn.steps.length > 0 && (

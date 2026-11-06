@@ -6,6 +6,9 @@ interface StatusResponse {
   has_credentials: boolean;
   default_model: string;
   models: string[];
+  claude_models?: string[];
+  claude_model?: string;
+  local?: LocalModelStatus;
   gpt_models?: string[];
   prices: Record<string, { input: number; output: number; cache_read: number }>;
   spent_usd: number;
@@ -13,12 +16,23 @@ interface StatusResponse {
   calls: number;
 }
 
+/** The open model on this machine (Docker Model Runner), when one is configured. */
+export interface LocalModelStatus {
+  configured: boolean;
+  running?: boolean;
+  has_model?: boolean;
+  model?: string;
+}
+
 /** Whether live Claude features can be used, and why not when they cannot. */
 export interface LiveStatus {
   available: boolean;
   has_credentials?: boolean;
   default_model?: string;
-  models?: string[];
+  models?: string[]; // the local model first, when one is configured: it is the default where it can do the work
+  claude_models?: string[]; // for pages whose work needs Claude (skills, code execution, web search)
+  claude_model?: string;
+  local?: LocalModelStatus;
   gpt_models?: string[]; // Azure OpenAI deployments; offered only on pages that support them
   prices?: StatusResponse['prices'];
   spent_usd?: number;
@@ -59,6 +73,9 @@ export class StatusService {
         has_credentials: !!s.has_credentials,
         default_model: s.default_model,
         models: s.models || [],
+        claude_models: s.claude_models || s.models || [],
+        claude_model: s.claude_model || s.default_model,
+        local: s.local,
         gpt_models: s.gpt_models || [],
         prices: s.prices || {},
         spent_usd: s.spent_usd,
