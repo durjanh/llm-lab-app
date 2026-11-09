@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MedAssist.Data\MedAssist.Data.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The command line: chat, the checked tests, records, reset, and creating or deleting the agent in Foundry.
+       A second composition root over the same service layer as the API. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>medassist</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MedAssist.Application\MedAssist.Application.csproj" />
+    <ProjectReference Include="..\MedAssist.Data\MedAssist.Data.csproj" />
+    <ProjectReference Include="..\MedAssist.Integrations.Foundry\MedAssist.Integrations.Foundry.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Your own values (the Foundry endpoint), shared with the API and kept out of git. -->
+    <Content Include="..\..\appsettings.Local.json" Link="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest"
+             Condition="Exists('..\..\appsettings.Local.json')" />
+  </ItemGroup>
+</Project>

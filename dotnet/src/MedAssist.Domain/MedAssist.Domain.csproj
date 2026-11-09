@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The domain: the practice's data, MedAssist's rules and its function tools, and the ports (repository and
+       notifier interfaces) the outer layers implement. It references no database, web or AI package. -->
+</Project>

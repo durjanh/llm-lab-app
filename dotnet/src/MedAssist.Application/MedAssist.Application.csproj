@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The service layer: what the API and the command line call. It reaches the database through the domain's
+       repository interfaces and Foundry through the ports in Ports/, never directly. No Azure or web package. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MedAssist.Domain\MedAssist.Domain.csproj" />
+  </ItemGroup>
+</Project>

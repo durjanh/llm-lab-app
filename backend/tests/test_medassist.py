@@ -189,3 +189,25 @@ def test_an_older_database_gains_the_new_patients_and_each_has_a_language_and_ag
     assert session.language == "pa" and clinic.age_of(session.patient["date_of_birth"]) >= 80
     assert clinic.snapshot(db, "P005")["patient"]["name"] == "Agnieszka Nowak"
     assert {clinic.PREFERRED_LANGUAGE[p[0]] for p in clinic.PATIENTS} >= {"en", "es", "pl", "ar", "ro", "ur", "pa"}
+
+
+def test_a_patient_changed_in_the_code_is_changed_in_the_database_and_bookings_stay(tmp_path: Path) -> None:
+    import sqlite3
+    from datetime import date, timedelta
+
+    db = tmp_path / "practice.db"
+    clinic.create_database(db, today=date.today())
+    with sqlite3.connect(db) as conn:  # as if made when Valeria had another number, with a booking since
+        conn.execute("UPDATE patients SET phone = '07700 900123', allergies = 'None known' WHERE id = 'P001'")
+        conn.execute("UPDATE slots SET patient_id = 'P002', reason = 'review' WHERE id = "
+                     "(SELECT id FROM slots WHERE patient_id IS NULL AND starts_at > ? ORDER BY starts_at LIMIT 1)",
+                     ((date.today() + timedelta(days=1)).isoformat(),))
+    valeria = next(p for p in clinic.PATIENTS if p[0] == "P001")
+
+    assert clinic.snapshot(db, "P001")["patient"]["phone"] == valeria[3]  # synced as soon as the database is read
+    assert clinic.snapshot(db, "P001")["patient"]["allergies"] == valeria[5]
+    assert any(a["reason"] == "review" for a in clinic.snapshot(db, "P002")["upcoming"])  # nothing else changed
+    with sqlite3.connect(db) as conn:  # and a database already in step is not written to
+        before = conn.total_changes
+        clinic.sync_patients(conn)
+        assert conn.total_changes == before

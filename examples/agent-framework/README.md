@@ -46,7 +46,7 @@ Calls through a Foundry project need the **Foundry User** role on the Foundry re
 Run both in one DevUI, and switch between them with the selector at the top:
 
 ```sh
-python examples/agent-framework/serve_all.py      # http://127.0.0.1:8090; DEVUI_PORT=8091 for another port
+python examples/agent-framework/serve_all.py      # http://127.0.0.1:8090, with MedAssist too (one agent per patient); DEVUI_PORT for another port
 ```
 
 DevUI's **Browse Gallery** lists four Microsoft samples, but its Download links point at old paths in the repository and return 404: the folders were renamed on `main` (`foundry_agent` is now `agent_foundry`, `spam_workflow` is now `workflow_spam`, and so on). Get them from the repository's `python/samples/02-agents/devui/` folder instead. The sample marks its tools `approval_mode="never_require"` for brevity; Microsoft's own comment says to require approval in production.

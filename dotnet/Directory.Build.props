@@ -1,0 +1,15 @@
+<Project>
+  <!-- Settings every project in the solution shares. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+    <!-- The OpenAI SDK marks the Responses API and vector stores as evaluation-only (OPENAI001). MedAssist is built on
+         both, as the Python version is, so the warning is accepted here, once, rather than at every use. -->
+    <NoWarn>$(NoWarn);OPENAI001</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The API in memory (WebApplicationFactory), with a fake engine and a throwaway database: no Azure. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MedAssist.Api\MedAssist.Api.csproj" />
+  </ItemGroup>
+</Project>

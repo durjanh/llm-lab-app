@@ -1,6 +1,13 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { medassistService, type MedAssistInfo, type MedAssistStep, type PhoneLineInfo, type PracticeState } from '@/services';
+import {
+  medassistService,
+  type MedAssistInfo,
+  type MedAssistStep,
+  type PhoneLineInfo,
+  type PracticeState,
+} from '@/services';
 import './medassist.css';
+import { HowItWorks } from './HowItWorks';
 
 interface Line {
   from: 'patient' | 'agent';
@@ -80,7 +87,10 @@ export default function MedAssistPage() {
   const linePatient = line?.configured && practice?.patient.id === line.patient ? line.patient : '';
   useEffect(() => {
     if (!linePatient) return;
-    const timer = window.setInterval(() => medassistService.state(linePatient).then(setPractice, () => undefined), 4000);
+    const timer = window.setInterval(
+      () => medassistService.state(linePatient).then(setPractice, () => undefined),
+      4000,
+    );
     return () => window.clearInterval(timer);
   }, [linePatient]);
   const [fresh, setFresh] = useState({ texts: 0, audit: 0 });
@@ -414,6 +424,9 @@ export default function MedAssistPage() {
           </div>
         </div>
       </div>
+
+      <h2>How it works</h2>
+      <HowItWorks />
 
       <h2>What runs where</h2>
       <div className="table-wrap">

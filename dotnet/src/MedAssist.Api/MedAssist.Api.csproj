@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- The web layer: controllers the lab's React page calls, at the same /api/medassist routes and in the same JSON
+       as the Python backend. Controllers only call the service layer. -->
+  <ItemGroup>
+    <ProjectReference Include="..\MedAssist.Application\MedAssist.Application.csproj" />
+    <ProjectReference Include="..\MedAssist.Data\MedAssist.Data.csproj" />
+    <ProjectReference Include="..\MedAssist.Integrations.Foundry\MedAssist.Integrations.Foundry.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Your own values (the Foundry endpoint), shared with the CLI and kept out of git. -->
+    <Content Include="..\..\appsettings.Local.json" Link="appsettings.Local.json" CopyToOutputDirectory="PreserveNewest"
+             Condition="Exists('..\..\appsettings.Local.json')" />
+  </ItemGroup>
+</Project>
