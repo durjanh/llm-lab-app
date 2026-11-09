@@ -1,0 +1,28 @@
+.page-bible{max-width:1180px}
+.page-bible .bb-search{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:16px 0}
+.page-bible .bb-search input{flex:1 1 320px;max-width:560px;padding:9px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
+.page-bible .bb-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px;align-items:start}
+.page-bible .bb-toc{position:sticky;top:calc(var(--nav-h,56px) + 12px);max-height:calc(100dvh - var(--nav-h,56px) - 24px);overflow:auto;font-size:13px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+.page-bible .bb-toc b{display:block;margin:12px 0 4px;color:var(--ink);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.page-bible .bb-toc div:first-child b{margin-top:0}
+.page-bible .bb-toc a{display:block;padding:2px 0;color:var(--ink2);text-decoration:none}
+.page-bible .bb-toc a:hover{color:var(--brand)}
+.page-bible .bb-part{margin-top:8px}
+.page-bible .bb-part > h2{margin:28px 0 2px}
+.page-bible .bb-section{margin-top:14px;scroll-margin-top:calc(var(--nav-h,56px) + 12px)}
+.page-bible .bb-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.page-bible .bb-head h3{margin:0}
+.page-bible .bb-open{margin-left:auto;font-size:13px;white-space:nowrap}
+.page-bible .bb-open .mono{color:var(--muted)}
+.page-bible .bb-md{color:var(--ink2);font-size:15px;line-height:1.55}
+.page-bible .bb-md p{margin:8px 0;max-width:85ch}
+.page-bible .bb-md ul,.page-bible .bb-md ol{padding-left:20px;margin:6px 0}
+.page-bible .bb-md li{margin:5px 0}
+.page-bible .bb-md li > p{margin:2px 0}
+.page-bible .bb-md strong{color:var(--ink)}
+.page-bible .bb-md code{font-size:13px;background:var(--soft);border-radius:4px;padding:1px 4px}
+.page-bible .bb-md h1,.page-bible .bb-md h2,.page-bible .bb-md h3,.page-bible .bb-md h4{font-size:16px;margin:16px 0 6px;color:var(--ink)}
+.page-bible .bb-md table{border-collapse:collapse;font-size:13px;margin:8px 0;display:block;overflow-x:auto;max-width:100%}
+.page-bible .bb-md th,.page-bible .bb-md td{border:1px solid var(--line);padding:5px 8px;vertical-align:top;text-align:left}
+.page-bible .bb-md th{background:var(--soft2);color:var(--ink)}
+@media (max-width:900px){.page-bible .bb-layout{grid-template-columns:1fr}.page-bible .bb-toc{position:static;max-height:240px}.page-bible .bb-open{margin-left:0}}

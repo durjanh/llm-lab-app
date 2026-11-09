@@ -99,7 +99,7 @@ export default function Significance() {
       <p className="small">
         <b>Questions needed</b> is the size at which this gap would be detected 80% of the time at the 5% level. When both models
         were run on the same questions, compare them question by question: answers they share cancel out, so the paired test needs
-        far fewer questions. Benchmarks with a few hundred questions, such as GPQA Diamond or a year of AIME, cannot separate
+        far fewer questions. Benchmarks with a few hundred questions or fewer, such as GPQA Diamond or a year of AIME, cannot separate
         models a couple of points apart on their own.
       </p>
     </section>

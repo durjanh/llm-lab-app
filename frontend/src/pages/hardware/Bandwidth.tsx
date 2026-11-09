@@ -52,8 +52,9 @@ export default function Bandwidth() {
   const rows = CHIPS.map((c) => {
     const chips = Math.max(1, Math.ceil(weightsGB / c.memoryGB));
     const fits = c.cluster || chips === 1;
-    // One user's next token needs every weight read, in layer order: each chip reads its own share in turn, so the
-    // bound is one chip's memory speed over the whole model, however many chips hold it.
+    // One user's next token needs every weight read, in layer order. With layers split across chips (pipeline
+    // parallel) each chip reads its share in turn, so the bound is one chip's memory speed over the whole model.
+    // Tensor parallelism, where every chip reads its slice of each layer at once, would raise it; this table leaves it out.
     const decode = fits ? c.bandwidthGBs / weightsGB : 0;
     // A prompt's tokens go through together, so its maths can be split across every chip.
     const prefill = fits ? (chips * c.tflops * 1e12) / (2 * params * 1e9) : 0;
@@ -143,8 +144,9 @@ export default function Bandwidth() {
       </div>
       <p className="hw-note">
         Upper bounds from vendor peak figures. Generation: one chip's memory speed ÷ the model's size, since a user's next
-        token needs every weight, layer after layer, wherever it is stored (splitting layers across chips can help a little,
-        but the links between chips limit it). Prompt reading: peak compute across all the chips, at 2 operations per
+        token needs every weight, layer after layer. That holds when the layers are split across chips. Splitting each layer
+        across chips instead (tensor parallelism) lets every chip read its slice at once, so their combined speed raises the
+        limit, minus the time spent combining results between chips. Prompt reading: peak compute across all the chips, at 2 operations per
         parameter per token. Real systems reach perhaps 50–80% of bandwidth and less of compute; the KV cache and activations
         are left out. Bars use a log scale. Click a row to choose it below.
       </p>

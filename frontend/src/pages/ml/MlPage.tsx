@@ -89,9 +89,10 @@ export default function MlPage() {
             big gap means memorising, the same failure the Training lab shows for language models.
           </li>
           <li>
-            <b>Many LLM systems are classic ML underneath.</b> Retrieval is nearest-neighbour search, vector indexes use
-            k-means, routers and guardrails are often small classifiers, and an LLM's last layer is a giant logistic
-            regression over its vocabulary.
+            <b>Many LLM systems are classic ML underneath.</b> Retrieval is nearest-neighbour search, IVF and
+            product-quantisation vector indexes use k-means (HNSW, the most common index, is a graph instead), routers
+            and guardrails are often small classifiers, and an LLM's last layer is a giant logistic regression over its
+            vocabulary.
           </li>
           <li>
             <b>You do not always need an LLM.</b> For a fixed label set with plenty of examples, a small classifier is

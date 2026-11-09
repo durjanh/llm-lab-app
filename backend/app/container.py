@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .gateways.agent_framework import AgentFramework, FrameworkAgents
+from .gateways.agent_workflows import AgentWorkflows, WorkflowRunner
 from .gateways.azure_language import AzureLanguage, TextAnalyzer
 from .gateways.azure_openai import AzureOpenAI, StructuredModel
 from .gateways.azure_search import AzureSearch
@@ -46,6 +47,8 @@ from .services.skills import MadeFiles, SkillsService
 from .services.spend import SpendTracker
 from .services.status import StatusService
 from .services.tutor import TutorService
+from .services.storewatch import StoreWatchService
+from .services.workflows import WorkflowService
 from .settings import Settings
 
 
@@ -57,6 +60,8 @@ class Container:
     messages: MessagesService
     harness: HarnessService
     skills: SkillsService
+    workflows: WorkflowService
+    storewatch: StoreWatchService
     decks: DeckService
     sites: SiteService
     tutor: TutorService
@@ -83,7 +88,8 @@ class Container:
               speech: SpeechTokens | None = None, gpt: StructuredModel | None = None,
               search: AzureSearch | None = None, foundry: AgentConversations | None = None,
               language: TextAnalyzer | None = None, agents: FrameworkAgents | None = None,
-              tools: FoundryTools | None = None, phone: PhoneLine | None = None) -> "Container":
+              tools: FoundryTools | None = None, phone: PhoneLine | None = None,
+              workflows: WorkflowRunner | None = None) -> "Container":
         claude = ClaudeGateway(client)
         spend = SpendTracker(settings.budget_usd)
         registry = RunRegistry()
@@ -96,6 +102,8 @@ class Container:
             foundry = FoundryAgent(settings.foundry_project_endpoint, settings.foundry_model)
         if agents is None and settings.foundry_project_endpoint and settings.foundry_model:
             agents = AgentFramework(settings.foundry_project_endpoint, settings.foundry_model)
+        if workflows is None and settings.azure_openai_endpoint and settings.azure_openai_deployments:
+            workflows = AgentWorkflows(settings.azure_openai_endpoint, settings.azure_openai_deployments[0])
         if search is None and settings.azure_search_endpoint:
             search = AzureSearch(settings.azure_search_endpoint)
         if tools is None and settings.azure_language_endpoint:
@@ -133,6 +141,9 @@ class Container:
             messages=MessagesService(claude, spend),
             harness=HarnessService(claude, spend, registry, streamer, run_budget_usd=settings.run_budget_usd,
                                    approval_timeout_s=settings.approval_timeout_s),
+            workflows=WorkflowService(workflows, spend, registry, streamer, run_budget_usd=settings.run_budget_usd,
+                                      approval_timeout_s=settings.approval_timeout_s),
+            storewatch=StoreWatchService(settings.generated_dir / "storewatch" / "storewatch.db"),
             skills=skills,
             decks=DeckService(claude, spend, streamer, skills, DeckChats()),
             sites=SiteService(claude, spend, streamer, SiteStore(settings.sites_dir),

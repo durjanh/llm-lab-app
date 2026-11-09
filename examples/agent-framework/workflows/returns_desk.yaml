@@ -1,0 +1,44 @@
+# A returns desk as data. Nothing here is Python: routing, wording and the order of steps can change without a release.
+# Strings starting with = are Power Fx expressions. The agents named here are registered in 13_declarative.py.
+kind: Workflow
+name: returns_desk
+trigger:
+  kind: OnConversationStart
+  id: returns_desk
+  actions:
+    - kind: SetVariable
+      id: read_message
+      variable: Local.message
+      value: =Workflow.Inputs.message
+
+    - kind: InvokeAzureAgent
+      id: classify
+      agent: classifier
+      input: =Local.message
+      resultProperty: Local.category
+      output:
+        autoSend: false
+
+    - kind: ConditionGroup
+      id: route
+      conditions:
+        - id: is_safety
+          condition: =Upper(Trim(Local.category)) = "SAFETY"
+          actions:
+            - kind: SendActivity
+              id: safety_reply
+              activity: "Please stop using the bike and do not charge the battery. A person will call you today."
+
+        - id: is_return
+          condition: =Upper(Trim(Local.category)) = "RETURN"
+          actions:
+            - kind: InvokeAzureAgent
+              id: returns_agent
+              agent: returns
+              input: =Local.message
+
+      elseActions:
+        - kind: InvokeAzureAgent
+          id: general_agent
+          agent: general
+          input: =Local.message

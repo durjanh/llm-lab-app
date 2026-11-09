@@ -125,8 +125,9 @@ export default function GuardrailsPage() {
 
       <Panel title="1. Score a message for harm">
         <p className="small muted">
-          Four categories, each scored 0 to 7. The service never decides for you: your threshold does. The custom
-          blocklist <code>{info?.blocklist.name}</code> holds terms this business never wants in a reply (
+          Four categories, each scored 0 to 7: this lab asks for all eight levels, where the default returns only 0, 2,
+          4 or 6. The service never decides for you: your threshold does. The custom blocklist{' '}
+          <code>{info?.blocklist.name}</code> holds terms this business never wants in a reply (
           {info?.blocklist.terms.join(', ')}).
         </p>
         <Chips items={info?.messages ?? []} label={(m) => m.label} onPick={(m) => setText(m.text)} />
