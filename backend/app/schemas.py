@@ -319,6 +319,39 @@ class HarnessRequest(ModelChoice):
     effort: Literal["low", "medium", "high"] = "low"
 
 
+class ComplianceRequest(BaseModel):
+    controller: str = Field(min_length=2, max_length=120)
+    lawful_basis: str = Field(min_length=5, max_length=400)
+    dpia_reference: str = Field(min_length=2, max_length=120)
+    signage: bool
+
+
+class ReviewRequest(BaseModel):
+    reviewer: str = Field(min_length=2, max_length=120)
+    theft: bool
+    note: str = Field(default="", max_length=1000)
+    watched_footage: bool = False
+
+
+class DoorRequest(BaseModel):
+    threshold: float = Field(default=80, ge=50, le=99)
+
+
+class MatchDecision(BaseModel):
+    staff: str = Field(min_length=2, max_length=120)
+    same_person: bool
+
+
+class RemoveEntry(BaseModel):
+    by: str = Field(min_length=2, max_length=120)
+    reason: str = Field(min_length=3, max_length=400)
+
+
+class WorkflowRequest(BaseModel):
+    pattern: str = Field(max_length=40)
+    task: str | None = Field(default=None, max_length=2000)
+
+
 class ApproveRequest(BaseModel):
     run_id: str
     tool_use_id: str

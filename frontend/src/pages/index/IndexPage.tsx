@@ -17,6 +17,23 @@ export default function IndexPage() {
           section of <code>README.md</code> has every command and a troubleshooting table.
         </div>
       </div>
+      <h2>Revise</h2>
+      <p className="muted">Everything in the lab, as questions and answers.</p>
+      <div className="labs">
+        <a className="lab-card" href="/bible">
+          <span className="num">Bible</span>
+          <h3>The lab in questions and answers</h3>
+          <p>
+            For every page: the key terms, the questions people ask about them, and short answers you could give out
+            loud. It opens with temperature and top-p, saving tokens, and running an AI system in production, and it is
+            searchable.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which ideas you can explain, and which page to open for the ones you can&apos;t.
+          </span>
+          <span className="dl">No download</span>
+        </a>
+      </div>
       <h2>Foundations</h2>
       <p className="muted">How a model turns text into a prediction, and how it learned to do it.</p>
       <div className="labs">
@@ -110,6 +127,45 @@ export default function IndexPage() {
           <span className="decides">
             <b>Helps you decide:</b> why training settings such as the learning rate, initialisation and normalisation
             matter.
+          </span>
+          <span className="dl">No download</span>
+        </a>{' '}
+        <a className="lab-card" href="/store-watch">
+          <span className="num">Lab 49</span>
+          <h3>Shoplifting alert desk</h3>
+          <p>
+            A behaviour alert, a person&apos;s decision, a watchlist and a check at the door, simulated with invented
+            people. High scores alert the admin at once, and only a person can put anyone on the list.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> where automation stops and a person must decide when a mistake accuses someone.
+          </span>
+          <span className="dl">No download</span>
+        </a>{' '}
+        <a className="lab-card" href="/workflows">
+          <span className="num">Lab 48</span>
+          <h3>Every kind of agent workflow</h3>
+          <p>
+            Thirteen real Agent Framework programs: sequential, concurrent, handoff, group chat, maker-checker,
+            Magentic, orchestrator and workers, routing edges, human approval, checkpoints, sub-workflows and YAML
+            workflows. Replay real runs for free or run them live.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which shape of workflow your task needs, if it needs one at all.
+          </span>
+          <span className="dl">No download; live runs need Azure</span>
+        </a>{' '}
+        <a className="lab-card" href="/deep-learning-book">
+          <span className="num">Lab 47</span>
+          <h3>Understanding Deep Learning: the book and research</h3>
+          <p>
+            The book chapter by chapter: what each one offers, its worked examples, and where its ideas live in an LLM.
+            Then the research: which changes make LLMs faster, cheaper or better, by how much, and at what cost, with a
+            what-if estimator and a source for every number.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which improvements (quantisation, mixture of experts, speculative decoding, RL
+            post-training) are worth it for your system.
           </span>
           <span className="dl">No download</span>
         </a>{' '}

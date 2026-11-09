@@ -1,0 +1,7 @@
+# Declarative (YAML) workflows, in their own Python 3.12 environment: the Power Fx engine they use for
+# expressions is not published for Python 3.14, which the lab's main environment runs on. It also needs a .NET runtime.
+agent-framework-core==1.23.0
+agent-framework-openai>=1.17,<2
+agent-framework-orchestrations>=1.4,<2
+agent-framework-declarative==1.4.1
+azure-identity>=1.17

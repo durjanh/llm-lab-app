@@ -46,7 +46,8 @@ logging.getLogger("uvicorn.error").addFilter(_QuietShutdown())
 
 def create_app(settings: Settings | None = None, client: Any = None, browser: Any = None,
                speech: Any = None, gpt: Any = None, search: Any = None, foundry: Any = None,
-               language: Any = None, agents: Any = None, tools: Any = None, phone: Any = None) -> FastAPI:
+               language: Any = None, agents: Any = None, tools: Any = None, phone: Any = None,
+               workflows: Any = None) -> FastAPI:
     settings = settings or Settings.from_env()
 
     @asynccontextmanager
@@ -63,7 +64,7 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
                   description="Proxies Claude API calls for the lab pages, with a spending cap.")
     app.state.settings = settings
     app.state.container = Container.build(settings, client if client is not None else make_client(), browser, speech, gpt,
-                                          search, foundry, language, agents, tools, phone)
+                                          search, foundry, language, agents, tools, phone, workflows)
 
     @app.exception_handler(ApiError)
     async def on_api_error(_: Request, exc: ApiError) -> JSONResponse:

@@ -222,6 +222,7 @@ Each page's CSS is scoped under its root class, `.page-<page>`, so pages cannot 
 
 | Group | Route | What it shows | Downloads |
 |---|---|---|---|
+| Revise | `/bible` | The Bible: every page's key terms, the questions people ask about them and short answers, opening with temperature and top-p, saving tokens and running AI in production; searchable, each section linked to its page. In the nav beside Home | None |
 | Foundations | `/transformer` | Animated transformer. Tiny model, GPT-2 probabilities, or GPT-2 with every internal value real | Optional: 128 MB, or the 134 MB local model |
 | | `/building` | How LLMs are built: data cleaning, scaling laws, fine-tuning, preference tuning, training memory | GPT-2, 128 MB, for two demos |
 | | `/training` | Train a tiny language model live; watch it learn, overfit and memorise | None |
@@ -237,8 +238,11 @@ Each page's CSS is scoped under its root class, `.page-<page>`, so pages cannot 
 | | `/vision` | Images as tokens: a picture (or your own) cut into patches, flattened, projected into tokens, given positions and attention, and joined with text; measured image token costs for Claude and GPT | None |
 | | `/hardware` | CPU, GPU, TPU, NPU, LPU and DPU: your CPU raced against your GPU (WebGPU), a systolic array multiplying, tokens per second from memory bandwidth for real chips, quantisation, and DPU offload | None |
 | | `/deep-learning` | All 68 notebooks of *Understanding Deep Learning* (Simon J. D. Prince) as interactive demos, chapters 1 to 21, plus an encoder/decoder extra (12.5) | None |
+| | `/deep-learning-book` | *Understanding Deep Learning* chapter by chapter: what each offers, every worked example (linked to the notebook demos, with new demos where they add something), where each idea lives in an LLM; then research on making LLMs faster, cheaper and better: a what-if serving estimator and sourced evidence cards | None |
 | Building | `/prompting` | Few-shot measured on a test set, constrained decoding, prompt injection | GPT-2, 128 MB |
 | | `/embeddings` | Meaning map, RAG with embeddings, BM25 and hybrid search, plus a reranker | 23 MB, plus 24 MB reranker |
+| | `/store-watch` | Shoplifting alert desk, simulated with invented people: behaviour alerts, a score of 90 or more alerts the admin and holds the face for review, a named person confirms before anyone reaches the watchlist, possible matches at the door for staff to check, retention, removal and an audit log. No camera or real face is involved | None |
+| | `/workflows` | Every kind of agent workflow on Microsoft Agent Framework: sequential, concurrent, handoff, group chat, maker-checker, Magentic, orchestrator and workers, fan-out/fan-in and routing edges, plan-approve-run, checkpoint and resume, sub-workflows, declarative YAML. Diagrams read from the built workflow; replay real recorded runs free, or run live on Azure (`examples/agent-framework/workflows/`) | None; live runs need Azure OpenAI and `pip install -r examples/agent-framework/requirements.txt`; the YAML one needs its own Python 3.12 `.venv` and a .NET runtime |
 | | `/agents` | Tool-use loop step by step: parallel calls, errors, approval | None |
 | | `/context-engineering` | What to put in each request, ordering for caching, long conversations, tool output | None |
 | | `/harness` | Autonomous agents: watch one work until done, and switch off harness features to see what breaks | None |

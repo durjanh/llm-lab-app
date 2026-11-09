@@ -225,9 +225,11 @@ export default function FoundryOpsPage() {
               </tbody>
             </table>
             <p className="muted">
-              {rate.result.ms} ms · {usd(rate.result.cost_usd)}. Capacity 100 means 100,000 tokens and 100 requests a
-              minute; both refill every 60 seconds. Past either, the call is a 429 with <code>retry-after</code>: the
-              image lab&apos;s gpt-image-2, at capacity 1, met one on its second image.
+              {rate.result.ms} ms · {usd(rate.result.cost_usd)}. Capacity 100 gives this model 100,000 tokens and 100
+              requests a minute; the ratio of requests to tokens depends on the model. Requests are checked over windows
+              of 1 or 10 seconds, so a burst can get a 429 within the per-minute total. Past either limit, the call is a
+              429 with <code>retry-after</code>: the image lab&apos;s gpt-image-2, at capacity 1, met one on its second
+              image.
             </p>
           </div>
         )}

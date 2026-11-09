@@ -1,0 +1,47 @@
+.page-workflows{max-width:1180px}
+.page-workflows .wf-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start;margin-top:16px}
+.page-workflows .wf-toc{position:sticky;top:calc(var(--nav-h,56px) + 12px);max-height:calc(100dvh - var(--nav-h,56px) - 24px);overflow:auto;font-size:13px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+.page-workflows .wf-toc b{display:block;margin:12px 0 4px;color:var(--ink);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.page-workflows .wf-toc a{display:block;padding:2px 0;color:var(--ink2);text-decoration:none}
+.page-workflows .wf-toc a:hover{color:var(--brand)}
+.page-workflows .wf-section{margin-bottom:30px;scroll-margin-top:calc(var(--nav-h,56px) + 12px)}
+.page-workflows .wf-section > h2{margin:0 0 8px}
+.page-workflows .wf-card{margin-top:14px;scroll-margin-top:calc(var(--nav-h,56px) + 12px)}
+.page-workflows .wf-card h3{margin:0}
+.page-workflows .wf-card p{max-width:85ch}
+.page-workflows .wf-aka{margin:2px 0 8px;font-size:13px;color:var(--muted)}
+.page-workflows .wf-when{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:10px;font-size:14px;color:var(--ink2);margin:8px 0 12px}
+.page-workflows .wf-when > div{background:var(--soft2);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.page-workflows .wf-diagram{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface2);padding:6px}
+.page-workflows .wf-diagram svg{display:block;width:100%;margin:0 auto}
+.page-workflows .wf-edge{fill:none;stroke:var(--line2);stroke-width:1.5}
+.page-workflows .wf-edge.fanout,.page-workflows .wf-edge.fanin{stroke:var(--s1)}
+.page-workflows .wf-edge.switchcase{stroke:var(--s4)}
+.page-workflows .wf-edge.tool{stroke:var(--s3)}
+.page-workflows .wf-edge.back{stroke:var(--s2);stroke-dasharray:5 4}
+.page-workflows .wf-head{fill:var(--muted)}
+.page-workflows .wf-node rect{fill:var(--surface);stroke:var(--line2);stroke-width:1.5;transition:fill .2s,stroke .2s}
+.page-workflows .wf-node.code rect{stroke-dasharray:4 3}
+.page-workflows .wf-node text{font-size:12px;fill:var(--ink)}
+.page-workflows .wf-node.active rect{fill:var(--brand-soft);stroke:var(--brand);stroke-width:2.5}
+.page-workflows .wf-node.done rect{stroke:var(--good);stroke-width:2}
+.page-workflows .wf-node.failed rect{stroke:var(--bad);stroke-width:2.5}
+.page-workflows .wf-code{margin:10px 0;font-size:13px}
+.page-workflows .wf-code pre{margin:6px 0 0;padding:10px;border-radius:8px;background:var(--soft2);border:1px solid var(--line);overflow-x:auto;font-size:12px}
+.page-workflows .wf-task{display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.page-workflows .wf-task textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;resize:vertical}
+.page-workflows .wf-actions{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.page-workflows .wf-actions .small{flex:1 1 280px}
+.page-workflows .wf-approval{margin-top:12px;padding:12px;border:2px solid var(--brand);border-radius:10px;background:var(--brand-soft)}
+.page-workflows .wf-approval .wf-text{margin:6px 0 10px}
+.page-workflows .wf-error{color:var(--bad);margin:10px 0 0}
+.page-workflows .wf-log{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink2)}
+.page-workflows .wf-log li{position:relative;padding:6px 10px 6px 54px;border-left:3px solid var(--line);background:var(--soft2);border-radius:0 8px 8px 0}
+.page-workflows .wf-log li b{color:var(--ink)}
+.page-workflows .wf-log li.route,.page-workflows .wf-log li.note{background:none;font-size:13px}
+.page-workflows .wf-log li.ask{border-left-color:var(--brand)}
+.page-workflows .wf-log li.output{border-left-color:var(--good)}
+.page-workflows .wf-log li.bad{border-left-color:var(--bad)}
+.page-workflows .wf-ms{position:absolute;left:10px;top:7px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.page-workflows .wf-text{white-space:pre-wrap;max-height:260px;overflow:auto;margin-top:2px}
+@media (max-width:900px){.page-workflows .wf-layout{grid-template-columns:1fr}.page-workflows .wf-toc{position:static;max-height:240px}}

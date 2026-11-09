@@ -196,7 +196,8 @@ export default function EmbeddingsPage() {
           <li>
             <b>Set a threshold and allow "I don't know".</b> Off-topic questions still get a "nearest" chunk. A minimum
             score, plus an instruction to say when the documents don't contain the answer, prevents confident nonsense.
-            A fixed minimum suits cosine similarity. BM25 and fused scores have no fixed scale, so give them their own
+            Cosine similarity can take a fixed minimum, but the right value depends on the embedding model and your
+            documents, so tune it on your own data. BM25 and fused scores have no fixed scale, so give them their own
             rule, such as requiring a shared keyword.
           </li>
           <li>

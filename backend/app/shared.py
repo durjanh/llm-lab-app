@@ -39,6 +39,11 @@ def _load_example(name: str, path: Path):
     return module
 
 
+def agent_workflows():
+    """The workflow examples' runner, examples/agent-framework/workflows/_wf.py. Loaded on first use: it needs Agent Framework."""
+    return sys.modules.get("_wf") or _load_example("_wf", ROOT / "examples" / "agent-framework" / "workflows" / "_wf.py")
+
+
 # MedAssist's practice systems and tool loop, shared with examples/medassist so the page and the command line
 # book into the same database under the same rules. Standard library only.
 medassist_clinic = _load_example("medassist_clinic", ROOT / "examples" / "medassist" / "clinic.py")

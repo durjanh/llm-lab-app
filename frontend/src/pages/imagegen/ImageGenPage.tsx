@@ -254,8 +254,8 @@ export default function ImageGenPage() {
       <Panel title="2. From reference images, and with a mask (inpainting)">
         <p className="small muted">
           Choose one or more references: the claim photos from the Content Understanding lab, or anything made here.
-          With a mask, only the painted area may change and the rest is kept; without one, the references guide a new
-          image.
+          With a mask, the painted area is what should change and the rest should stay; without one, the references
+          guide a new image.
         </p>
         <div className="az-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}>
           {pool.map((id) => (
@@ -462,8 +462,9 @@ export default function ImageGenPage() {
           the deployment&apos;s capacity.
         </li>
         <li>
-          Masks are exact: opaque pixels are kept. Without a mask, a reference image is a guide, and the whole picture
-          can change.
+          A mask&apos;s transparent pixels mark where to edit. The service does not promise the rest stays pixel for
+          pixel the same, so paste the original back over it if you need that. Without a mask, a reference image is a
+          guide, and the whole picture can change.
         </li>
         <li>
           Content Credentials prove provenance only while the file is untouched. Keep the original, and add a visible

@@ -29,6 +29,8 @@ from ..services.messages import MessagesService
 from ..services.reviews import ReviewsService
 from ..services.sites import SiteService
 from ..services.tutor import TutorService
+from ..services.storewatch import StoreWatchService
+from ..services.workflows import WorkflowService
 from ..services.skills import SkillsService
 from ..services.spend import money
 from ..services.status import StatusService
@@ -124,6 +126,14 @@ def foundryops(c: Container = Depends(container)) -> FoundryOpsService:
 
 def dataagent(c: Container = Depends(container)) -> DataAgentService:
     return c.dataagent
+
+
+def storewatch(c: Container = Depends(container)) -> StoreWatchService:
+    return c.storewatch
+
+
+def workflows(c: Container = Depends(container)) -> WorkflowService:
+    return c.workflows
 
 
 def coding(c: Container = Depends(container)) -> CodingService:

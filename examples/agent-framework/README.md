@@ -50,3 +50,38 @@ python examples/agent-framework/serve_all.py      # http://127.0.0.1:8090, with 
 ```
 
 DevUI's **Browse Gallery** lists four Microsoft samples, but its Download links point at old paths in the repository and return 404: the folders were renamed on `main` (`foundry_agent` is now `agent_foundry`, `spam_workflow` is now `workflow_spam`, and so on). Get them from the repository's `python/samples/02-agents/devui/` folder instead. The sample marks its tools `approval_mode="never_require"` for brevity; Microsoft's own comment says to require approval in production.
+
+## Every workflow type
+
+`workflows/` has one short, runnable file for each type of workflow in Microsoft's guidance, all on Azure OpenAI with Entra sign-in. The `/workflows` page runs these same files.
+
+| File | Type |
+|---|---|
+| `01_sequential.py` | Sequential |
+| `02_concurrent.py` | Concurrent, with a chair that settles disagreement |
+| `03_fan_out_fan_in_edges.py` | Fan-out and fan-in edges wired by hand; one branch is plain code |
+| `04_handoff.py` | Handoff, with a tool and turn limits |
+| `05_group_chat.py` | Group chat with a manager agent |
+| `06_maker_checker.py` | Maker-checker loop, with an iteration cap and a fallback to a person |
+| `07_magentic.py` | Magentic, with its task and progress ledgers |
+| `08_orchestrator_workers.py` | Orchestrator and workers (subagents, as agents used as tools) |
+| `09_routing.py` | Switch-case and multi-selection edges |
+| `10_plan_approve_run.py` | Plan, a real pause for a person, then run |
+| `11_checkpoint_resume.py` | A crash, then a resume that repeats no finished work |
+| `12_sub_workflow.py` | A workflow used as one step of another |
+| `13_declarative.py`, `returns_desk.yaml` | The workflow as a YAML file, with Power Fx conditions |
+
+```sh
+cd examples/agent-framework/workflows
+python 02_concurrent.py                 # add --task "..." for your own task
+python 10_plan_approve_run.py           # stops and asks you; --yes answers for you
+python 02_concurrent.py --diagram       # the graph as Mermaid
+python record.py                        # re-record the runs the page replays (a few cents)
+```
+
+`13_declarative.py` needs its own environment, because the Power Fx engine isn't published for Python 3.14 and needs a .NET runtime:
+
+```sh
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements-declarative.txt
+.venv/bin/python 13_declarative.py
+```

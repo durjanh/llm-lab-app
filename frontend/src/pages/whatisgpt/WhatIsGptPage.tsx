@@ -27,7 +27,7 @@ const show = (t: string) => (t.trim() ? t.replace(/\n/g, '↵') : t.replace(/ /g
 const HISTORY: { year: string; name: string; what: string }[] = [
   { year: '2017', name: 'The transformer', what: 'Google\'s "Attention is all you need" paper: an encoder–decoder model for translation, built on self-attention.' },
   { year: '2018', name: 'GPT-1', what: 'OpenAI keeps only the decoder and pre-trains it to predict the next word. About 117 million parameters, trained on about 7,000 books.' },
-  { year: '2019', name: 'GPT-2', what: '1.5 billion parameters, trained on 40 GB of web text. Writes coherent paragraphs. The model this page runs.' },
+  { year: '2019', name: 'GPT-2', what: 'Up to 1.5 billion parameters, trained on 40 GB of web text. Writes coherent paragraphs. This page runs the smallest version: 124 million parameters, about 128 MB.' },
   { year: '2020', name: 'GPT-3', what: '175 billion parameters. Learns tasks from a few examples in the prompt (few-shot), without retraining.' },
   { year: '2022', name: 'InstructGPT, ChatGPT', what: 'Fine-tuned to follow instructions and tuned on human preferences (RLHF): the step from text predictor to assistant.' },
   { year: '2023', name: 'GPT-4', what: 'Much more capable, and accepts images as input. Its size is not published.' },

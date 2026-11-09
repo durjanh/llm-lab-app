@@ -28,6 +28,8 @@ export function Nav() {
   }, []);
 
   const home = PAGES[0];
+  // Pages that belong to no group (the Bible) sit beside Home rather than in a menu.
+  const ungrouped = PAGES.filter((p) => p.group === null && p !== home);
   const nextTheme = () => {
     const m = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
     setTheme(m);
@@ -46,6 +48,7 @@ export function Nav() {
       </Link>
       <div className="site-links">
         {link(home)}
+        {ungrouped.map(link)}
         {GROUPS.map((g) => {
           const items = PAGES.filter((p) => p.group === g);
           return (
@@ -76,6 +79,11 @@ export function Nav() {
         onChange={(e) => navigate(e.target.value)}
       >
         <option value={home.path}>{home.label}</option>
+        {ungrouped.map((p) => (
+          <option key={p.id} value={p.path}>
+            {p.label}
+          </option>
+        ))}
         {GROUPS.map((g) => (
           <optgroup key={g} label={g}>
             {PAGES.filter((p) => p.group === g).map((p) => (

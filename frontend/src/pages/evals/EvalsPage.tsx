@@ -402,10 +402,10 @@ export default function EvalsPage() {
         <h2>4. Is B really better? Put an interval on it</h2>
         <p>
           Your test set is a sample. Another sample of the same kind would give a slightly different score. A{' '}
-          <b>95% confidence interval</b> is the range of accuracy the prompt would plausibly get on other samples like
-          yours. Here it comes from the <b>bootstrap</b>: build a new test set of the same size by drawing cases from
-          yours at random, with replacement, so some appear twice and some not at all. Score it, repeat 2,000 times, and
-          keep the middle 95% of the scores.
+          <b>95% confidence interval</b> is a range made by a method that, repeated on many new samples, would contain
+          the prompt&apos;s true accuracy 95% of the time. Here the <b>bootstrap</b> approximates it: build a new test
+          set of the same size by drawing cases from yours at random, with replacement, so some appear twice and some
+          not at all. Score it, repeat 2,000 times, and keep the middle 95% of the scores.
         </p>
         <p>
           The difference B − A is bootstrapped in pairs. Each resample draws the same cases for both prompts, because

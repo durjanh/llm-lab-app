@@ -268,7 +268,8 @@ export default function TrainingPage() {
         </details>
         <p className="small muted" style={{ marginTop: '10px' }}>
           Losses are measured every few steps on up to 400 training positions and 600 validation positions. A loss of 2
-          means the right character got about 14% probability on average, since e to the power of minus 2 is 0.14.
+          means the right character got about 14% probability as a geometric mean (not the ordinary average), since e to
+          the power of minus 2 is 0.14.
         </p>
       </div>
       <h2>4. Read what it writes</h2>

@@ -125,8 +125,9 @@ export default function McpPage() {
         <ol className="mc-design">
           <li>
             <b>Write tools for the model, like an API for a new colleague.</b> Few tools, each a whole task. Clear names and
-            descriptions with examples. Constrained inputs, enforced before your code runs. Every tool's description is in
-            Claude's context on every request, so fewer, better tools beat many small ones.
+            descriptions with examples. Constrained inputs, enforced before your code runs. With a plain tools list, every
+            tool's description is in Claude's context on every request, so fewer, better tools beat many small ones.
+            Clients such as Claude Code can defer MCP tools behind a tool search, sending only names until one is needed.
           </li>
           <li>
             <b>Keep results small.</b> Search returns summaries and the detail is one call away. Page long lists with an
@@ -137,8 +138,9 @@ export default function McpPage() {
             find the id" or "do not retry". Try "Get an id that does not exist" above.
           </li>
           <li>
-            <b>Say what changes data, and make writes safe to retry.</b> Annotations mark tools as read-only or writing, so
-            the client can ask a person first. An idempotency key stops a retried call from logging a risk twice.
+            <b>Say what changes data, and make writes safe to retry.</b> Annotations hint which tools are read-only or
+            writing, so the client can ask a person first. They are hints: a client should not trust them from a server
+            it does not trust. Scopes on the server and policy in the client do the enforcing. An idempotency key stops a retried call from logging a risk twice.
           </li>
           <li>
             <b>Host it stateless, authenticate every request.</b> Any copy of the server can answer any request, so it

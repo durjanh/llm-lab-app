@@ -1,0 +1,25 @@
+.page-storewatch{max-width:900px}
+.page-storewatch .sw-banner{margin:14px 0;padding:10px 14px;border:1px solid var(--brand-line);background:var(--brand-soft);border-radius:10px;color:var(--ink)}
+.page-storewatch .sw-step{margin-top:14px}
+.page-storewatch .sw-step h2{margin:0 0 6px}
+.page-storewatch .sw-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:8px}
+.page-storewatch .sw-item{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft2)}
+.page-storewatch .sw-item.high{border-left:4px solid var(--bad)}
+.page-storewatch .sw-item p{margin:6px 0}
+.page-storewatch .sw-score{font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--soft);color:var(--ink2)}
+.page-storewatch .sw-score.high{background:var(--bad);color:#fff}
+.page-storewatch .sw-tag{font-size:12px;border-radius:999px;padding:2px 9px;border:1px solid var(--line2);color:var(--ink2)}
+.page-storewatch .sw-tag.active{border-color:var(--good);color:var(--good)}
+.page-storewatch textarea,.page-storewatch .sw-form input:not([type=checkbox]),.page-storewatch .sw-name input:not([type=range]){box-sizing:border-box;padding:7px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+.page-storewatch textarea{width:100%;margin-top:6px}
+.page-storewatch .sw-form{display:flex;flex-direction:column;gap:8px;max-width:560px}
+.page-storewatch .sw-form p{margin:0}
+.page-storewatch .sw-check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink2)}
+.page-storewatch .sw-name{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink2)}
+.page-storewatch .sw-lesson{margin:12px 0 0;padding:8px 12px;border-left:3px solid var(--warn);background:var(--soft2);border-radius:0 8px 8px 0}
+.page-storewatch .sw-error{color:var(--bad)}
+.page-storewatch .sw-notices{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.page-storewatch .sw-notices li{padding:6px 10px;border-left:3px solid var(--line2);background:var(--soft2)}
+.page-storewatch .sw-notices li.high{border-left-color:var(--bad)}
+.page-storewatch .sw-audit{list-style:none;margin:0 0 10px;padding:0;font-size:13px;color:var(--ink2);display:flex;flex-direction:column;gap:3px;max-height:260px;overflow:auto}
+.page-storewatch table{margin-top:10px}
