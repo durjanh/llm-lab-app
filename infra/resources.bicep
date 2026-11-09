@@ -216,6 +216,12 @@ resource orderApi 'Microsoft.App/containerApps@2025-01-01' = {
   }
 }
 
+// --- MedAssist's real texts and reminders: a module, also deployed on its own by examples/medassist/azure.yaml ---
+module medassistTexts 'modules/medassist-texts.bicep' = {
+  name: 'medassist-texts'
+  params: { environmentName: environmentName, location: location, principalId: principalId, principalType: principalType, tags: tags, aiServicesName: ai.name }
+}
+
 // --- The roles the labs need, for the person running them (data-plane roles: Owner alone is not enough) ---
 
 var role = {
@@ -288,3 +294,5 @@ output speechResourceId string = speech.id
 output projectPrincipalId string = project.identity.principalId
 output orderApiUrl string = 'https://${orderApi.properties.configuration.ingress.fqdn}'
 output sandboxEndpoint string = empty(sandboxAppId) ? '' : 'https://${sandbox.?properties.?configuration.?ingress.?fqdn ?? ''}'
+output smsEndpoint string = medassistTexts.outputs.smsEndpoint
+output remindersTableUrl string = medassistTexts.outputs.remindersTableUrl

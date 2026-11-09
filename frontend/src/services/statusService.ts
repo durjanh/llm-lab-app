@@ -8,6 +8,8 @@ interface StatusResponse {
   models: string[];
   claude_models?: string[];
   claude_model?: string;
+  skills_models?: string[];
+  skills_sandbox?: boolean;
   local?: LocalModelStatus;
   gpt_models?: string[];
   prices: Record<string, { input: number; output: number; cache_read: number }>;
@@ -30,8 +32,10 @@ export interface LiveStatus {
   has_credentials?: boolean;
   default_model?: string;
   models?: string[]; // the local model first, when one is configured: it is the default where it can do the work
-  claude_models?: string[]; // for pages whose work needs Claude (skills, code execution, web search)
+  claude_models?: string[]; // for pages whose work needs Claude (web search, the Agent SDK)
   claude_model?: string;
+  skills_models?: string[]; // skills and decks: Claude in Anthropic's container, the others in the lab's sandbox
+  skills_sandbox?: boolean;
   local?: LocalModelStatus;
   gpt_models?: string[]; // Azure OpenAI deployments; offered only on pages that support them
   prices?: StatusResponse['prices'];
@@ -75,6 +79,8 @@ export class StatusService {
         models: s.models || [],
         claude_models: s.claude_models || s.models || [],
         claude_model: s.claude_model || s.default_model,
+        skills_models: s.skills_models || s.claude_models || s.models || [],
+        skills_sandbox: !!s.skills_sandbox,
         local: s.local,
         gpt_models: s.gpt_models || [],
         prices: s.prices || {},

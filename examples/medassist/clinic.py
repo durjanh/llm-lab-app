@@ -10,6 +10,10 @@ what it is allowed to do, because a prompt is a request and the model does not a
   conditional UPDATE, so two patients cannot get the same slot.
 - Cancelling takes two calls in two turns: the first only asks the patient to confirm.
 - Every read of a record and every change is written to the audit log.
+
+Texts are rows in the messages table. Given a notifier (sms.RealTexts), they are also sent as real texts, and a
+booking keeps a reminder for 24 hours before; a text that fails is written to the audit log and never undoes the
+booking.
 """
 from __future__ import annotations
 
@@ -20,6 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 WEEKS_AHEAD = 4
 FACE = ["09:00", "09:40", "10:00", "10:40", "11:20", "14:30", "15:30"]
@@ -35,12 +40,30 @@ CLINICIANS = [  # id, name, role, {weekday (Monday 0): [(time, kind), ...]}
     ("LEW", "Ben Lewis (clinical pharmacist)", "pharmacist",
      {d: [("13:30", "face_to_face"), ("15:00", "face_to_face")] for d in (1, 3)}),
 ]
+# The language each patient prefers for calls and texts (python/translator.py's codes). Invented, like the patients.
+# English unless a patient prefers another
+PREFERRED_LANGUAGE = {"P001": "en", "P002": "en", "P003": "en", "P004": "es", "P005": "pl", "P006": "ar",
+                      "P007": "ro", "P008": "ur", "P009": "pa"}
 PATIENTS = [  # all invented; 07700 900xxx numbers are reserved by Ofcom for drama
-    ("P001", "Valeria Romano", "1986-05-14", "07700 900123", "AZE", "Penicillin", "Asthma",
+    ("P001", "Valeria Romano", "1986-05-14", "07403289357", "AZE", "Penicillin", "Asthma",
      "Salbutamol inhaler; beclometasone inhaler"),
     ("P002", "Sam Taylor", "1980-03-03", "07700 900456", "OKA", "None known", "High blood pressure", "Lisinopril 10 mg"),
     ("P003", "Margaret Ellis", "1941-11-20", "07700 900789", "AZE", "None known", "Type 2 diabetes", "Metformin"),
+    # Patients who prefer other languages, at different ages, to try calls and texts in their language, and the
+    # slower, softer voice older patients hear (65 and over, 80 and over).
+    ("P004", "Lucía García", "2001-07-09", "07700 900211", "OKA", "None known", "None", "None"),
+    ("P005", "Agnieszka Nowak", "1990-02-21", "07700 900212", "AZE", "Latex", "Migraine", "Sumatriptan 50 mg when needed"),
+    ("P006", "Fatima Al-Sayed", "1972-10-30", "07700 900213", "OKA", "None known", "Hypothyroidism",
+     "Levothyroxine 100 micrograms"),
+    ("P007", "Andrei Ionescu", "1958-05-02", "07700 900214", "AZE", "None known", "High cholesterol",
+     "Atorvastatin 20 mg"),
+    ("P008", "Imran Hussain", "1947-01-15", "07700 900215", "OKA", "Aspirin", "Type 2 diabetes; high blood pressure",
+     "Metformin 500 mg; amlodipine 5 mg"),
+    ("P009", "Harpreet Kaur", "1939-08-26", "07700 900216", "AZE", "None known", "Osteoarthritis; atrial fibrillation",
+     "Paracetamol 1 g when needed; apixaban 2.5 mg"),
 ]
+CALLS = """CREATE TABLE IF NOT EXISTS calls (id INTEGER PRIMARY KEY, patient_id TEXT, call_id TEXT, at TEXT,
+                                             speaker TEXT, text TEXT);"""
 SCHEMA = """
 CREATE TABLE clinicians (id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL);
 CREATE TABLE patients (id TEXT PRIMARY KEY, name TEXT NOT NULL, date_of_birth TEXT NOT NULL, phone TEXT NOT NULL,
@@ -50,6 +73,8 @@ CREATE TABLE slots (id TEXT PRIMARY KEY, clinician_id TEXT NOT NULL REFERENCES c
     starts_at TEXT NOT NULL, kind TEXT NOT NULL, patient_id TEXT, reason TEXT, booked_at TEXT);
 CREATE TABLE messages (id INTEGER PRIMARY KEY, patient_id TEXT, sent_to TEXT, body TEXT, sent_at TEXT);
 CREATE TABLE audit (id INTEGER PRIMARY KEY, at TEXT, patient_id TEXT, actor TEXT, action TEXT, detail TEXT);
+CREATE TABLE IF NOT EXISTS calls (id INTEGER PRIMARY KEY, patient_id TEXT, call_id TEXT, at TEXT, speaker TEXT,
+                                  text TEXT);
 """
 TYPES = {"gp": ("gp", "face_to_face"), "phone": ("gp", "phone"), "nurse": ("nurse", "face_to_face"),
          "pharmacist": ("pharmacist", "face_to_face")}
@@ -143,13 +168,18 @@ class Session:
     turn: int = 0  # the patient's message number; the caller adds one per message
     offered: dict[str, int] = field(default_factory=dict)  # slot id -> the turn find_appointments showed it
     cancelling: dict[str, int] = field(default_factory=dict)  # appointment id -> the turn confirmation was asked
+    notifier: Any = None  # sms.RealTexts for real texts and reminders; None keeps them as database rows only
+    language: str = ""  # the patient's preferred language for texts; empty: PREFERRED_LANGUAGE
 
     def __post_init__(self) -> None:
         self.db = sqlite3.connect(self.path, check_same_thread=False)  # the web backend answers from worker threads
         self.db.row_factory = sqlite3.Row
+        self.db.executescript(CALLS)  # a database made before phone calls gets the table now
+        add_new_patients(self.db)  # and patients added to the list since
         self.patient = self.db.execute("SELECT * FROM patients WHERE id = ?", (self.patient_id,)).fetchone()
         if self.patient is None:
             raise ValueError(f"No patient {self.patient_id}")
+        self.language = self.language or PREFERRED_LANGUAGE.get(self.patient_id, "en")
 
     def audit(self, action: str, detail: str = "") -> None:
         self.db.execute("INSERT INTO audit (at, patient_id, actor, action, detail) VALUES (?, ?, 'MedAssist', ?, ?)",
@@ -157,10 +187,25 @@ class Session:
         self.db.commit()
 
     def text(self, body: str) -> str:
-        """Sends an SMS (here: a row in messages). Returns the masked number, which is all the model needs."""
+        """Sends an SMS: a row in messages, and a real text when there is a notifier. Returns the masked number, which
+        is all the model needs."""
         self.db.execute("INSERT INTO messages (patient_id, sent_to, body, sent_at) VALUES (?, ?, ?, ?)",
                         (self.patient_id, self.patient["phone"], body, datetime.now().isoformat(timespec="seconds")))
+        self._notify("text sent", lambda n: n.send(self.patient["name"], body, self.language))
         return "mobile ending " + self.patient["phone"][-3:]
+
+    def _notify(self, action: str, do: Callable[[Any], Any]) -> Any:
+        """Runs one real-text step if texts are real. A failure is audited, not raised: the booking stands."""
+        if self.notifier is None:
+            return None
+        try:
+            result = do(self.notifier)
+        except Exception as exc:  # noqa: BLE001  (the network, Azure, a number it refuses)
+            self.audit(f"{action}: failed", f"{type(exc).__name__}: {str(exc)[:200]}")
+            return None
+        if result is not None:
+            self.audit(action, str(result))
+        return result
 
     def upcoming(self) -> list[dict]:
         rows = self.db.execute("""SELECT s.id, s.starts_at, s.kind, s.reason, c.name FROM slots s
@@ -224,8 +269,14 @@ class Session:
         sent_to = self.text(f"Harbourside Medical Centre: your appointment with {slot['name']} is on "
                             f"{when(slot['starts_at'])}. Ref {slot_id}. To cancel, use the app or call 01632 960 123.")
         self.audit("appointment booked", f"{slot_id} with {slot['name']}: {reason[:200]}")
+        reminder = self._notify("reminder kept", lambda n: n.schedule(
+            slot_id, self.patient["name"], f"Harbourside Medical Centre: a reminder that your appointment with "
+            f"{slot['name']} is tomorrow, {when(slot['starts_at'])}. Ref {slot_id}. To cancel, use the app or call "
+            "01632 960 123.", slot["starts_at"], self.language))
         booked = {"booked": True, "appointment_id": slot_id, "with": slot["name"], "when": when(slot["starts_at"]),
                   "kind": slot["kind"].replace("_", " "), "confirmation_sent_to": sent_to}
+        if reminder:
+            booked["reminder"] = "a text the day before"
         if slot_id.startswith("SHA-"):
             booked["next_step"] = ("Search the practice documents for how to prepare for this nurse appointment and "
                                    "tell the patient, keeping any conditions the documents give.")
@@ -242,6 +293,7 @@ class Session:
                                                          f"{a['when']}. Call cancel_appointment again after they say yes."}
         self.db.execute("UPDATE slots SET patient_id = NULL, reason = NULL, booked_at = NULL WHERE id = ?",
                         (appointment_id,))
+        self._notify("reminder dropped", lambda n: n.cancel(appointment_id))
         a = mine[appointment_id]
         sent_to = self.text(f"Harbourside Medical Centre: your appointment with {a['with']} on {a['when']} "
                             "has been cancelled.")
@@ -258,6 +310,43 @@ class Session:
             return tools[name](**args)
         except TypeError as exc:  # wrong or missing arguments
             return {"error": f"Bad arguments for {name}: {exc}"}
+
+
+def add_new_patients(db: sqlite3.Connection) -> None:
+    """Patients added to PATIENTS since the database was made, so it gains them without a reset."""
+    db.executemany("INSERT OR IGNORE INTO patients VALUES (?, ?, ?, ?, ?, ?, ?, ?)", PATIENTS)
+    db.commit()
+
+
+def age_of(date_of_birth: str, today: date | None = None) -> int:
+    born, today = date.fromisoformat(date_of_birth), today or date.today()
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+
+def phone_note(today: date | None = None, language: str = "English") -> str:
+    """What the phone line tells the agent at the start of a call: spoken, so no lists or markdown, and in the
+    caller's language."""
+    today = today or date.today()
+    return (f"Today is {today:%A %d %B %Y} ({today.isoformat()}). This is a phone call to the practice: your words are "
+            "spoken aloud. Keep each reply to two or three short sentences with no lists, markdown or symbols. Offer "
+            "at most three slots, by day and time, and ask which one the caller wants. The phone line has already "
+            "confirmed the caller's date of birth. "
+            f"The caller speaks {language}: reply in {language}, in simple words, whatever language the tools use.")
+
+
+def log_call(path: Path, patient_id: str, call_id: str, speaker: str, text: str) -> None:
+    """One line of a phone call, in the practice record: the caller, the assistant, or the line itself."""
+    with sqlite3.connect(path) as db:
+        db.executescript(CALLS)
+        db.execute("INSERT INTO calls (patient_id, call_id, at, speaker, text) VALUES (?, ?, ?, ?, ?)",
+                   (patient_id, call_id, datetime.now().isoformat(timespec="seconds"), speaker, text))
+
+
+def log_event(path: Path, patient_id: str, action: str, detail: str = "") -> None:
+    """A phone call's own event (answered, ended, emergency, identity not confirmed) in the audit log."""
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO audit (at, patient_id, actor, action, detail) VALUES (?, ?, 'Phone line', ?, ?)",
+                   (datetime.now().isoformat(timespec="seconds"), patient_id, action, detail))
 
 
 def portal_note(session: Session, today: date | None = None) -> str:
@@ -320,6 +409,7 @@ def snapshot(path: Path, patient_id: str, limit: int = 20) -> dict:
     not MedAssist reading the record, so it is not audited as one."""
     with sqlite3.connect(path) as db:
         db.row_factory = sqlite3.Row
+        add_new_patients(db)
         p = db.execute("""SELECT p.*, c.name AS gp FROM patients p JOIN clinicians c ON c.id = p.registered_gp
                           WHERE p.id = ?""", (patient_id,)).fetchone()
         if p is None:
@@ -332,6 +422,9 @@ def snapshot(path: Path, patient_id: str, limit: int = 20) -> dict:
                            (patient_id, limit)).fetchall()
         audit = db.execute("SELECT at, actor, action, detail FROM audit WHERE patient_id = ? ORDER BY id DESC LIMIT ?",
                            (patient_id, limit)).fetchall()
+        db.executescript(CALLS)
+        calls = db.execute("SELECT at, call_id, speaker, text FROM calls WHERE patient_id = ? ORDER BY id DESC LIMIT ?",
+                           (patient_id, limit * 3)).fetchall()
     return {
         "patient": {"id": p["id"], "name": p["name"], "date_of_birth": p["date_of_birth"], "phone": p["phone"],
                     "registered_gp": p["gp"], "allergies": p["allergies"], "conditions": p["conditions"],
@@ -340,4 +433,5 @@ def snapshot(path: Path, patient_id: str, limit: int = 20) -> dict:
                       "kind": r["kind"].replace("_", " "), "reason": r["reason"]} for r in upcoming],
         "texts": [dict(r) for r in texts],
         "audit": [dict(r) for r in audit],
+        "calls": [dict(r) for r in reversed(calls)],  # phone calls, oldest line first
     }

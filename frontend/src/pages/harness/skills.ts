@@ -1,3 +1,4 @@
+import { modelNameStart, skillsPlace } from '@/lib/models';
 import { Site } from '@/lib/site';
 import type { Life } from '@/lib/lifecycle';
 import { skillsService, statusService, type SkillFile, type SkillsEvent } from '@/services';
@@ -24,22 +25,26 @@ export function mountSkills(life: Life): void {
     last?.scrollIntoView({ block: 'nearest' });
     $('#skFiles').innerHTML = files.length
       ? files.map(f => `<button class="btn" data-id="${esc(f.id)}" data-name="${esc(f.name)}">Download ${esc(f.name)}${f.size_bytes ? ` (${fmtInt(f.size_bytes / 1024)} KB)` : ''}</button>`).join(' ')
-      : '<span class="small muted">Files Claude makes appear here.</span>';
+      : '<span class="small muted">Files the model makes appear here.</span>';
   }
 
+  let who = 'Claude';
+  let where = 'the container';
   function onEvent(ev: SkillsEvent): void {
     const add = (kind: Kind, title: string, detail = '') => rows.push({ kind, title, detail });
     switch (ev.type) {
-      case 'task': add('user', `You ask for a file, with the ${ev.skills.join(', ')} skill`, ev.task); break;
-      case 'request': add('request', `Request ${ev.turn} to Claude · stop_reason ${ev.stop_reason}`, ev.stop_reason === 'pause_turn' ? `A long run paused. The backend sends the turn back in the same container. ${ev.usage}` : ev.usage); break;
-      case 'says': add('says', 'Claude', ev.text); break;
-      case 'step': add('step', `In the container: ${ev.name}`, ev.detail); break;
+      case 'task':
+        who = modelNameStart(ev.model); where = skillsPlace(ev.model);
+        add('user', `You ask for a file, with the ${ev.skills.join(', ')} skill`, ev.task); break;
+      case 'request': add('request', `Request ${ev.turn} to ${who} · stop_reason ${ev.stop_reason}`, ev.stop_reason === 'pause_turn' ? `A long run paused. The backend sends the turn back in the same container. ${ev.usage}` : ev.usage); break;
+      case 'says': add('says', who, ev.text); break;
+      case 'step': add('step', `In ${where}: ${ev.name}`, ev.detail); break;
       case 'output': add('output', `Exit code ${ev.return_code}`, ev.first_line); break;
       case 'paused': add('error', 'Still paused', ev.text); break;
       case 'error': add('error', 'Error', ev.message ?? ev.text ?? ''); break;
       case 'files':
         files = ev.files;
-        add('files', ev.files.length ? `Claude made ${ev.files.length} file${ev.files.length > 1 ? 's' : ''}` : 'Claude made no files this time', `About $${ev.cost.toFixed(4)} in tokens; container time is billed separately.`);
+        add('files', ev.files.length ? `${who} made ${ev.files.length} file${ev.files.length > 1 ? 's' : ''}` : `${who} made no files this time`, `About $${ev.cost.toFixed(4)} in tokens${who === 'Claude' ? '; container time is billed separately' : ''}.`);
         break;
       default: return;
     }
@@ -82,7 +87,7 @@ export function mountSkills(life: Life): void {
     $('#skRun').disabled = !ok;
     $('#skStatus').textContent = ok ? 'Live: this spends real credit, and code-execution container time is billed separately.' : s.reason;
     // Skills run in Anthropic's code-execution container, so only Claude models are offered.
-    $('#skModel').innerHTML = (s.claude_models ?? []).map(m => `<option ${m === s.claude_model ? 'selected' : ''}>${esc(m)}</option>`).join('');
+    $('#skModel').innerHTML = (s.skills_models ?? s.claude_models ?? []).map(m => `<option ${m === s.claude_model ? 'selected' : ''}>${esc(m)}</option>`).join('');
   });
   render();
 }

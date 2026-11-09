@@ -18,6 +18,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
+from .api.aftercare import CALL_EVENTS
+from .api.medassist import LINE
 from .container import Container
 from .core.errors import ApiError, error_response
 from .services.mcp_lab import PATH as MCP_LAB_PATH
@@ -44,7 +46,7 @@ logging.getLogger("uvicorn.error").addFilter(_QuietShutdown())
 
 def create_app(settings: Settings | None = None, client: Any = None, browser: Any = None,
                speech: Any = None, gpt: Any = None, search: Any = None, foundry: Any = None,
-               language: Any = None, agents: Any = None, tools: Any = None) -> FastAPI:
+               language: Any = None, agents: Any = None, tools: Any = None, phone: Any = None) -> FastAPI:
     settings = settings or Settings.from_env()
 
     @asynccontextmanager
@@ -61,7 +63,7 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
                   description="Proxies Claude API calls for the lab pages, with a spending cap.")
     app.state.settings = settings
     app.state.container = Container.build(settings, client if client is not None else make_client(), browser, speech, gpt,
-                                          search, foundry, language, agents, tools)
+                                          search, foundry, language, agents, tools, phone)
 
     @app.exception_handler(ApiError)
     async def on_api_error(_: Request, exc: ApiError) -> JSONResponse:
@@ -76,6 +78,17 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
 
     app.include_router(router)
     app.mount(MCP_LAB_PATH, app.state.container.mcp_lab.app)  # the example MCP server, with its own token auth
+
+    @app.middleware("http")
+    async def tunnel_only_for_call_events(request: Request, call_next):
+        """A dev tunnel publishes this server on the internet so a real phone call's events can reach it. A request
+        that came through a tunnel or any proxy (it carries X-Forwarded-For) may reach only those events, which
+        each need their call's token. Everything else answers only to this machine."""
+        if request.headers.get("x-forwarded-for") and not request.url.path.startswith((CALL_EVENTS, LINE + "incoming",
+                                                                                       LINE + "events/")):
+            return JSONResponse({"error": {"type": "forbidden", "message": "Not available through a tunnel."}},
+                                status_code=403)
+        return await call_next(request)
 
     @app.middleware("http")
     async def cache_headers(request: Request, call_next):

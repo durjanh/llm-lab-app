@@ -3,14 +3,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from ..schemas import AftercareEvaluate, AftercareMessage, AftercareStart, AftercareTaskClose
 from ..services.aftercare import AftercareService
-from .deps import aftercare, require_budget, require_lab_page
+from ..services.aftercare_phone import AftercarePhone
+from .deps import aftercare, aftercare_phone, require_budget, require_lab_page
 
 router = APIRouter(dependencies=[Depends(require_lab_page)])
+# Communication Services reports a real call's events here, from the internet through a tunnel, so it cannot send
+# the lab's header: each call's address carries a token made for that call instead.
+CALL_EVENTS = "/api/aftercare/phone/events/"
+phone_events = APIRouter()
 NDJSON = {"media_type": "application/x-ndjson", "headers": {"Cache-Control": "no-store"}}
 
 
@@ -68,3 +73,28 @@ def reset(service: AftercareService = Depends(aftercare)) -> dict[str, Any]:
 def evaluate(body: AftercareEvaluate, service: AftercareService = Depends(aftercare)) -> StreamingResponse:
     """The scripted patients through whole calls on one engine, each checked on what it left in the record."""
     return StreamingResponse(service.evaluate(body.engine, body.model, body.patients), **NDJSON)
+
+
+@router.get("/aftercare/phone")
+def phone_info(service: AftercarePhone = Depends(aftercare_phone)) -> dict[str, Any]:
+    """Whether real calls are set up, and the settings still missing if not."""
+    return service.info()
+
+
+@router.post("/aftercare/phone", dependencies=[Depends(require_budget)])
+def phone_call(body: AftercareStart, service: AftercarePhone = Depends(aftercare_phone)) -> dict[str, Any]:
+    """Starts an Aftercare call and rings your own phone with it."""
+    return service.start(body.patient_id, body.engine, body.model)
+
+
+@router.get("/aftercare/phone/{call_id}")
+def phone_status(call_id: str, service: AftercarePhone = Depends(aftercare_phone)) -> dict[str, Any]:
+    return service.status(call_id)
+
+
+@phone_events.post("/aftercare/phone/events/{call_id}")  # CALL_EVENTS, under /api
+async def phone_call_events(call_id: str, token: str, request: Request,
+                            service: AftercarePhone = Depends(aftercare_phone)) -> dict[str, Any]:
+    events = await request.json()
+    service.events(call_id, token, events if isinstance(events, list) else [events])
+    return {"ok": True}

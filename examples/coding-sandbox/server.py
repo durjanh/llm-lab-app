@@ -11,6 +11,11 @@ and sends the project back. The project's .venv stays here, so `pip install` las
     POST /run?identifier=<id>         {"command": "...", "timeout": 60, "archive": "<base64 .tar.gz>",
                                        "setup": {"pip": [], "apt": []}}
                                    -> {"returncode": 0, "output": "...", "timed_out": false, "archive": "..."}
+      with "delta": true in the request, the archive holds only the files the command added or changed, and
+      "deleted" lists those it removed, so a large unchanged file (a 12 MB deck) is not sent back every time;
+      with "since" (the "sync" id of the last request this session ran), the archive holds only what changed since
+      then and "removed" lists what was deleted, so it is not sent in every time either. 409 means start again with
+      the whole project. GET /health says {"delta": 2} when the server takes both.
     POST /screenshot?identifier=<id>  {"path": "report.html", "width": 1000, "height": 800, "archive": "..."}
                                    -> {"png": "<base64>", "console": ["..."]}, from the image's Chromium
     GET  /health                      for probes
@@ -25,6 +30,7 @@ Requests are signed before they reach this server: by the pool (option A), or by
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import os
@@ -139,6 +145,45 @@ def unpack(root: Path, data: bytes) -> None:
             here.rmdir()
 
 
+def fingerprint(root: Path) -> dict[str, str]:
+    """Each file pack would send, by path, with a hash of its content."""
+    found = {}
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in SKIP and not os.path.islink(os.path.join(dirpath, d))]
+        for name in files:
+            p = Path(dirpath) / name
+            if p.is_file() and not p.is_symlink():
+                found[p.relative_to(root).as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest()
+    return found
+
+
+def pack_changes(root: Path, before: dict[str, str]) -> tuple[bytes, list[str]]:
+    """The files added or changed since `before`, as a .tar.gz, and the paths removed since then."""
+    after = fingerprint(root)
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for rel, digest in sorted(after.items()):
+            if before.get(rel) != digest:
+                tar.add(root / rel, arcname=rel, recursive=False)
+    return buf.getvalue(), sorted(set(before) - set(after))
+
+
+def apply_changes(root: Path, data: bytes, deleted: list[str]) -> None:
+    """The other end of pack_changes: writes the changed files and removes the deleted ones, leaving the rest."""
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+        for m in tar.getmembers():
+            p = (root / m.name).resolve()
+            if not m.isfile() or not p.is_relative_to(root) or Path(m.name).parts[0] in KEEP:
+                continue
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(tar.extractfile(m).read())
+            p.chmod((m.mode & 0o755) | 0o600)
+    for rel in deleted:
+        p = (root / rel).resolve()
+        if p.is_relative_to(root) and p != root and Path(rel).parts[0] not in KEEP and p.is_file():
+            p.unlink()
+
+
 def make_venv(venv: Path) -> Path:
     """A venv that sees the image's own packages (pandas, python-pptx...) and the shared one, with pip on top."""
     if not (venv / "bin" / "python").exists():
@@ -221,7 +266,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self) -> None:  # noqa: N802
-        self.reply(200, {"status": "ok"}) if urlsplit(self.path).path in ("/health", "/") else self.reply(404, {})
+        self.reply(200, {"status": "ok", "delta": 2}) if urlsplit(self.path).path in ("/health", "/") else self.reply(404, {})
 
     def do_POST(self) -> None:  # noqa: N802
         url = urlsplit(self.path)
@@ -237,20 +282,34 @@ class Handler(BaseHTTPRequestHandler):
             timeout = max(1, min(int(body.get("timeout") or 60), 900))  # installing a program can take minutes
             forget_idle()
             with LOCKS.setdefault(identifier, threading.Lock()):
-                unpack(s.project, base64.b64decode(body["archive"]))
+                synced = s.root / ".synced"  # the sync id of the last request this session ran
+                if "since" in body:  # only what changed since then
+                    if not synced.exists() or synced.read_text() != body["since"]:
+                        return self.reply(409, {"error": "Out of step with this session: send the whole project."})
+                    apply_changes(s.project, base64.b64decode(body["archive"]), body.get("removed") or [])
+                else:
+                    unpack(s.project, base64.b64decode(body["archive"]))
+                synced.unlink(missing_ok=True)  # until this request has finished, nothing is in step
+                before = fingerprint(s.project) if body.get("delta") else None  # what the caller has now
                 set_up(body.get("setup") or {})
                 if url.path == "/screenshot":
                     png, console = screenshot(s, str(body["path"]), int(body.get("width") or 1000),
                                               int(body.get("height") or 800))
+                    if body.get("sync"):
+                        synced.write_text(str(body["sync"]))
                     return self.reply(200, {"png": base64.b64encode(png).decode(), "console": console})
                 code, output, timed_out = run(s, str(body["command"]), timeout)
-                archive = pack(s.project)
+                archive, deleted = pack_changes(s.project, before) if before is not None else (pack(s.project), None)
+                if body.get("sync") and len(archive) <= MAX_ARCHIVE:
+                    synced.write_text(str(body["sync"]))
         except (KeyError, ValueError, tarfile.TarError, OSError, subprocess.SubprocessError) as exc:
             return self.reply(400, {"error": f"{type(exc).__name__}: {exc}"})
         if len(archive) > MAX_ARCHIVE:
-            return self.reply(413, {"error": "The project grew too large to send back. Keep build output small."})
+            return self.reply(413, {"error": "One command made more than 25 MB of new files to send back. Keep build "
+                                             "output small, or delete files you no longer need."})
         self.reply(200, {"returncode": code, "output": output, "timed_out": timed_out,
-                         "archive": base64.b64encode(archive).decode()})
+                         "archive": base64.b64encode(archive).decode(),
+                         **({"deleted": deleted} if deleted is not None else {})})
 
     def log_message(self, fmt: str, *args) -> None:  # one line per request to stdout, which Azure's logs keep
         print(f"{self.command} {urlsplit(self.path).path} {args[1] if len(args) > 1 else ''}", flush=True)

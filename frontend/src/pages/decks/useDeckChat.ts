@@ -1,3 +1,4 @@
+import { modelName, modelNameStart, skillsPlace } from '@/lib/models';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, decksService, type DecksEvent, type SkillFile } from '@/services';
 
@@ -9,6 +10,7 @@ export interface Step {
 
 export interface Turn {
   id: number;
+  model: string; // named in the steps, with where its code ran
   prompt: string;
   files: string[];
   template: string | null;
@@ -30,27 +32,29 @@ const addStep = (t: Turn, step: Step): Turn => ({ ...t, steps: [...t.steps, step
 
 /** How one event from the server changes the turn it belongs to. */
 function apply(t: Turn, ev: DecksEvent): Turn {
+  const who = modelNameStart(t.model);
+  const where = skillsPlace(t.model);
   switch (ev.type) {
     case 'upload':
-      return addStep(t, { kind: 'upload', text: `Uploaded ${ev.name} into Claude's container`, detail: kb(ev.size_bytes) });
+      return addStep(t, { kind: 'upload', text: `Uploaded ${ev.name} into ${where}`, detail: kb(ev.size_bytes) });
     case 'request':
       return addStep(t, {
         kind: 'request',
-        text: `Request ${ev.turn} to Claude · stop_reason ${ev.stop_reason}`,
+        text: `Request ${ev.turn} to ${modelName(t.model)} · stop_reason ${ev.stop_reason}`,
         detail: ev.stop_reason === 'pause_turn' ? `A long run paused, so the backend sends it back to continue. ${ev.usage}` : ev.usage,
       });
     case 'step':
-      return addStep(t, { kind: 'step', text: `In the container: ${ev.name}`, detail: ev.detail });
+      return addStep(t, { kind: 'step', text: `In ${where}: ${ev.name}`, detail: ev.detail });
     case 'output':
       return addStep(t, { kind: 'output', text: `Exit code ${ev.return_code}`, detail: ev.first_line });
     case 'says':
-      return { ...addStep(t, { kind: 'says', text: 'Claude', detail: ev.text }), reply: ev.text };
+      return { ...addStep(t, { kind: 'says', text: who, detail: ev.text }), reply: ev.text };
     case 'review':
       return {
         ...addStep(t, {
           kind: 'review',
-          text: `Visual check ${ev.round}: ${ev.slides.length ? `showed Claude ${changed(ev.slides.length, ev.total)} of ${ev.deck}` : ev.deck}`,
-          detail: ev.text ?? 'Claude checks spacing, alignment, overflow and overlap, and fixes what it finds.',
+          text: `Visual check ${ev.round}: ${ev.slides.length ? `showed ${modelName(t.model)} ${changed(ev.slides.length, ev.total)} of ${ev.deck}` : ev.deck}`,
+          detail: ev.text ?? `${who} checks spacing, alignment, overflow and overlap, and fixes what it finds.`,
         }),
         checked: ev.slides.length ? { deck: ev.deck, slides: ev.slides } : t.checked,
       };
@@ -82,7 +86,7 @@ export function useDeckChat(model: string) {
     async (prompt: string, files: File[], template: File | null) => {
       const id = nextId.current++;
       const c = (controller.current = new AbortController());
-      setTurns((ts) => [...ts, { id, prompt, files: files.map((f) => f.name), template: template?.name ?? null, steps: [], reply: '', decks: [], checked: null, state: 'running' }]);
+      setTurns((ts) => [...ts, { id, model, prompt, files: files.map((f) => f.name), template: template?.name ?? null, steps: [], reply: '', decks: [], checked: null, state: 'running' }]);
       try {
         await decksService.turn({ chatId: chatId.current, prompt, model, files, template }, (ev) => {
           if (ev.type === 'chat') chatId.current = ev.chat_id;

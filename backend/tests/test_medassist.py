@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
+from backend.app.shared import medassist_clinic as clinic
 from backend.app.settings import Settings
 from backend.tests.test_api import LAB
 
@@ -141,7 +142,7 @@ def test_cancelling_asks_first_and_cancels_in_the_next_turn(tmp_path: Path) -> N
 def test_offline_without_foundry_settings(tmp_path: Path) -> None:
     with lab(tmp_path, None) as client:
         info = client.get("/api/medassist/info", headers=LAB).json()
-        assert info["ready"] is False and info["configured"] is False and len(info["patients"]) == 3
+        assert info["ready"] is False and info["configured"] is False and len(info["patients"]) == len(clinic.PATIENTS)
         r = client.post("/api/medassist/chats", json={"patient_id": "P001"}, headers=LAB)
         assert r.status_code == 503 and "FOUNDRY_PROJECT_ENDPOINT" in r.json()["error"]["message"]
 
@@ -174,3 +175,17 @@ def test_pages_elsewhere_cannot_call_it(tmp_path: Path) -> None:
     with lab(tmp_path, FakeFoundry([])) as client:
         r = client.post("/api/medassist/chats", json={"patient_id": "P001"}, headers={"host": "localhost:8000"})
         assert r.status_code == 403
+
+
+def test_an_older_database_gains_the_new_patients_and_each_has_a_language_and_age(tmp_path: Path) -> None:
+    import sqlite3
+    from datetime import date
+
+    db = tmp_path / "practice.db"
+    clinic.create_database(db, today=date.today())
+    with sqlite3.connect(db) as conn:  # as if it was made before the new patients were added
+        conn.execute("DELETE FROM patients WHERE id NOT IN ('P001', 'P002', 'P003')")
+    session = clinic.Session(db, "P009")  # Harpreet Kaur: added without a reset
+    assert session.language == "pa" and clinic.age_of(session.patient["date_of_birth"]) >= 80
+    assert clinic.snapshot(db, "P005")["patient"]["name"] == "Agnieszka Nowak"
+    assert {clinic.PREFERRED_LANGUAGE[p[0]] for p in clinic.PATIENTS} >= {"en", "es", "pl", "ar", "ro", "ur", "pa"}

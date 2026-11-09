@@ -449,6 +449,9 @@ class SessionPool:
     def __init__(self, endpoint: str) -> None:
         self.endpoint = endpoint.rstrip("/")
         self.ids: dict[Path, str] = {}  # project folder -> session identifier, random so it cannot be guessed
+        # project folder -> (sync id, fingerprint) of what the session last had, so only changes are sent in
+        self.synced: dict[Path, tuple[str, dict[str, str]]] = {}
+        self._delta: bool | None = None  # whether the server takes changes only; asked once
         self._credential, self._token = None, None
 
     def token(self) -> str | None:
@@ -465,10 +468,15 @@ class SessionPool:
     def run(self, command: str, root: Path, timeout: int) -> tuple[int, str]:
         # The first command of a session asks it to install what earlier sessions recorded; it does so once.
         setup = read_installed() if root not in self.ids else {}
-        reply = self._send("run", root, {"command": command, "timeout": timeout,
+        reply = self._send("run", root, {"command": command, "timeout": timeout, "delta": True,
                                          "setup": {k: v for k, v in setup.items() if k in ("pip", "apt")}},
                            timeout + 90 + (900 if setup else 0))
-        sandbox_server().unpack(root, base64.b64decode(reply["archive"]))
+        archive = base64.b64decode(reply["archive"])
+        if "deleted" in reply:  # only what the command changed: a big unchanged file is not sent back each time
+            sandbox_server().apply_changes(root, archive, reply["deleted"])
+        else:  # an older sandbox image sends the whole project
+            sandbox_server().unpack(root, archive)
+        self._in_step(root, reply)
         if reply.get("timed_out"):
             raise ToolError(f"The command ran for more than {timeout} s and was stopped.")
         return int(reply["returncode"]), reply["output"]
@@ -476,19 +484,54 @@ class SessionPool:
     def screenshot(self, root: Path, path: str, width: int, height: int) -> tuple[bytes, list[str]]:
         """The page rendered by Chromium in the session, next to the agent's other commands."""
         reply = self._send("screenshot", root, {"path": path, "width": width, "height": height}, 120)
+        self._in_step(root, reply)
         return base64.b64decode(reply["png"]), reply.get("console", [])
 
+    def _headers(self) -> dict:
+        return {"Content-Type": "application/json", **({"Authorization": f"Bearer {t}"} if (t := self.token()) else {})}
+
+    def takes_changes(self) -> bool:
+        """Whether the server takes only what changed (GET /health says delta 2). An older image does not."""
+        if self._delta is None:
+            try:
+                with urlopen(Request(f"{self.endpoint}/health", headers=self._headers()), timeout=30) as resp:
+                    self._delta = json.loads(resp.read()).get("delta", 0) >= 2
+            except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+                self._delta = False
+        return self._delta
+
+    def _in_step(self, root: Path, reply: dict) -> None:
+        """After a reply is applied, the session and this folder match: remember what both now hold."""
+        if reply.get("_sync"):
+            self.synced[root] = (reply["_sync"], sandbox_server().fingerprint(root))
+
     def _send(self, route: str, root: Path, payload: dict, timeout: int) -> dict:
-        """The project goes with every request, so the session always has the harness's latest files."""
+        """The project goes with every request, so the session always has the harness's latest files: all of it the
+        first time, then only what changed since the last request, when the server takes that."""
         identifier = self.ids.setdefault(root, secrets.token_hex(16))
-        body = json.dumps({**payload, "archive": base64.b64encode(sandbox_server().pack(root)).decode()}).encode()
-        headers = {"Content-Type": "application/json", **({"Authorization": f"Bearer {t}"} if (t := self.token()) else {})}
-        try:
-            return self._call(Request(f"{self.endpoint}/{route}?identifier={identifier}", body, headers, method="POST"),
-                              timeout)
-        except (HTTPError, URLError, TimeoutError, OSError) as exc:
-            detail = exc.read().decode("utf-8", "replace")[:300] if isinstance(exc, HTTPError) else str(exc)
-            raise ToolError(f"The sandbox session could not do it: {detail}")
+        server = sandbox_server()
+        for whole in (False, True):
+            sync = secrets.token_hex(8) if self.takes_changes() else None
+            base = None if whole else self.synced.get(root)
+            if base and sync:
+                archive, removed = server.pack_changes(root, base[1])
+                extra = {"since": base[0], "removed": removed}
+            else:
+                archive, extra = server.pack(root), {}
+            body = json.dumps({**payload, **extra, **({"sync": sync} if sync else {}),
+                               "archive": base64.b64encode(archive).decode()}).encode()
+            self.synced.pop(root, None)  # out of step until this request succeeds
+            try:
+                reply = self._call(Request(f"{self.endpoint}/{route}?identifier={identifier}", body, self._headers(),
+                                           method="POST"), timeout)
+                return {**reply, "_sync": sync}
+            except HTTPError as exc:
+                if exc.code == 409 and extra:  # the session lost track (restarted, or idle too long): send it all
+                    continue
+                raise ToolError(f"The sandbox session could not do it: {exc.read().decode('utf-8', 'replace')[:300]}")
+            except (URLError, TimeoutError, OSError) as exc:
+                raise ToolError(f"The sandbox session could not do it: {exc}")
+        raise ToolError("The sandbox session could not do it: it would not take the project.")
 
     def _call(self, request: Request, timeout: int) -> dict:
         """One call through the pool. A 202 means the pool is still working: poll its Location until the reply."""
@@ -517,8 +560,11 @@ def sandbox_server():
 
 def find_sandbox(setting: str = ENV.coding_sandbox) -> Sandbox | SessionPool | None:
     """LLM_LAB_SANDBOX: auto finds sandbox-exec on macOS or a working bubblewrap on Linux (containers often block
-    it); sessions uses the dynamic session pool at LLM_LAB_SESSIONS_ENDPOINT; container trusts a per-session
+    it); docker uses the sandbox image running in Docker on this machine (tools/sandbox.sh), with the same protocol
+    as Azure; sessions uses the sandbox in Azure at LLM_LAB_SESSIONS_ENDPOINT; container trusts a per-session
     container; none, or nothing found, leaves auto mode with the deny rules."""
+    if setting == "docker":
+        return SessionPool(ENV.docker_sandbox_url)
     if setting == "sessions":
         return SessionPool(ENV.coding_sessions_endpoint) if ENV.coding_sessions_endpoint else None
     if setting == "container":

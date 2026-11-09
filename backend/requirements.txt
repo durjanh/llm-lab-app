@@ -9,3 +9,6 @@ docxtpl~=0.20  # document automation: Word templates with {{ fields }}, ifs and 
 azure-identity~=1.26  # the tutor's voice: signs in to Azure Speech with your Azure login instead of a key
 openai>=3.41,<4  # GPT models in Azure AI Foundry, beside Claude in the document automation lab
 azure-ai-projects>=2.7,<3  # MedAssist: conversations with a Microsoft Foundry prompt agent
+azure-communication-sms~=1.1  # MedAssist: real texts through Azure Communication Services, when configured
+azure-data-tables~=12.7  # MedAssist: appointment reminders, kept as rows for the reminder Function
+azure-communication-callautomation~=1.6  # Aftercare: a real follow-up call to your phone, when configured

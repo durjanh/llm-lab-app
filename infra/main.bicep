@@ -84,3 +84,6 @@ output ORDER_API_URL string = lab.outputs.orderApiUrl
 output LLM_LAB_SANDBOX string = empty(sandboxAppId) ? 'auto' : 'sessions'
 output LLM_LAB_SESSIONS_ENDPOINT string = lab.outputs.sandboxEndpoint
 output LLM_LAB_SESSIONS_SCOPE string = empty(sandboxAppId) ? '' : 'api://${sandboxAppId}/.default'
+// MedAssist's real texts. MEDASSIST_SMS_TO, the phone they go to, is yours to set in .env.
+output MEDASSIST_SMS_ENDPOINT string = lab.outputs.smsEndpoint
+output MEDASSIST_REMINDERS_TABLE string = lab.outputs.remindersTableUrl

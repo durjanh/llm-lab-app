@@ -7,7 +7,8 @@ instead of returning the refusal. Claude Haiku 5.5 has no server-side fallback,
 so its requests use the standard endpoint.
 
 With LLM_LAB_LOCAL_MODEL set, an open model on this machine is the default model, and make_client() returns a client
-that sends its requests to the local server (local_model.py). Work only Claude can do uses CLAUDE_MODEL.
+that sends its requests to the local server (local_model.py). With AZURE_OPENAI_ENDPOINT set, the same client sends
+requests for a GPT deployment (GPT_MODELS) to Azure OpenAI (gpt_model.py). Work only Claude can do uses CLAUDE_MODEL.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ from typing import Any, Callable
 
 import anthropic
 
-from local_model import LOCAL_MODEL, LOCAL_PRICE, LabClient, LocalUnavailable, LocalUnsupported, is_local
+from local_model import GPT_MODELS, LOCAL_MODEL, LOCAL_PRICE, LabClient, ModelUnavailable, NeedsClaude, is_local
 from settings import ENV  # loads .env
 
 CLAUDE_MODEL = ENV.model  # the default for work that needs Claude (server tools, files, skills, code execution)
@@ -73,8 +74,9 @@ class Refused(RuntimeError):
 
 def make_client() -> anthropic.Anthropic:
     # Reads ANTHROPIC_API_KEY, or a profile created with `ant auth login`. Requests for the local model, if one is
-    # configured, go to the local server instead.
-    return LabClient(anthropic.Anthropic()) if LOCAL_MODEL else anthropic.Anthropic()
+    # configured, go to the local server instead, and requests for a GPT deployment to Azure OpenAI. A rate-limited
+    # request is tried once on another model (local_model.fallback_model).
+    return LabClient(anthropic.Anthropic()) if LOCAL_MODEL or GPT_MODELS else anthropic.Anthropic()
 
 
 def fallback_params(model: str) -> dict[str, Any]:
@@ -167,7 +169,7 @@ def proportion_ci(successes: int, n: int, z: float = 1.96) -> tuple[float, float
 def model_argument(parser: argparse.ArgumentParser, claude_only: bool = False) -> None:
     """--model. A script that needs something only Claude has passes claude_only, and defaults to CLAUDE_MODEL."""
     default = CLAUDE_MODEL if claude_only else DEFAULT_MODEL
-    what = "Claude model id" if claude_only else "model id: a Claude model, or the local model"
+    what = "Claude model id" if claude_only else "model id: a Claude model, a GPT deployment or the local model"
     parser.add_argument("--model", default=default, help=f"{what} (default: {default})")
 
 
@@ -178,7 +180,7 @@ def run(main: Callable[[], None]) -> None:
     except Refused as exc:
         print(exc, file=sys.stderr)
         sys.exit(2)
-    except (LocalUnsupported, LocalUnavailable) as exc:
+    except (NeedsClaude, ModelUnavailable) as exc:
         print(exc, file=sys.stderr)
         sys.exit(1)
     except anthropic.AuthenticationError:

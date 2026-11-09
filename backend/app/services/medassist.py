@@ -18,7 +18,7 @@ from typing import Any
 
 from ..core.errors import ApiError
 from ..gateways.foundry_agent import AgentConversations
-from ..shared import medassist_clinic as clinic
+from ..shared import medassist_clinic as clinic, translator as T
 from .spend import SpendTracker
 
 MAX_CONVERSATIONS = 20  # the oldest is ended when another starts
@@ -34,8 +34,12 @@ class Chat:
 
 
 class MedAssistService:
-    def __init__(self, agent: AgentConversations | None, spend: SpendTracker, db_path: Path):
+    def __init__(self, agent: AgentConversations | None, spend: SpendTracker, db_path: Path, notifier: Any = None,
+                 archive: Any = None, languages: dict[str, str] | None = None):
+        self.languages = languages or {}  # patient id -> language for their texts, over the record's preference
         self.agent, self.spend, self.db_path = agent, spend, db_path
+        self.archive = archive  # services/transcripts.py: every line kept, beyond a reset
+        self.notifier = notifier  # medassist_sms.RealTexts: real texts and reminders; None keeps them as rows
         self.chats: OrderedDict[str, Chat] = OrderedDict()
         self._lock = threading.Lock()
 
@@ -58,15 +62,20 @@ class MedAssistService:
             except ApiError as exc:
                 problem = exc.message
         return {"ready": self.agent is not None and version is not None, "configured": self.agent is not None,
+                "real_texts": self.notifier is not None,
                 "model": self.agent.model if self.agent else None, "agent": "MedAssist", "version": version,
-                "problem": problem, "patients": [{"id": p[0], "name": p[1]} for p in clinic.PATIENTS]}
+                "problem": problem, "patients": [{"id": p[0], "name": p[1], "age": clinic.age_of(p[2]),
+                              "language": T.name_of(self.languages.get(p[0]) or clinic.PREFERRED_LANGUAGE.get(p[0], "en"))}
+                             for p in clinic.PATIENTS]}
 
-    def start(self, patient_id: str) -> dict[str, Any]:
+    def start(self, patient_id: str, note: str | None = None) -> dict[str, Any]:
+        """A conversation for one patient. note replaces the portal's opening note (the phone line passes its own)."""
         agent = self._agent()
-        session = clinic.Session(self._database(), patient_id) if patient_id in {p[0] for p in clinic.PATIENTS} else None
+        session = clinic.Session(self._database(), patient_id, notifier=self.notifier,
+                                 language=self.languages.get(patient_id, "")) if patient_id in {p[0] for p in clinic.PATIENTS} else None
         if session is None:
             raise ApiError(400, "invalid_request", f"patient_id: choose one of {', '.join(p[0] for p in clinic.PATIENTS)}")
-        chat = Chat(agent.start(clinic.portal_note(session)), session)
+        chat = Chat(agent.start(note or clinic.portal_note(session)), session)
         chat_id = uuid.uuid4().hex
         with self._lock:
             self.chats[chat_id] = chat
@@ -91,7 +100,8 @@ class MedAssistService:
                                 cache_creation_input_tokens=0, output_tokens=u.output_tokens)
         chat.cost_usd += self.spend.charge(SimpleNamespace(usage=usage), self._agent().model) or 0.0
 
-    def message(self, chat_id: str, text: str) -> dict[str, Any]:
+    def message(self, chat_id: str, text: str, archive: bool = True) -> dict[str, Any]:
+        """One turn. archive=False when the caller keeps the lines itself (the phone line)."""
         agent, chat = self._agent(), self._chat(chat_id)
         if not chat.lock.acquire(blocking=False):  # one message at a time: tools depend on the turn order
             raise ApiError(409, "busy", "MedAssist is still answering the last message.")
@@ -103,7 +113,11 @@ class MedAssistService:
                 self.charge(chat, response)
                 return response
 
+            if archive and self.archive is not None:
+                self.archive.line("medassist", chat_id, chat.session.patient_id, "page", "patient", text)
             reply, steps = clinic.run_turn(respond, chat.session, text, MAX_ROUNDS)
+            if archive and self.archive is not None:
+                self.archive.line("medassist", chat_id, chat.session.patient_id, "page", "agent", reply)
         finally:
             chat.lock.release()
         return {"reply": reply, "steps": steps, "cost_usd": round(chat.cost_usd - before, 5),
@@ -129,5 +143,7 @@ class MedAssistService:
         for chat in chats:
             if self.agent is not None:
                 self.agent.end(chat.conversation)
+        if self.archive is not None:
+            self.archive.keep_database(self.db_path)  # a reset never loses a record
         clinic.create_database(self.db_path)
         return {"reset": True, "weeks": clinic.WEEKS_AHEAD}

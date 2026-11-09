@@ -109,6 +109,19 @@ export interface TurnResult {
   record: HospitalRecord;
 }
 
+/** A real follow-up call to your own phone, through Azure Communication Services. */
+export interface PhoneInfo {
+  configured: boolean;
+  missing: string[];
+  to: string;
+}
+
+export interface PhoneState {
+  state: 'ringing' | 'talking' | 'ended' | 'failed';
+  note: string;
+  to: string;
+}
+
 export interface StartResult extends TurnResult {
   call_id: string;
   engine: Engine;
@@ -148,6 +161,19 @@ export class AftercareService {
 
   start(patientId: string, engine: Engine, model?: string): Promise<StartResult> {
     return this.client.post('/api/aftercare/calls', { patient_id: patientId, engine, model });
+  }
+
+  phoneInfo(): Promise<PhoneInfo> {
+    return this.client.get('/api/aftercare/phone');
+  }
+
+  /** Starts a call and rings your phone with it: the agent talks to you there, not on the page. */
+  phoneCall(patientId: string, engine: Engine, model?: string): Promise<StartResult & { phone: PhoneState }> {
+    return this.client.post('/api/aftercare/phone', { patient_id: patientId, engine, model });
+  }
+
+  phoneStatus(callId: string): Promise<{ phone: PhoneState; record: HospitalRecord }> {
+    return this.client.get(`/api/aftercare/phone/${encodeURIComponent(callId)}`);
   }
 
   send(callId: string, message: string): Promise<TurnResult> {

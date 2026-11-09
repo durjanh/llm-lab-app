@@ -26,7 +26,9 @@ export default function DecksPage() {
     statusService.status().then((s) => {
       if (!alive) return;
       setStatus(s);
-      setModel(s.claude_model ?? ''); // the pptx skill runs in Anthropic's code-execution container: Claude only
+      // The lab's default model (the local one, when set up) if the sandbox can run its code; Claude otherwise.
+      const offered = s.skills_models ?? [];
+      setModel(s.default_model && offered.includes(s.default_model) ? s.default_model : (s.claude_model ?? ''));
     });
     return () => {
       alive = false;
@@ -59,20 +61,22 @@ export default function DecksPage() {
   return (
     <main className={`page-decks ${chatting ? 'chatting' : ''}`} style={{ '--nav-h': `${navHeight}px` } as CSSProperties}>
       <div className="kicker">Lab 19 · Deck builder</div>
-      <h1>Ask Claude for a PowerPoint deck</h1>
+      <h1>Ask for a PowerPoint deck</h1>
       <p className="lede" hidden={chatting}>
         Describe the deck you want, attach the files it should be built from, and add your own <code>.pptx</code>{' '}
-        template if you have one. Claude builds the deck with Anthropic's pptx skill in a code-execution container, then
-        looks at every rendered slide and fixes spacing, alignment and overflow before you download a real PowerPoint
-        file. Ask for changes in the same conversation: Claude edits the deck it already made and saves a new version.
+        template if you have one, or a screenshot of a slide to match. Claude builds the deck with Anthropic's pptx skill in a
+        code-execution container; GPT and the local model build it with the lab's own pptx skill in the lab's sandbox.
+        Either way the model then looks at every rendered slide and fixes spacing, alignment and overflow before you
+        download a real PowerPoint file. Ask for changes in the same conversation: the model edits the deck it already
+        made and saves a new version.
       </p>
 
       <div className="row dk-bar">
         <label>
           Model{' '}
           <select value={model} onChange={(e) => setModel(e.target.value)} disabled={!ready || running}>
-            {status?.claude_models?.length ? (
-              status.claude_models.map((m) => <option key={m}>{m}</option>)
+            {status?.skills_models?.length ? (
+              status.skills_models.map((m) => <option key={m}>{m}</option>)
             ) : (
               <option value="">{status === null ? 'Loading…' : 'No backend'}</option>
             )}
@@ -118,8 +122,9 @@ export default function DecksPage() {
       </section>
 
       <p className="small muted dk-notes" hidden={chatting}>
-        Your files are uploaded to Anthropic's Files API so Claude can read them in its container. They delete themselves
-        after a day, or straight away when you press New deck. The backend keeps the conversation in memory, so
+        With Claude, your files are uploaded to Anthropic's Files API so Claude can read them in its container. They
+        delete themselves after a day, or straight away when you press New deck. With GPT or the local model they are
+        copied into the lab's sandbox (your Azure container when LLM_LAB_SANDBOX=sessions), and deleted with the deck. The backend keeps the conversation in memory, so
         restarting it starts a new deck. The same skill runs from the terminal with{' '}
         <code>python python/12_agent_skills.py --skill pptx</code>.
       </p>

@@ -73,6 +73,55 @@ npm run dev                                 # http://localhost:5173, updates as 
 
 Open http://localhost:5173. Vite forwards `/api` and `/models` to the backend. Run `npm run build` again when you want port 8000 to serve your changes.
 
+### After restarting the machine
+
+Two things run in Docker beside the backend, each from its own script:
+
+| What | Script | Where | After a restart |
+|---|---|---|---|
+| The local model (Qwen 3.5 9B), the default where the work allows | `./tools/local-model.sh` | Docker Model Runner, on the Mac itself, `localhost:12434` | Run the script again: it sets the 32k context the agent pages need, and checks the model answers |
+| The sandbox, where the coding agent's commands and the local model's and GPT's skills and decks run | `./tools/sandbox.sh` | A container, `127.0.0.1:8099` | Starts by itself with Docker Desktop. Run the script only the first time, or with `--rebuild` after changing the image |
+
+`sandbox.sh` does not start the model. The model cannot run in a container on a Mac, because a container cannot reach the GPU, so Model Runner runs it on the host.
+
+In order:
+
+```sh
+# 1. open Docker Desktop and wait until it says it is running
+./tools/local-model.sh                     # 2. "Model says: Ready."
+source .venv/bin/activate
+python -m backend --budget 1 --reload      # 3. then the frontend, as above
+```
+
+Only for real phone calls (Aftercare and MedAssist), also start the tunnel in its own terminal: `ngrok http 8000`. Without a fixed ngrok domain its address changes each time, so put the new one in `.env` as `AFTERCARE_CALLBACK_URL` and restart the backend (`examples/aftercare/README.md`, "A real call to your phone").
+
+To check what is running:
+
+```sh
+docker ps --filter name=llm-lab-sandbox     # the sandbox container, "Up"
+curl -s http://127.0.0.1:8099/health        # {"status": "ok", "delta": 2}
+docker model status                         # Model Runner is running
+grep '^LLM_LAB_SANDBOX' .env                # docker: the local sandbox; sessions: the one in Azure
+```
+
+With `LLM_LAB_SANDBOX=docker`, a run on your machine uses the local container, never the Azure one, even though `LLM_LAB_SESSIONS_ENDPOINT` stays in `.env` for `LLM_LAB_SANDBOX=sessions`. If either is not running, the pages that need it say so and name the script to run.
+
+### After changing something: what to rebuild
+
+| You changed | Do this |
+|---|---|
+| Python in `backend/` or `python/` | Nothing with `--reload`: the backend restarts itself. Without it, Ctrl+C and start it again. |
+| `.env` | Restart the backend. `--reload` does not watch `.env`. |
+| The frontend (`frontend/src/`) | Nothing on the dev server (:5173). For port 8000: `cd frontend && npm run build`. |
+| A skill (`python/skills/`) | Nothing. Its scripts travel with each command, so no image needs rebuilding. |
+| The sandbox image (`examples/coding-sandbox/`: `Dockerfile`, `server.py`, `extra-*.txt`) | On your machine: `./tools/sandbox.sh --rebuild`. In Azure: `TAG=<n> examples/coding-sandbox/publish-image.sh`, then `IMAGE=ghcr.io/<you>/coding-sandbox:<n> examples/coding-sandbox/setup-app.sh`. Use a new tag each time, so the app starts a new revision (`examples/coding-sandbox/README.md`). |
+| The reminders Function (`examples/medassist/reminders/`) | `examples/medassist/setup-texts.sh` again: it redeploys the code and leaves the rest as it is. With azd, `azd deploy reminders`. |
+| Azure resources (`infra/`) | `azd provision`, or push to main, where `.github/workflows/infra.yml` runs it. |
+| The local model (`LLM_LAB_LOCAL_MODEL`) | `./tools/local-model.sh` (it pulls the new one), then restart the backend. |
+| The full-internals GPT-2 (`models/gpt2-explainer/`) | See `tools/README.md`. |
+
+Then run the tests: `pytest backend` and `cd frontend && npm run typecheck`.
+
 ### Tests
 
 ```sh
@@ -287,18 +336,36 @@ The deployment `gpt-5.4-mini` (Global Standard) is in the same Foundry resource 
 
 ### A local open model, at no cost per token
 
-An open model can run on this machine in Docker and be the default wherever the work allows. Docker Model Runner, which comes with Docker Desktop, runs it with llama.cpp on the host, so on a Mac it uses the GPU through Metal (an ordinary container cannot). One script sets it up:
+An open model can run on this machine in Docker and be the default wherever the work allows. Docker Model Runner, which comes with Docker Desktop, runs it with llama.cpp on the host, so on a Mac it uses the GPU through Metal (an ordinary container cannot). Open Docker Desktop first, then set it up once:
 
 ```sh
 ./tools/local-model.sh             # enables Model Runner on port 12434, pulls the model (6.9 GB), sets a 32k context
 echo 'LLM_LAB_LOCAL_MODEL=ai/qwen3.5:9b-q4_K_XL' >> .env   # then restart the backend
 ```
 
+After restarting the machine or Docker Desktop, open Docker Desktop, run `./tools/local-model.sh` again, then start the backend and frontend as usual. Model Runner stays enabled and the model stays downloaded, so the script only sets the context again and checks the model answers ("Model says: Ready."). It is safe to run any time. To have Docker start by itself, turn on "Start Docker Desktop when you sign in" in its general settings. The model unloads after 30 minutes idle and reloads on the next request, which then takes a few seconds longer. If the server is not running, pages using the local model say so and name the script; a Claude model still works.
+
 The model is Qwen 3.5 9B (Apache 2.0): it calls tools, reads images and fits in 24 GB of memory with room to spare. On an M5 Pro it writes about 20 tokens a second, so a short answer takes a second or two and an agent run a minute or more. Claude is much faster and much better at long agent work; the local model is for practising without spending.
 
 With `LLM_LAB_LOCAL_MODEL` set, the model lists start with it and pages select it, and every call is charged at $0. The scripts in `python/` default to it too. `python/local_model.py` does the routing, in the client every page already uses: Model Runner serves the Anthropic Messages API at `http://localhost:12434/anthropic`, so requests keep their shape. It switches the model's thinking off unless a request asks for it, and sends a reply that must match a JSON schema to the server's OpenAI-compatible endpoint, where a grammar holds it to the schema.
 
-What only Anthropic runs is refused with a message saying to choose a Claude model, rather than quietly left out: web search (the harness's web scenario), PDFs, the Files API, code execution and skills, and MCP connectors. The skills page, the deck builder, the coding agent's Agent SDK mode and `python/12_agent_skills.py` and `14_batch_api.py` default to Claude (`LLM_LAB_MODEL`). Azure labs keep their Azure models. Ollama works the same way: set `LLM_LAB_LOCAL_URL=http://localhost:11434` and `LLM_LAB_LOCAL_OPENAI_URL=http://localhost:11434/v1`. `./tools/local-model.sh --stop` unloads the model; `--remove` deletes it.
+What only Anthropic runs is refused with a message saying to choose a Claude model, rather than quietly left out: web search (the harness's web scenario), PDFs, the Files API, Anthropic's code execution container, and MCP connectors. The skills page and the deck builder still default to Claude, but run on the local model or GPT in the lab's own sandbox (below). The coding agent's Agent SDK mode and `python/14_batch_api.py` stay Claude only. Azure labs keep their Azure models. Ollama works the same way: set `LLM_LAB_LOCAL_URL=http://localhost:11434` and `LLM_LAB_LOCAL_OPENAI_URL=http://localhost:11434/v1`. `./tools/local-model.sh --stop` unloads the model; `--remove` deletes it.
+
+### GPT in Azure OpenAI, beside Claude
+
+With `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENTS` set (`azd up` writes both), each GPT chat deployment, such as `gpt-5.4-mini`, is offered in every model menu that offers the local model, and the scripts take it as `--model gpt-5.4-mini`. It is a choice, never the default. `python/gpt_model.py` does the work in the same client as the local model. It translates each request to Chat Completions and each reply back to Claude's shapes, streamed replies included, so the site builder's code view still fills in as GPT writes a file. It signs in with your Azure login, with no keys, and each call is charged at GPT's list price. A request's effort sets GPT's reasoning effort (low unless more is asked for). What only Anthropic runs is refused with the same message as for the local model, and counting tokens before sending is refused too, because Azure OpenAI has no endpoint for it. The coding agent and the documents page keep their own GPT paths.
+
+### Skills and decks without Claude's container
+
+Claude runs skills in Anthropic's code-execution container, which only Claude can use. For GPT and the local model, `python/sandbox_skills.py` does the same job with the coding agent's sandbox, the image in `examples/coding-sandbox` (python-pptx, openpyxl, python-docx, reportlab, LibreOffice and poppler). On your machine, run it in Docker with `./tools/sandbox.sh` (it builds the image if needed and listens on `127.0.0.1:8099` only) and set `LLM_LAB_SANDBOX=docker`. `LLM_LAB_SANDBOX=sessions` uses the one in Azure instead, at `LLM_LAB_SESSIONS_ENDPOINT`, which `azd up` writes; `azd up` no longer sets `LLM_LAB_SANDBOX`, so your choice stays. Both run the same image and protocol, so what works locally works in Azure. `./tools/sandbox.sh --rebuild` after changing the Dockerfile or `server.py`; `--stop` stops it. A page using the local container while it is stopped says so and names the script. The model sees each skill's name and description, reads its `SKILL.md` with `read_skill` only when the task needs it, and runs code with `bash`. Each conversation has a workspace in `generated/skill-runs/<id>/` with `inputs/` (your files), `work/` (kept between messages), `outputs/` (what you download) and `skills/` (a copy of the skills, sent to the container with every command, so changing a skill needs no new image). Our loop sends each step as its own request, where Claude's container runs the whole loop inside one.
+
+The skills are our own, in `python/skills/`: `pptx`, `xlsx`, `docx` and `pdf`. The pptx skill follows the shape of Anthropic's, with a short `SKILL.md`, reference files read when needed (`reference/charts.md`, `editing.md`, `design.md`) and scripts: `slide_text.py` (every slide as text, flagging overlaps, shapes off the slide, empty placeholders, default chart titles and axes that do not start at zero; `--layouts` for a template), `theme.py` (a template's colours and fonts), `edit_text.py` (text changes that keep formatting), `slides.py` (delete, move, duplicate, reorder), `ooxml.py` (raw XML, and validation) and `render.sh` (slide images for the visual check). The deck builder's checks are the same for every model: after each version it shows the model the rendered slides, and any screenshot you attached as the look to match, up to two rounds. Pictures you attach are shown to the model on both paths, so it can copy a slide's look. A template you attach is always the starting point. A chart type that does not suit the data is not built: the model says why, suggests two or three that do, and asks.
+
+A deck stays with the kind of model it was started with, because each keeps its files in a different place. GPT's and the local model's own visual checks are weaker than Claude's: on a slide matched to a screenshot, `gpt-5.4-mini` reported small overlaps and spacing faults as clean that Claude finds.
+
+### When a model is rate limited
+
+A request that still answers 429 (rate limited) or 529 (overloaded) after the SDK's own retries is sent once more to another model before the error reaches the page: Claude falls back to the first GPT deployment (or the local model when there is no GPT), and GPT to `LLM_LAB_MODEL`. `LLM_LAB_RATE_LIMIT_FALLBACK` sets it: `auto` (the default), `none`, or a model id. A stream falls back only before it starts, and a request that needs Claude (web search, files) reports the rate limit rather than the fallback's refusal. The spend is charged at the price of the model that answered. `python/13_rate_limits.py` shows the same ideas, with a circuit breaker, against fake servers.
 
 Live features otherwise use Claude Haiku 5.5 by default, where each action costs a small fraction of a cent. The Live page lets you pick Claude Sonnet 5.5 or Claude Opus 5.5 instead, which cost more. The backend logs the estimated cost of every call, and the Live page shows the running total. Your Anthropic console shows the exact amount billed.
 
@@ -309,7 +376,7 @@ Live features otherwise use Claude Haiku 5.5 by default, where each action costs
 - `examples/mcp/`: an MCP server in Python (tools, a resource, a prompt; stdio and authenticated Streamable HTTP), used from Claude Code, from your own harness with approvals, and through the Claude API's MCP connector. Its README covers the design decisions.
 - `examples/sdks/`: the same five tasks (structured output, tools, MCP, an agent with human approval, multi-agent) in nine SDKs: OpenAI, OpenAI Agents, Claude, Microsoft Agent Framework, Semantic Kernel, AutoGen, LangChain, LangGraph and CrewAI, each in its own environment, with a comparison cheatsheet.
 - `examples/agent-framework/`: the case-handling flow from Lab 25 rebuilt in Microsoft Agent Framework (Python), run in DevUI: typed agents, `@tool` systems of record, a workflow graph with a revision loop, and a human approval pause.
-- `examples/medassist/`: MedAssist, a patient portal agent built as a Microsoft Foundry prompt agent: File Search over practice documents, the Code Interpreter, and function tools that read a signed-in patient's record and book or cancel appointments in a dummy SQLite database, with the safety rules enforced in code and nine checked test cases.
+- `examples/medassist/`: MedAssist, a patient portal agent built as a Microsoft Foundry prompt agent: File Search over practice documents, the Code Interpreter, and function tools that read a signed-in patient's record and book or cancel appointments in a dummy SQLite database, with the safety rules enforced in code and nine checked test cases. With Azure set up, it also sends real texts through Azure Communication Services and a reminder 24 hours before each appointment, from an Azure Function (see its README).
 - `examples/aftercare/`: Aftercare, a post-discharge follow-up agent. Its hospital record, LACE risk, routing, tools and rules are in `ward.py`. `aftercare.py` runs it on Claude with our own tool loop, and `aftercare_af.py` runs the same tools on Microsoft Agent Framework. Both are tested against eight simulated patients, checked on what each call left in the record.
 - `examples/support-agent/`: a Foundry Agent Service agent with the Azure AI Search tool (grounded answers from an index), the OpenAPI tool (an order-status API in Container Apps) and a conversation for multi-turn context.
 - `examples/custom-speech/`: a custom speech model for product names the base model mishears: training text, test calls, an evaluation against the base model, an endpoint for live calls, and a phrase list for comparison.

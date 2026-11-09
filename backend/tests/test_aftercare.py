@@ -264,3 +264,94 @@ def test_nurses_close_tasks_and_reset_starts_again(tmp_path: Path) -> None:
     assert ward.record(path, "P104")["audit"][0]["action"] == "task closed"
     assert api.post("/api/aftercare/reset", headers=LAB).json()["queue"] == []
     assert date.fromisoformat(api.get("/api/aftercare/patients/P104", headers=LAB).json()["patient"]["discharged_on"]) < date.today()
+
+
+class FakeLine:
+    """A phone line that records what it was asked to do; nothing is rung."""
+
+    def __init__(self) -> None:
+        self.did: list[tuple] = []
+        self.callback = ""
+
+    def call(self, to: str, callback_url: str) -> str:
+        self.callback = callback_url
+        return "conn-1"
+
+    def say_and_listen(self, connection_id: str, to: str, text: str, language: str, context: str, pace: str = "normal") -> None:
+        self.did.append(("ask", text))
+
+    def say(self, connection_id: str, text: str, language: str, context: str, pace: str = "normal") -> None:
+        self.did.append(("say", text))
+
+    def hang_up(self, connection_id: str) -> None:
+        self.did.append(("hang up",))
+
+
+def test_a_real_phone_call_and_an_emergency_on_it_are_in_the_patients_record(tmp_path: Path, monkeypatch) -> None:
+    import threading
+    from urllib.parse import parse_qs, urlsplit
+
+    class Now(threading.Thread):  # the turn runs at once, so the record can be read straight after
+        def start(self) -> None:
+            self.run()
+
+    monkeypatch.setattr("backend.app.services.aftercare_phone.threading.Thread", Now)
+    client = ScriptedClient([
+        [text("Hello Margaret, this is Harbourside General Hospital. Can you tell me your date of birth?")],
+        [text("Please call 999 now. I have alerted the care team.")],
+    ])
+    line = FakeLine()
+    settings = Settings(port=8000, budget_usd=2.0, frontend_dist=tmp_path, models_dir=tmp_path / "none",
+                        sites_dir=tmp_path / "sites", casework_dir=tmp_path / "casework",
+                        aftercare_db=tmp_path / "aftercare" / "aftercare.db", aftercare_call_to="07403 289357",
+                        aftercare_callback_url="https://tunnel.example")
+    api = TestClient(create_app(settings, client=client, phone=line), base_url="http://localhost:8000")
+    started = api.post("/api/aftercare/phone", json={"patient_id": "P101"}, headers=LAB).json()
+    call_id, token = started["call_id"], parse_qs(urlsplit(line.callback).query)["token"][0]
+    events = f"/api/aftercare/phone/events/{call_id}?token={token}"
+    api.post(events, json=[{"type": "Microsoft.Communication.CallConnected", "data": {}}])
+    api.post(events, json=[{"type": "Microsoft.Communication.RecognizeCompleted",
+                            "data": {"speechResult": {"speech": "I've got crushing chest pain right now."}}}])
+    api.post(events, json=[{"type": "Microsoft.Communication.CallDisconnected", "data": {}}])
+    record = api.get(f"/api/aftercare/phone/{call_id}", headers=LAB).json()["record"]
+    said = [(t["speaker"], t["text"]) for t in record["transcript"]]
+    assert ("patient", "I've got crushing chest pain right now.") in said  # what was said on the phone
+    assert any(s == "agent" and "999" in t for s, t in said)  # and the agent's 999 reply
+    assert any(t["urgency"] == "emergency" for t in record["tasks"])  # the emergency, raised by code
+    actions = [a["action"] for a in record["audit"]]
+    assert {"phone call placed", "phone call answered", "phone call ended"} <= set(actions)
+    assert any("999" in d[1] for d in line.did if d[0] in ("ask", "say"))  # and it was spoken on the call
+
+
+def test_a_page_conversation_is_kept_line_by_line_and_a_reset_keeps_the_database(tmp_path: Path) -> None:
+    import json
+
+    client = ScriptedClient([
+        [text("Hello Margaret, this is Harbourside General Hospital. Can you tell me your date of birth?")],
+        [text("Thank you. How are you feeling today?")],
+    ])
+    api = lab(tmp_path, client)
+    call = api.post("/api/aftercare/calls", json={"patient_id": "P101"}, headers=LAB).json()
+    api.post(f"/api/aftercare/calls/{call['call_id']}/messages", json={"message": "Twelfth of March 1946"}, headers=LAB)
+    kept = [json.loads(l) for f in (tmp_path / "transcripts" / "aftercare").rglob("*.jsonl") for l in f.read_text().splitlines()]
+    assert [(k["speaker"], k["text"][:20]) for k in kept] == [("agent", "Hello Margaret, this"),
+                                                            ("patient", "Twelfth of March 194"),
+                                                            ("agent", "Thank you. How are y")]
+    api.post("/api/aftercare/reset", headers=LAB)
+    assert list((tmp_path / "transcripts" / "databases").glob("aftercare-*.db"))  # kept before it was rebuilt
+
+
+def test_romanian_emergencies_are_caught_and_a_denial_is_not() -> None:
+    assert ward.screen("Mă doare pieptul și nu pot să respir.") == "mă doare pieptul"
+    assert ward.screen("ma doare pieptul") == "ma doare pieptul"  # typed without diacritics
+    assert ward.screen("Am leșinat azi dimineață.") == "am leșinat"
+    assert ward.screen("Nu, nu pot respira!") == "nu pot respira"  # the comma starts a new clause
+    assert ward.screen("Nu am dureri în piept.") == ""  # a denial
+    assert ward.screen("Mă simt bine, mulțumesc.") == ""
+
+
+def test_a_romanian_patient_is_followed_up_in_romanian_with_the_999_line_in_romanian(db: Path) -> None:
+    call = verified(db, "P109")
+    assert call.language == "ro" and ward.LANGUAGES["ro"] == "Romanian"
+    call.patient_input("Mă doare pieptul tare.")
+    assert call.agent_output("Bine, mulțumesc.").endswith(ward.SAFETY_LINE["ro"])  # added by code, in Romanian

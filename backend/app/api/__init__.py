@@ -10,3 +10,5 @@ router.include_router(guardrails.images)  # generated sample pictures, fetched b
 router.include_router(understanding.media)  # sample files for <img>, <video> and <audio> tags
 router.include_router(imagegen.media)  # generated images for <img> tags
 router.include_router(coding.downloads)  # what the coding agent made, for download links
+router.include_router(aftercare.phone_events)  # a real call's events, from Communication Services
+router.include_router(medassist.phone_events)  # the practice line: incoming calls and their events
