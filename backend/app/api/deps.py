@@ -8,6 +8,8 @@ from fastapi import Depends, Request
 from ..container import Container
 from ..core.errors import ApiError
 from ..services.aftercare import AftercareService
+from ..services.aftercare_phone import AftercarePhone
+from ..services.medassist_phone import MedAssistPhone
 from ..services.coding import CodingService
 from ..services.data_model import VIEWERS, Viewer
 from ..services.dataagent import DataAgentService
@@ -80,12 +82,20 @@ def medassist(c: Container = Depends(container)) -> MedAssistService:
     return c.medassist
 
 
+def medassist_phone(c: Container = Depends(container)) -> MedAssistPhone:
+    return c.medassist_phone
+
+
 def reviews(c: Container = Depends(container)) -> ReviewsService:
     return c.reviews
 
 
 def aftercare(c: Container = Depends(container)) -> AftercareService:
     return c.aftercare
+
+
+def aftercare_phone(c: Container = Depends(container)) -> AftercarePhone:
+    return c.aftercare_phone
 
 
 def guardrails(c: Container = Depends(container)) -> GuardrailsService:

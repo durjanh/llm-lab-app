@@ -58,6 +58,45 @@ The agent chooses which tools to call and in what order: reading the record to f
 
 A prompt is a request and a model does not always follow it. Rules that protect data or money belong in the tools.
 
+## Real texts, and a reminder the day before
+
+Without Azure set up, a text is a row in the practice database, shown under "Behind the portal". With it, the same texts are also sent for real through Azure Communication Services, and each booking keeps a reminder to send 24 hours before the appointment:
+
+- `sms.py` sends the confirmation when `book_appointment` or `cancel_appointment` succeeds, and adds a row to the `reminders` table in Azure Storage, due 24 hours before the appointment (in UTC; the practice's times are UK time). Cancelling deletes the row first.
+- `reminders/function_app.py` is an Azure Function on the Flex Consumption plan. Every 15 minutes it sends the rows that are due and deletes each one once Communication Services accepts it, so a failed send is tried again. No server of ours has to be running when a reminder falls due.
+- A text that fails is written to the audit log; it never undoes a booking.
+- The patients are invented and their numbers are Ofcom's drama numbers, so every real text goes to one phone you choose, labelled with the patient it is for: `[Lab text for Sam Taylor] Harbourside Medical Centre: ...`. MedAssist never texts a number typed into the chat.
+
+To switch it on:
+
+1. Run `examples/medassist/setup-texts.sh`. It makes Communication Services, the storage account and table, and the Function in the lab's own resource group, `rg-llm-lab` (set `RG` for another), each tagged `lab-part=medassist-texts`. It deploys the Function's code and adds `MEDASSIST_SMS_ENDPOINT` and `MEDASSIST_REMINDERS_TABLE` to the lab's `.env`, leaving every other line alone. `teardown-texts.sh` removes those resources and those two lines, and nothing else. (azd is not used here: `azd down` deletes the resource group it deployed into, which would be the whole lab. The full lab's `azd up`, at the top of the repository, includes the same resources from the same module, `infra/modules/medassist-texts.bicep`.)
+2. Register the sender name. UK networks block texts from an alphanumeric sender that is not registered. In the Azure portal, open the Communication Services resource, then Regulatory Documents (or Alphanumeric Sender ID), and apply for `Durjan Lab` for the United Kingdom. A sender name has letters, digits and spaces, at most 11 characters, and no hyphens. Approval takes weeks. To use another name, set `MEDASSIST_SMS_SENDER` and apply for that.
+3. Add your own mobile number to `.env` as `MEDASSIST_SMS_TO`, and restart the backend.
+
+Everything signs in with Entra: you from the backend, the Function with its managed identity. The storage account has key access switched off.
+
+## Ring the practice: booking a doctor by phone
+
+When reception is busy, MedAssist answers the practice's phone line. You ring the lab's number from your own phone; the line answers as one of the invented patients (Sam Taylor, `MEDASSIST_PHONE_PATIENT=P002`), because the patients' own numbers are not real. Before the agent hears a word, code settles three things it cannot be talked out of:
+
+- **Who may call.** Only your own phone (`AFTERCARE_CALL_TO`) is answered. Any other caller is told to ring reception.
+- **Emergencies first.** The greeting says to hang up and call 999 if it is an emergency. Every sentence the caller says goes through Aftercare's emergency screen (chest pain, cannot breathe, stroke signs and so on, with negation handled). On a match the line says to hang up and call 999, records it, and ends the call.
+- **Identity.** The caller must say a date of birth that matches the record. A model turns the spoken date into `YYYY-MM-DD`; code compares it. Three misses and the line says reception will call back.
+
+Then MedAssist takes over, told it is on the phone (short spoken replies, at most three slots read out by day and time), with the same tools and rules as the portal: it finds slots with the doctor, books the one you choose, and texts the confirmation (a real text, if texts are set up). Every line of the call, from both sides, and its events (answered, identity confirmed, emergency, ended) go into the practice record, shown under "Behind the portal". The voice is slower, with pauses, for older patients (gateways/phone.py).
+
+To set it up, after `setup-texts.sh` and buying a number (see Aftercare's README, "A real call to your phone"):
+
+1. Start a tunnel to port 8000 (`ngrok http --url=<your-name>.ngrok-free.app 8000`, or Dev Tunnels: see Aftercare's README) and put its address in `.env` as `AFTERCARE_CALLBACK_URL`.
+2. Run `examples/medassist/setup-phone-line.sh <tunnel address>`. The first run makes the line's token and puts it in `.env`; restart the backend and run it again. The second run tells Event Grid to send the lab number's incoming calls to the backend (Event Grid checks the address first, so the backend and the tunnel must be running). A new tunnel address means running it again; `--remove` disconnects the line.
+3. Ring the lab's number.
+
+**In the caller's language.** English is the default. The line answers in the patient's preferred language (`PREFERRED_LANGUAGE` in clinic.py). Nine invented patients cover several languages and ages: Valeria Romano, Sam Taylor and Margaret Ellis (English; 40, 46 and 84), Lucía García (Spanish, 25), Agnieszka Nowak (Polish, 36), Fatima Al-Sayed (Arabic, 54), Andrei Ionescu (Romanian, 68), Imran Hussain (Urdu, 79) and Harpreet Kaur (Punjabi, 87). Your phone is answered as `MEDASSIST_PHONE_PATIENT` (P002, Sam Taylor, by default): set it to `P009` to hear Punjabi in the slowest, softest voice, or set `MEDASSIST_PHONE_LANGUAGE` to try any language in python/translator.py as Sam. It listens and speaks in that language with a matching voice, and the agent is told to reply in it. The line's own words (the greeting, the 999 message, the date-of-birth prompts) are Azure Translator's translation of reviewed English, not a model's wording. Each sentence the caller says is checked for emergencies in their words and in its English translation, so a Polish or Urdu caller describing chest pain is caught too. Every line goes into the record as said, with `[English]` and the translation beneath it, for the staff. Texts go in the same language, with the English kept in the record; if Translator cannot be reached, the English is used rather than nothing.
+
+Event Grid adds nothing while idle: its first 100,000 operations a month are free.
+
+**Every transcript is kept.** Besides the record, each line of every conversation (page or phone, the line's own words and the call's events included) is appended the moment it is said to `generated/transcripts/<kind>/<YYYY-MM>/<conversation>.jsonl`, with the time, patient, channel and speaker. The reset button copies the database to `generated/transcripts/databases/` before rebuilding it, so nothing is lost. On a real system these files hold health information: keep them only as long as your retention policy allows, and only where they are protected.
+
 ## Testing
 
 `test` runs the strategies from the course: the happy path, grounding (a fact only the documents hold), boundaries (no medicine doses), an emergency (999 first, nothing booked), a calculation, multi-turn bookings, a cancellation and privacy. Each runs on a fresh database, and the check looks at what really changed there, not only at the reply.

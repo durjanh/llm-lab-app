@@ -4,12 +4,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .shared import LOCAL_MODEL, ROOT, EnvSettings
+from .shared import GPT_MODELS, LOCAL_MODEL, ROOT, EnvSettings
 
 CLAUDE_MODELS = ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"]
 # The local open model, when one is configured (LLM_LAB_LOCAL_MODEL), comes first: it is the default where it can do
-# the work. Pages that need something only Claude has offer CLAUDE_MODELS.
-MODELS = ([LOCAL_MODEL] if LOCAL_MODEL else []) + CLAUDE_MODELS
+# the work. GPT deployments in Azure OpenAI come last, as a choice. Pages that need something only Claude has offer
+# CLAUDE_MODELS.
+MODELS = ([LOCAL_MODEL] if LOCAL_MODEL else []) + CLAUDE_MODELS + GPT_MODELS
 MAX_TOKENS_STREAMING = 32000
 MAX_TOKENS_NON_STREAMING = 16000  # the SDK requires streaming for larger values
 VITE_DEV_PORT = 5173
@@ -49,6 +50,20 @@ class Settings:
     foundry_project_endpoint: str = ""
     foundry_model: str = ""
     medassist_db: Path = ROOT / "examples" / "medassist" / "data" / "medassist.db"
+    # MedAssist's real texts and reminders, through Azure Communication Services; see examples/medassist/sms.py
+    medassist_sms_endpoint: str = ""
+    medassist_sms_sender: str = ""
+    medassist_sms_to: str = ""
+    medassist_reminders_table: str = ""
+    # Aftercare's real phone call: see services/aftercare_phone.py
+    aftercare_caller_id: str = ""
+    aftercare_call_to: str = ""
+    aftercare_callback_url: str = ""
+    aftercare_speech_endpoint: str = ""
+    # The practice's phone line: see services/medassist_phone.py
+    medassist_phone_patient: str = "P002"
+    medassist_phone_token: str = ""
+    medassist_phone_language: str = ""
     aftercare_db: Path = ROOT / "examples" / "aftercare" / "data" / "aftercare.db"
     # Azure Language in Foundry Tools, for the review dashboard. Signed in with your Azure login; empty means offline.
     azure_language_endpoint: str = ""
@@ -75,6 +90,17 @@ class Settings:
             azure_search_endpoint=env.azure_search_endpoint,
             foundry_project_endpoint=env.foundry_project_endpoint,
             foundry_model=env.foundry_model,
+            medassist_sms_endpoint=env.medassist_sms_endpoint,
+            medassist_sms_sender=env.medassist_sms_sender,
+            medassist_sms_to=env.medassist_sms_to,
+            medassist_reminders_table=env.medassist_reminders_table,
+            aftercare_caller_id=env.aftercare_caller_id,
+            aftercare_call_to=env.aftercare_call_to,
+            aftercare_callback_url=env.aftercare_callback_url,
+            aftercare_speech_endpoint=env.aftercare_speech_endpoint,
+            medassist_phone_patient=env.medassist_phone_patient,
+            medassist_phone_token=env.medassist_phone_token,
+            medassist_phone_language=env.medassist_phone_language,
             azure_language_endpoint=env.azure_language_endpoint,
             azure_media_endpoint=env.azure_media_endpoint,
             azure_ai_resource_id=env.azure_ai_resource_id,

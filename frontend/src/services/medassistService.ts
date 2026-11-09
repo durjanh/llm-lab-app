@@ -3,6 +3,8 @@ import { api, type ApiClient } from './apiClient';
 export interface MedAssistPatient {
   id: string;
   name: string;
+  age?: number;
+  language?: string; // preferred, for calls and texts
 }
 
 export interface MedAssistInfo {
@@ -38,6 +40,15 @@ export interface PracticeState {
   upcoming: Appointment[];
   texts: { sent_at: string; sent_to: string; body: string }[];
   audit: { at: string; actor: string; action: string; detail: string }[];
+  /** Lines of phone calls to the practice line, oldest first: the caller, the assistant. */
+  calls?: { at: string; call_id: string; speaker: 'caller' | 'assistant'; text: string }[];
+}
+
+/** The practice's phone line: whether it is set up, and which invented patient your phone is answered as. */
+export interface PhoneLineInfo {
+  configured: boolean;
+  missing: string[];
+  patient: string;
 }
 
 /** One thing the agent did on the way to its reply: a hosted tool Foundry ran, or a function tool the backend ran. */
@@ -72,6 +83,10 @@ export class MedAssistService {
 
   end(chatId: string): Promise<{ ended: boolean }> {
     return this.client.delete(`/api/medassist/chats/${encodeURIComponent(chatId)}`);
+  }
+
+  phoneLine(): Promise<PhoneLineInfo> {
+    return this.client.get('/api/medassist/phone');
   }
 
   state(patientId: string): Promise<PracticeState> {

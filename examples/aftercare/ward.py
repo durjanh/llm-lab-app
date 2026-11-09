@@ -12,7 +12,7 @@ always follow it:
 - The checklist lives here. finish_outreach refuses while an item is missing, unless the patient ended the call.
 - Warning signs map to an escalation level in code: the model reports what the patient said, and this module
   decides who is told and how fast. The model cannot downgrade an emergency.
-- Every patient message is screened for emergency words in English and Spanish, before the model sees it.
+- Every patient message is screened for emergency words in English, Spanish and Romanian, before the model sees it.
   A match raises an alert and makes sure the reply tells the patient to call 999, whatever the model wrote.
 - Every recorded answer must quote the patient's latest message, and the quote is checked against it, so
   the model cannot fill in answers the patient never gave.
@@ -88,10 +88,18 @@ EMERGENCY_WORDS = [
     "slurred", "stroke", "kill myself", "end my life", "suicid",
     "dolor en el pecho", "dolor de pecho", "me duele el pecho", "no puedo respirar", "labios morados",
     "me desmayé", "desmayo", "inconsciente", "derrame", "quitarme la vida", "suicid",
+    # Romanian, with and without diacritics, because a typed message often has none. For a Romanian speaker to check.
+    "durere în piept", "dureri în piept", "durere in piept", "dureri in piept", "mă doare pieptul",
+    "ma doare pieptul", "nu pot respira", "nu pot să respir", "nu pot sa respir", "buzele vinete", "buze albastre",
+    "am leșinat", "am lesinat", "inconștient", "inconstient", "fața îi este lăsată", "fata ii este lasata",
+    "fața căzută", "fata cazuta", "accident vascular", "atac cerebral", "sinucid", "să-mi iau viața",
+    "sa-mi iau viata",
 ]
 SAFETY_LINE = {"en": "If you have chest pain, cannot breathe, or think this is an emergency, call 999 now.",
-               "es": "Si tiene dolor en el pecho, no puede respirar o cree que es una emergencia, llame al 999 ahora."}
-LANGUAGES = {"en": "English", "es": "Spanish"}
+               "es": "Si tiene dolor en el pecho, no puede respirar o cree que es una emergencia, llame al 999 ahora.",
+               # Azure Translator's wording, put in the formal form (dumneavoastră). For a Romanian speaker to check.
+               "ro": "Dacă aveți dureri în piept, nu puteți respira sau credeți că este o urgență, sunați acum la 999."}
+LANGUAGES = {"en": "English", "es": "Spanish", "ro": "Romanian"}  # English unless the record says otherwise
 
 PATIENTS = [  # all invented; 07700 900xxx numbers are reserved by Ofcom for drama
     {"id": "P101", "name": "Margaret Bell", "dob": "1946-03-12", "phone": "07700 900401", "language": "en",
@@ -140,6 +148,12 @@ PATIENTS = [  # all invented; 07700 900xxx numbers are reserved by Ofcom for dra
      "meds": [("Prednisolone", "40 mg each morning for 5 days", "new", False, "steroid course: finish it"),
               ("Steroid preventer inhaler", "2 puffs twice a day", "changed", False, "dose doubled"),
               ("Salbutamol inhaler", "2 puffs when needed", "same", False, "")]},
+    # Prefers Romanian. Not one of the eight scripted for the evaluation: for trying a call in Romanian.
+    {"id": "P109", "name": "Ioana Popescu", "dob": "1952-04-18", "phone": "07700 900409", "language": "ro",
+     "condition": "pneumonia", "diagnosis": "Pneumonia (chest infection)", "days_ago": 2,
+     "stay": 4, "emergency": True, "charlson": 1, "ed_visits": 0, "clinic": "GPR", "within": 14,
+     "meds": [("Amoxicillin", "500 mg three times a day for 5 more days", "new", False, "antibiotic"),
+              ("Paracetamol", "1 g up to four times a day", "new", False, "")]},
 ]
 BY_ID = {p["id"]: p for p in PATIENTS}
 
@@ -334,7 +348,7 @@ How a call goes:
    say goodbye.
 
 Style: use the patient's preferred language from the start of the call; if they write in another language,
-switch to theirs. In Spanish, use usted. Text messages: short (under 320 characters), plain words, no markdown. Phone calls: spoken
+switch to theirs. In Spanish, use usted; in Romanian, dumneavoastră. Text messages: short (under 320 characters), plain words, no markdown. Phone calls: spoken
 sentences only, no symbols or lists, options said as "first", "second". Warm, brief, one question at a time.
 Every recorded answer needs a quote: the patient's words from their latest message, copied exactly.
 The patient never sees tool results: never mention tools, codes or the checklist."""
@@ -686,7 +700,8 @@ def looks_spanish(text: str) -> bool:
 
 
 NEGATIVES = {"no", "not", "never", "without", "don't", "dont", "haven't", "havent", "hasn't", "didn't", "isn't",
-             "sin", "ni", "nunca", "tampoco"}
+             "sin", "ni", "nunca", "tampoco",
+             "nu", "n-am", "fără", "fara", "niciodată", "niciodata"}
 
 
 def screen(text: str) -> str:

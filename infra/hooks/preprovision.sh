@@ -33,6 +33,13 @@ if [ "${AZURE_SPEECH_SKU:-S0}" = "F0" ]; then
   fi
 fi
 
+# Communication Services (MedAssist's texts) and Functions (its reminders) need their resource providers registered
+# in the subscription, once. Registering one that already is does nothing.
+for ns in Microsoft.Communication Microsoft.Web; do
+  [ "$(az provider show -n "$ns" --query registrationState -o tsv 2>/dev/null)" = "Registered" ] \
+    || az provider register --namespace "$ns" --wait
+done
+
 # The person who runs the lab, given its roles. Not AZURE_PRINCIPAL_ID: azd fills that with whoever is signed in,
 # which in the GitHub pipeline is the pipeline itself.
 if [ -z "${LAB_PRINCIPAL_ID:-}" ]; then

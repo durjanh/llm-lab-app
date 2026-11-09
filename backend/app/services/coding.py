@@ -59,7 +59,7 @@ class CodingService:
         self._lock = threading.Lock()
 
     def info(self) -> dict[str, Any]:
-        return {"models": [*MODELS, *self.gpt_models()], "default_model": DEFAULT_MODEL, "gpt_models": self.gpt_models(),
+        return {"models": list(dict.fromkeys([*MODELS, *self.gpt_models()])), "default_model": DEFAULT_MODEL, "gpt_models": self.gpt_models(),
                 "tasks": C.TASKS, "workspaces": {k: tasks for k, (_, tasks) in C.WORKSPACES.items()},
                 "modes": C.MODES, "sdk": self.sdk_python.exists(), "sample": SAMPLE.name,
                 "screenshot": C.find_chrome() is not None, "sandbox": C.SANDBOX.kind if C.SANDBOX else None,
@@ -72,7 +72,7 @@ class CodingService:
     def _model(self, model: str | None) -> str:
         model = model or DEFAULT_MODEL
         if model not in MODELS and model not in self.gpt_models():
-            raise ApiError(400, "invalid_request", f"model must be one of: {', '.join([*MODELS, *self.gpt_models()])}")
+            raise ApiError(400, "invalid_request", f"model must be one of: {', '.join(dict.fromkeys([*MODELS, *self.gpt_models()]))}")
         return model
 
     # ----- sessions -----

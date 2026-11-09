@@ -18,6 +18,11 @@ from .gateways.claude import ClaudeGateway
 from .gateways.foundry_agent import AgentConversations, FoundryAgent
 from .gateways.foundry_tools import FoundryTools
 from .services.aftercare import AftercareService
+from .services.aftercare_phone import AftercarePhone
+from .services.medassist_phone import MedAssistPhone
+from .services.transcripts import TranscriptArchive
+from .shared import translator as shared_translator
+from .gateways.phone import CallAutomation, PhoneLine
 from .services.casework import CaseworkService
 from .services.coding import CodingService
 from .services.dataagent import DataAgentService
@@ -31,6 +36,7 @@ from .services.imagegen import ImageGenService
 from .services.understanding import UnderstandingService
 from .services.mcp_lab import McpLab
 from .services.medassist import MedAssistService
+from .shared import medassist_sms
 from .services.harness import HarnessService
 from .services.messages import MessagesService
 from .services.reviews import ReviewsService
@@ -60,6 +66,8 @@ class Container:
     medassist: MedAssistService
     reviews: ReviewsService
     aftercare: AftercareService
+    aftercare_phone: AftercarePhone
+    medassist_phone: MedAssistPhone
     guardrails: GuardrailsService
     understanding: UnderstandingService
     imagegen: ImageGenService
@@ -75,7 +83,7 @@ class Container:
               speech: SpeechTokens | None = None, gpt: StructuredModel | None = None,
               search: AzureSearch | None = None, foundry: AgentConversations | None = None,
               language: TextAnalyzer | None = None, agents: FrameworkAgents | None = None,
-              tools: FoundryTools | None = None) -> "Container":
+              tools: FoundryTools | None = None, phone: PhoneLine | None = None) -> "Container":
         claude = ClaudeGateway(client)
         spend = SpendTracker(settings.budget_usd)
         registry = RunRegistry()
@@ -96,6 +104,28 @@ class Container:
         if language is None and settings.azure_language_endpoint:
             language = AzureLanguage(settings.azure_language_endpoint)
         understanding = UnderstandingService(tools, spend, settings.generated_dir / "understanding")
+        archive = TranscriptArchive(settings.generated_dir / "transcripts")  # every conversation, kept
+        # Live translation (calls and texts), through the lab's AI Services account; none without it.
+        translate = shared_translator.Translator(settings.azure_language_endpoint) if settings.azure_language_endpoint else None
+        override = {settings.medassist_phone_patient: settings.medassist_phone_language} \
+            if settings.medassist_phone_language else {}
+        aftercare = AftercareService(claude, agents, spend, streamer, settings.aftercare_db, archive)
+        acs = settings.medassist_sms_endpoint  # one Communication Services resource sends texts and makes calls
+        needed = {"AFTERCARE_CALL_TO": settings.aftercare_call_to, "AFTERCARE_CALLER_ID": settings.aftercare_caller_id,
+                  "AFTERCARE_CALLBACK_URL": settings.aftercare_callback_url, "MEDASSIST_SMS_ENDPOINT": acs,
+                  "AZURE_LANGUAGE_ENDPOINT": settings.aftercare_speech_endpoint}
+        missing = [k for k, v in needed.items() if not v] if phone is None else []
+        if phone is None and not missing:
+            phone = CallAutomation(acs, medassist_sms.e164(settings.aftercare_caller_id), settings.aftercare_speech_endpoint)
+        to = medassist_sms.e164(settings.aftercare_call_to) if settings.aftercare_call_to else ""
+        medassist = MedAssistService(foundry, spend, settings.medassist_db, medassist_sms.from_settings(
+            settings.medassist_sms_endpoint, settings.medassist_sms_sender, settings.medassist_sms_to,
+            settings.medassist_reminders_table, translate), archive, override)
+        line_missing = missing + ([] if settings.medassist_phone_token else ["MEDASSIST_PHONE_TOKEN"])
+        medassist_line = MedAssistPhone(medassist, phone, to, settings.medassist_phone_patient,
+                                        settings.aftercare_callback_url, settings.medassist_phone_token,
+                                        spoken_date_reader(claude), line_missing, archive, translate,
+                                        settings.medassist_phone_language)
         return cls(
             settings=settings,
             spend=spend,
@@ -114,9 +144,12 @@ class Container:
             documents=DocumentService(claude, spend, gpt),
             mcp_lab=McpLab(claude, spend, settings.origin, settings.allowed_hosts),
             casework=CaseworkService(gpt, search, spend, settings.casework_dir),
-            medassist=MedAssistService(foundry, spend, settings.medassist_db),
+            medassist=medassist,
+            medassist_phone=medassist_line,
             reviews=ReviewsService(language, claude, spend),
-            aftercare=AftercareService(claude, agents, spend, streamer, settings.aftercare_db),
+            aftercare=aftercare,
+            aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
+                                           translate),
             guardrails=GuardrailsService(tools, spend),
             understanding=understanding,
             translate=TranslateService(tools, spend, understanding),
@@ -128,3 +161,29 @@ class Container:
             imagegen=ImageGenService(tools, spend, settings.generated_dir / "images", settings.generated_dir / "understanding"),
             runs=registry,
         )
+
+
+def spoken_date_reader(claude: ClaudeGateway):
+    """Turns a spoken date of birth ("the third of March, nineteen eighty") into YYYY-MM-DD, or None. Only reading:
+    the phone line compares the result with the record in code."""
+    import json
+    import re
+    from datetime import date
+
+    from .shared import DEFAULT_MODEL, text_of
+
+    schema = {"type": "object", "properties": {"date_of_birth": {"type": ["string", "null"]}},
+              "required": ["date_of_birth"], "additionalProperties": False}
+
+    def read(heard: str) -> str | None:
+        try:
+            r = claude.create(model=DEFAULT_MODEL, max_tokens=60, messages=[{"role": "user", "content": (
+                f"Today is {date.today().isoformat()}. A caller was asked for their date of birth and said: \"{heard}\". "
+                "Give that date as YYYY-MM-DD, or null if they did not say a whole date.")}],
+                output_config={"format": {"type": "json_schema", "schema": schema}})
+            value = json.loads(text_of(r)).get("date_of_birth")
+        except Exception:  # noqa: BLE001  (no model, a reply that is not JSON): treated as no date
+            return None
+        return value if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) else None
+
+    return read

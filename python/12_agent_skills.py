@@ -19,7 +19,7 @@ Two kinds of skill:
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -68,7 +68,7 @@ def print_event(e: dict) -> None:
     if kind == "request":
         print(f"[request {e['turn']} · stop_reason={e['stop_reason']} · {e['usage']}]")
     elif kind == "says":
-        print(f"  Claude: {e['text']}")
+        print(f"  Reply: {e['text']}")
     elif kind == "step":
         print(f"  ⇢ {e['name']}: {e['detail']}")
     elif kind == "output":
@@ -104,6 +104,7 @@ class SkillsResult:
     cost: float                   # token cost of this turn
     messages: list[dict]          # the whole conversation, ready for a follow-up message
     container_id: str | None      # pass it back so files from earlier turns are still there
+    paths: dict[str, Path] = field(default_factory=dict)  # made file id -> local path, for runs in the lab's sandbox
 
 
 def run_with_skills(client, model: str, skills: list[dict], task: str | list[dict], max_continuations: int = 5,
@@ -155,6 +156,23 @@ def download(client, file_ids: list[str], out_dir: Path) -> None:
         print(f"Saved {path} ({path.stat().st_size:,} bytes)")
 
 
+def run_elsewhere(client, args) -> None:
+    """The same task for GPT or the local model, which cannot use Anthropic's container: our own skills
+    (python/skills/) in the lab's sandbox (python/sandbox_skills.py, LLM_LAB_SANDBOX)."""
+    import shutil
+
+    import sandbox_skills
+    skills = [args.skill] + (["number-profile"] if args.custom else [])
+    task = TASKS[args.skill].format(upto=args.upto) + (CUSTOM_HINT if args.custom else "")
+    print(f"Skills offered: {', '.join(skills)} (in the lab's sandbox)\nUser: {task}\n")
+    result = sandbox_skills.run_in_sandbox(client, args.model, skills, task, emit=print_event)
+    args.out.mkdir(parents=True, exist_ok=True)
+    for path in result.paths.values():
+        shutil.copy2(path, args.out / path.name)
+        print(f"Saved {args.out / path.name} ({path.stat().st_size:,} bytes)")
+    print(f"\nEstimated token cost: ${result.cost:.4f}.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--skill", choices=list(TASKS), default="xlsx", help="which Anthropic skill to use")
@@ -163,9 +181,12 @@ def main() -> None:
     parser.add_argument("--cleanup", action="store_true", help="delete the custom skill when finished")
     parser.add_argument("--out", type=Path, default=Path("skill_outputs"), help="folder for the files Claude makes")
     parser.add_argument("--max-continuations", type=int, default=5, help="how often to resume a paused turn")
-    model_argument(parser, claude_only=True)
+    model_argument(parser, claude_only=True)  # Claude by default; --model gpt-... or the local model works too
     args = parser.parse_args()
     client = make_client()
+    if not args.model.startswith("claude-"):
+        run_elsewhere(client, args)  # GPT or the local model: our own skills, in the lab's sandbox
+        return
 
     skills = [{"type": "anthropic", "skill_id": args.skill, "version": "latest"}]
     custom_id = custom_skill(client) if args.custom else None

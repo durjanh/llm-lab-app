@@ -5,7 +5,7 @@ import logging
 import threading
 from typing import Any
 
-from ..shared import cost_usd
+from ..shared import PRICES, cost_usd
 
 log = logging.getLogger("llm_lab")
 
@@ -26,6 +26,9 @@ class SpendTracker:
         return max(0.0, self.budget_usd - self.spent_usd)
 
     def charge(self, message: Any, model: str) -> float | None:
+        # The model that answered, which differs from the one asked when a rate-limited request fell back.
+        served = getattr(message, "model", None)
+        model = served if isinstance(served, str) and served in PRICES else model
         cost = cost_usd(message.usage, model)
         with self._lock:
             self.calls += 1

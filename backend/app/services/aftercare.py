@@ -37,13 +37,15 @@ class Live:
     agent: Any = None  # Agent Framework's agent and session
     steps: list[dict] = field(default_factory=list)  # Agent Framework's tool calls, as they happen
     cost_usd: float = 0.0
+    archived: bool = True  # lines kept by this service; a phone call keeps its own, with the line's words
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
 class AftercareService:
     def __init__(self, claude: ClaudeGateway, agents: FrameworkAgents | None, spend: SpendTracker,
-                 streamer: RunStreamer, db_path: Path):
+                 streamer: RunStreamer, db_path: Path, archive: Any = None):
         self.claude, self.agents, self.spend, self.streamer, self.db_path = claude, agents, spend, streamer, db_path
+        self.archive = archive  # services/transcripts.py: every line kept, beyond a reset
         self.calls: OrderedDict[str, Live] = OrderedDict()
         self._lock = threading.Lock()
 
@@ -119,16 +121,24 @@ class AftercareService:
                 "checklist_left": live.call.remaining(), "record": ward.record(live.call.path, live.call.patient_id)}
 
     # ----- calls from the page -----
-    def start(self, patient_id: str, engine: str, model: str | None) -> dict[str, Any]:
+    def _keep(self, call_id: str, live: Live, speaker: str, text: str) -> None:
+        if self.archive is not None:
+            self.archive.line("aftercare", call_id, live.call.patient_id, "page", speaker, text)
+
+    def start(self, patient_id: str, engine: str, model: str | None, archive: bool = True) -> dict[str, Any]:
         live = self._live(self._database(), patient_id, engine, model)
         reply, steps = self._turn(live, live.call.opening_note())
         call_id = uuid.uuid4().hex
+        live.archived = archive
         with self._lock:
             self.calls[call_id] = live
             while len(self.calls) > MAX_CALLS:
                 self._stop(self.calls.popitem(last=False)[1])
+        said = live.call.agent_output(reply)
+        if archive:
+            self._keep(call_id, live, "agent", said)
         return self._reply(live, 0.0, call_id=call_id, engine=engine, model=live.model, wave=live.call.wave,
-                           channel=live.call.patient["channel"], reply=live.call.agent_output(reply), steps=steps)
+                           channel=live.call.patient["channel"], reply=said, steps=steps)
 
     def _get(self, call_id: str) -> Live:
         live = self.calls.get(call_id)
@@ -146,8 +156,13 @@ class AftercareService:
         try:
             before = live.cost_usd
             said = self._simulated(live) if simulate else text
+            if live.archived:
+                self._keep(call_id, live, "patient", said)
             reply, steps = self._turn(live, live.call.patient_input(said))
-            return self._reply(live, before, patient=said, reply=live.call.agent_output(reply), steps=steps)
+            answer = live.call.agent_output(reply)
+            if live.archived:
+                self._keep(call_id, live, "agent", answer)
+            return self._reply(live, before, patient=said, reply=answer, steps=steps)
         finally:
             live.lock.release()
 
@@ -156,6 +171,29 @@ class AftercareService:
         if not live.call.done:
             live.call.db.execute("UPDATE outreach SET status = 'stopped', finished_at = ? WHERE id = ? AND status = 'in_progress'",
                                  (ward.now(), live.call.outreach))
+            live.call.db.commit()
+
+    def phone_note(self, call_id: str, action: str, detail: str = "", said: str = "") -> None:
+        """Writes a real phone call's own events to the patient's record: placed, answered, ended and why in the audit
+        log, and anything the line said outside the agent's turns in the transcript, so the record holds the whole call."""
+        live = self.calls.get(call_id)
+        if live is None:
+            return
+        live.call.audit(action, detail)
+        if said:
+            live.call.say("agent", said)
+
+    def english_copy(self, call_id: str, speaker: str, english: str) -> None:
+        """The staff's English copy of a line said in another language, beside it in the transcript."""
+        live = self.calls.get(call_id)
+        if live is not None and english:
+            live.call.say(speaker, f"[English] {english}")
+
+    def call_back(self, call_id: str, reason: str) -> None:
+        """Asks the care team to ring the patient, when a call could not be finished (a phone call nobody could hear)."""
+        live = self.calls.get(call_id)
+        if live is not None:
+            live.call.task("care team", "routine", reason, source="phone")
             live.call.db.commit()
 
     def end(self, call_id: str) -> dict[str, Any]:
@@ -183,6 +221,8 @@ class AftercareService:
     def reset(self) -> dict[str, Any]:
         with self._lock:
             self.calls.clear()
+        if self.archive is not None:
+            self.archive.keep_database(self.db_path)  # a reset never loses a record
         ward.create_database(self.db_path)
         return self.board()
 

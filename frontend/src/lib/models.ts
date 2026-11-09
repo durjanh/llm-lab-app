@@ -17,3 +17,8 @@ export function modelNameStart(model: string | undefined): string {
   const name = modelName(model);
   return name[0].toUpperCase() + name.slice(1);
 }
+
+/** Where a skill's code runs for this model: Anthropic's container for Claude, the lab's sandbox otherwise. */
+export function skillsPlace(model: string | undefined): string {
+  return !model || model.startsWith('claude-') ? "Claude's container" : "the lab's sandbox";
+}

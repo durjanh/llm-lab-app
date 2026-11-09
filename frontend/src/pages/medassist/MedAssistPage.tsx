@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { medassistService, type MedAssistInfo, type MedAssistStep, type PracticeState } from '@/services';
+import { medassistService, type MedAssistInfo, type MedAssistStep, type PhoneLineInfo, type PracticeState } from '@/services';
 import './medassist.css';
 
 interface Line {
@@ -72,6 +72,17 @@ export default function MedAssistPage() {
   const [chatId, setChatId] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [practice, setPractice] = useState<PracticeState | null>(null);
+  const [line, setLine] = useState<PhoneLineInfo | null>(null);
+  useEffect(() => {
+    medassistService.phoneLine().then(setLine, () => undefined);
+  }, []);
+  // A call to the practice line happens on your phone: refresh the record so it shows here as it goes.
+  const linePatient = line?.configured && practice?.patient.id === line.patient ? line.patient : '';
+  useEffect(() => {
+    if (!linePatient) return;
+    const timer = window.setInterval(() => medassistService.state(linePatient).then(setPractice, () => undefined), 4000);
+    return () => window.clearInterval(timer);
+  }, [linePatient]);
   const [fresh, setFresh] = useState({ texts: 0, audit: 0 });
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -223,6 +234,8 @@ export default function MedAssistPage() {
                 {(info?.patients ?? []).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
+                    {p.age !== undefined && ` · ${p.age}`}
+                    {p.language && p.language !== 'English' && ` · ${p.language}`}
                   </option>
                 ))}
               </select>
@@ -341,6 +354,19 @@ export default function MedAssistPage() {
                   ))}
                 </div>
               </div>
+              {(practice.calls?.length ?? 0) > 0 && (
+                <div className="ma-card">
+                  <h3>Phone calls to the practice line</h3>
+                  <ul className="ma-audit">
+                    {practice.calls!.map((c, i) => (
+                      <li key={c.at + i}>
+                        <span className="mono small">{c.at.slice(11, 19)}</span>{' '}
+                        <b>{c.speaker === 'caller' ? 'Caller' : 'Assistant'}</b> {c.text}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="ma-card">
                 <h3>Audit log</h3>
                 {practice.audit.length === 0 && <p className="small muted">Nothing yet.</p>}

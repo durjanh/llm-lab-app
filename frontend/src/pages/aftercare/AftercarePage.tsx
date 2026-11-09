@@ -7,6 +7,8 @@ import {
   type Engine,
   type AftercareEvalEvent,
   type HospitalRecord,
+  type PhoneInfo,
+  type PhoneState,
   type StartResult,
   type TurnResult,
   statusService,
@@ -181,6 +183,9 @@ export default function AftercarePage() {
   const [voiceOn, setVoiceOn] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [listening, setListening] = useState(false);
+  const [phoneInfo, setPhoneInfo] = useState<PhoneInfo | null>(null);
+  const [phone, setPhone] = useState<PhoneState | null>(null); // a real call to your phone, while it lasts
+  const onPhone = phone !== null && (phone.state === 'ringing' || phone.state === 'talking');
   const speech = useRef<Speech | null>(null);
   const player = useRef<HTMLAudioElement | null>(null);
   const voiceRef = useRef(false);
@@ -200,6 +205,10 @@ export default function AftercarePage() {
       setModels(s.models); // the local model first, when one is configured
       setModel(s.default_model ?? s.models[0]);
     });
+    aftercareService
+      .phoneInfo()
+      .then(setPhoneInfo)
+      .catch(() => setPhoneInfo(null));
     tutorService
       .config()
       .then((c) => setSpeechReady(c.speech))
@@ -216,6 +225,50 @@ export default function AftercarePage() {
   useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
   }, [lines, busy]);
+
+  // A real call is held on your phone: follow its transcript and record here until it ends.
+  useEffect(() => {
+    if (!onPhone || !call) return;
+    const timer = window.setInterval(() => {
+      aftercareService
+        .phoneStatus(call.call_id)
+        .then((s) => {
+          setPhone(s.phone);
+          setRecord(s.record);
+          setLines(s.record.transcript.map((t) => ({ from: t.speaker, text: t.text })));
+          if (s.phone.state === 'ended' || s.phone.state === 'failed') void refreshBoard();
+        })
+        .catch(() => undefined);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [onPhone, call]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Rings your own phone: the agent holds the follow-up call there, and this page shows it as it goes. */
+  async function ringPhone(id: string) {
+    setError('');
+    setBusy(true);
+    setPatientId(id);
+    setLines([]);
+    setRecord(null);
+    try {
+      if (callRef.current) await aftercareService.end(callRef.current).catch(() => undefined);
+      const started = await aftercareService.phoneCall(id, engine, engine === 'claude' ? model : undefined);
+      callRef.current = started.call_id;
+      voiceRef.current = false; // your phone speaks, not the page
+      setVoiceOn(false);
+      setCall(started);
+      setPhone(started.phone);
+      setItems(started.checklist_left);
+      setLines([{ from: 'agent', text: started.reply, steps: started.steps, cost: started.cost_usd }]);
+      take(started);
+      void refreshBoard();
+      document.getElementById('ac-call')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const refreshBoard = () =>
     aftercareService
@@ -542,9 +595,19 @@ export default function AftercarePage() {
                   )}
                 </td>
                 <td>
-                  <button className="btn" onClick={() => void startCall(w.id)} disabled={busy || auto}>
+                  <button className="btn" onClick={() => void startCall(w.id)} disabled={busy || auto || onPhone}>
                     Start call
                   </button>
+                  {w.channel === 'voice' && phoneInfo?.configured && (
+                    <button
+                      className="btn"
+                      onClick={() => void ringPhone(w.id)}
+                      disabled={busy || auto || onPhone}
+                      title={`The agent rings your phone (${phoneInfo.to}) and holds this call there`}
+                    >
+                      Ring my phone
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -580,6 +643,13 @@ export default function AftercarePage() {
               </p>
             )}
             <div className="ac-messages" ref={scroller}>
+              {phone && (
+                <div className={`ac-typing small${phone.state === 'failed' ? ' ac-error' : ''}`}>
+                  On your phone ({phone.to}):{' '}
+                  {{ ringing: 'ringing…', talking: 'talking. The transcript appears here as you speak.', ended: 'the call has ended.', failed: 'the call failed.' }[phone.state]}
+                  {phone.note && ` ${phone.note}`}
+                </div>
+              )}
               <Bubbles lines={lines} who={who} />
               {busy && !speaking && <div className="ac-typing small muted">The agent is working…</div>}
               {speaking && <div className="ac-typing small muted">Speaking…</div>}
@@ -591,7 +661,7 @@ export default function AftercarePage() {
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder={done ? 'The call has finished' : `Reply as ${who}…`}
-                disabled={!call || busy || done || auto}
+                disabled={!call || busy || done || auto || onPhone}
                 maxLength={1000}
                 aria-label="Your reply as the patient"
               />
@@ -609,13 +679,13 @@ export default function AftercarePage() {
               <button
                 type="submit"
                 className="btn primary"
-                disabled={!call || busy || done || auto || !draft.trim() || listening}
+                disabled={!call || busy || done || auto || onPhone || !draft.trim() || listening}
               >
                 Send
               </button>
             </form>
             <div className="ac-actions">
-              <button className="btn" onClick={() => void turn(true)} disabled={!call || busy || done || auto}>
+              <button className="btn" onClick={() => void turn(true)} disabled={!call || busy || done || auto || onPhone}>
                 Let the patient answer
               </button>
               {auto ? (
@@ -623,11 +693,11 @@ export default function AftercarePage() {
                   Stop
                 </button>
               ) : (
-                <button className="btn" onClick={() => void playToEnd()} disabled={!call || busy || done}>
+                <button className="btn" onClick={() => void playToEnd()} disabled={!call || busy || done || onPhone}>
                   Play to the end
                 </button>
               )}
-              <button className="btn" onClick={() => void hangUp()} disabled={!call || busy}>
+              <button className="btn" onClick={() => void hangUp()} disabled={!call || busy || onPhone}>
                 Hang up
               </button>
               {call && (

@@ -472,7 +472,7 @@ class DocumentService:
             answer, usage = self.gpt.structured(model, system, schema, content, max_tokens)
             return answer, self.spend.charge(SimpleNamespace(usage=usage), model) or 0.0
         if model not in MODELS:
-            choices = MODELS + (self.gpt.models if self.gpt else [])
+            choices = list(dict.fromkeys(MODELS + (self.gpt.models if self.gpt else [])))
             raise ApiError(400, "invalid_request", f"model: Model must be one of: {', '.join(choices)}")
         try:
             response = self.claude.create(

@@ -1,0 +1,5 @@
+# The reminder Function's packages, installed by Azure when azd deploys it.
+azure-functions
+azure-communication-sms
+azure-data-tables
+azure-identity

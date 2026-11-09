@@ -92,6 +92,7 @@ export {
   type MedAssistReply,
   type MedAssistStep,
   type PracticeState,
+  type PhoneLineInfo,
 } from './medassistService';
 export {
   ReviewsService,
@@ -113,6 +114,8 @@ export {
   type Engine,
   type AftercareEvalEvent,
   type HospitalRecord,
+  type PhoneInfo,
+  type PhoneState,
   type StartResult,
   type TurnResult,
   type WorkItem,

@@ -10,7 +10,10 @@
 | Azure AI Search (free) | The case-handling lab, which makes its index on first use |
 | A Container Apps environment, and the coding sandbox container app from `ghcr.io/durjanh/coding-sandbox:1`, scaled to zero, with Entra sign-in | The coding agent's auto mode, run in the cloud |
 | The app registration `llm-lab-coding-sandbox-<env>` (made by a hook, because Entra objects are not in a resource group) | The sandbox's sign-in |
-| Roles for you: Cognitive Services OpenAI User, Speech User, Speech Contributor (custom speech) and User, Foundry User, Search Index Data Contributor, Search Service Contributor, and Reader on the group | The labs' data-plane calls. Owner alone does not grant these. |
+| Azure Communication Services (data kept in the UK), a Storage account with the `reminders` table, and the Function app `func-<env>-reminders-<token>` on the Flex Consumption plan, with its code from `examples/medassist/reminders` | MedAssist's real texts, and its reminders 24 hours before an appointment |
+| Roles for you: Cognitive Services OpenAI User, Speech User, Speech Contributor (custom speech) and User, Foundry User, Search Index Data Contributor, Search Service Contributor, Storage Table Data Contributor (the reminders) and Storage Blob Data Contributor (azd uploading the reminder Function), Communication and Email Service Owner (on the one Communication Services resource), and Reader on the group | The labs' data-plane calls. Owner alone does not grant these. |
+
+MedAssist's texting costs nothing while it is idle: texts are paid for one by one, the Function only for its runs (a run every 15 minutes is about 2,900 a month, inside the monthly free grant of the Flex Consumption plan), and the storage account holds a few rows. Before real texts reach a UK phone, the sender name must be registered (below).
 
 The lab itself still runs on your machine (`python -m backend`). Hosting the backend in Azure is a separate step: the API only answers pages served from localhost.
 

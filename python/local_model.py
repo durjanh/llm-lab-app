@@ -1,4 +1,5 @@
-"""Sends Messages API calls for a local open model to a server on this machine, and everything else to Claude.
+"""Sends Messages API calls for a local open model to a server on this machine, for a GPT deployment to Azure OpenAI
+(gpt_model.py), and everything else to Claude.
 
 Docker Model Runner (and Ollama) serve the Anthropic Messages API, so the lab calls a local model with the same SDK and
 the same request shapes. A few things differ, and they are handled here so no page has to know:
@@ -13,8 +14,9 @@ A local model costs nothing per token, so it is priced at zero.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from typing import Any, Iterator
 
 import anthropic
@@ -23,6 +25,10 @@ import httpx
 from settings import ENV
 
 LOCAL_MODEL = ENV.local_model
+# GPT chat deployments in Azure OpenAI (AZURE_OPENAI_DEPLOYMENTS). Image and embedding deployments do not chat.
+GPT_MODELS = ([d for d in ENV.azure_openai_deployments if d.startswith("gpt-") and "image" not in d]
+              if ENV.azure_openai_endpoint else [])
+log = logging.getLogger("llm_lab")
 LOCAL_PRICE = {"input": 0.0, "output": 0.0, "cache_read": 0.0}
 
 # Parameters the local server has no use for; they only matter on Anthropic's API.
@@ -36,27 +42,41 @@ CLAUDE_ONLY_BLOCKS = {"document": "PDF and document blocks", "container_upload":
                       "mcp_tool_use": "MCP connectors", "search_result": "search result blocks"}
 
 
-class LocalUnsupported(ValueError):
+class NeedsClaude(ValueError):
     """The request needs something only Claude has. The message says what, so the person can pick a Claude model."""
 
 
-class LocalUnavailable(RuntimeError):
-    """The local model server is not answering."""
+class NoVision(NeedsClaude):
+    """The local model cannot read images (gpt-oss, for one): the request had a picture in it."""
+
+
+def _no_vision(exc: Exception) -> bool:
+    return isinstance(exc, anthropic.APIStatusError) and "image input is not supported" in str(exc)
+
+
+class ModelUnavailable(RuntimeError):
+    """The model's server is not answering, or will not let us in: the local server, or Azure OpenAI."""
 
 
 def is_local(model: Any) -> bool:
     return bool(LOCAL_MODEL) and model == LOCAL_MODEL
 
 
+def is_gpt(model: Any) -> bool:
+    return isinstance(model, str) and model.startswith("gpt-")
+
+
 def _field(block: Any, name: str) -> Any:
     return block.get(name) if isinstance(block, dict) else getattr(block, name, None)
 
 
-def _refuse(what: str) -> LocalUnsupported:
-    return LocalUnsupported(f"{LOCAL_MODEL} runs on this machine and cannot use {what}. Choose a Claude model for this.")
+def _check(params: dict, who: str = "") -> None:
+    """Refuses what only Claude can do. who says where the model runs, for the message."""
+    who = who or f"{LOCAL_MODEL} runs on this machine and"
 
+    def _refuse(what: str) -> NeedsClaude:
+        return NeedsClaude(f"{who} cannot use {what}. Choose a Claude model for this.")
 
-def _check(params: dict) -> None:
     for name, what in CLAUDE_ONLY_PARAMS.items():
         if params.get(name):
             raise _refuse(what)
@@ -91,7 +111,9 @@ def prepare(params: dict) -> tuple[dict, dict | None]:
     thinking = _thinking_wanted(out)
     out.pop("thinking", None)
     extra = dict(out.pop("extra_body", None) or {})
-    extra["chat_template_kwargs"] = {**extra.get("chat_template_kwargs", {}), "enable_thinking": thinking}
+    # Qwen-style templates read enable_thinking; gpt-oss reads reasoning_effort. Each ignores the other's.
+    extra["chat_template_kwargs"] = {**extra.get("chat_template_kwargs", {}), "enable_thinking": thinking,
+                                     "reasoning_effort": "medium" if thinking else "low"}
     out["extra_body"] = extra
     return out, schema
 
@@ -144,8 +166,12 @@ class LocalModel:
         # laptop is slower than the API.
         self.client = anthropic.Anthropic(base_url=url, api_key="local", max_retries=0, timeout=900.0)
 
-    def _unavailable(self) -> LocalUnavailable:
-        return LocalUnavailable(f"The local model {LOCAL_MODEL} is not answering at {self.url}. Start it with "
+    def _no_vision(self) -> NoVision:
+        return NoVision(f"{LOCAL_MODEL} cannot read images. Choose a model that can: Claude, GPT, or a local model "
+                        "with vision such as Qwen 3.5.")
+
+    def _unavailable(self) -> ModelUnavailable:
+        return ModelUnavailable(f"The local model {LOCAL_MODEL} is not answering at {self.url}. Start it with "
                                 "./tools/local-model.sh, or choose a Claude model.")
 
     def create(self, params: dict) -> Any:
@@ -159,6 +185,10 @@ class LocalModel:
             return self.client.messages.create(**body)
         except anthropic.APIConnectionError as exc:
             raise self._unavailable() from exc
+        except anthropic.APIStatusError as exc:
+            if _no_vision(exc):
+                raise self._no_vision() from exc
+            raise
 
     @contextmanager
     def stream(self, params: dict) -> Iterator[Any]:
@@ -170,6 +200,10 @@ class LocalModel:
                 yield s
         except anthropic.APIConnectionError as exc:
             raise self._unavailable() from exc
+        except anthropic.APIStatusError as exc:
+            if _no_vision(exc):
+                raise self._no_vision() from exc
+            raise
 
     def count_tokens(self, params: dict) -> Any:
         body, _ = prepare(params)
@@ -185,7 +219,7 @@ class LocalModel:
         payload = {"model": body["model"], "messages": chat, "max_tokens": body.get("max_tokens", 4096),
                    "response_format": {"type": "json_schema",
                                        "json_schema": {"name": "reply", "strict": True, "schema": schema}},
-                   "chat_template_kwargs": {"enable_thinking": False}}
+                   "chat_template_kwargs": {"enable_thinking": False, "reasoning_effort": "low"}}
         for key in ("temperature", "top_p", "stop_sequences"):
             if key in body:
                 payload["stop" if key == "stop_sequences" else key] = body[key]
@@ -204,49 +238,114 @@ class LocalModel:
             usage={"input_tokens": usage.get("prompt_tokens", 0), "output_tokens": usage.get("completion_tokens", 0)})
 
 
-class _Messages:
-    """client.messages (or client.beta.messages) with the local model's requests sent to the local server."""
+def fallback_model(model: Any, setting: str | None = None) -> str | None:
+    """The model to try when `model` is rate limited or overloaded, or None (LLM_LAB_RATE_LIMIT_FALLBACK)."""
+    setting = ENV.rate_limit_fallback if setting is None else setting
+    if setting in ("", "none") or is_local(model):  # the local model has no rate limit to run into
+        return None
+    if setting != "auto":
+        return setting if setting != model else None
+    if is_gpt(model):
+        return ENV.model
+    return GPT_MODELS[0] if GPT_MODELS else (LOCAL_MODEL or None)
 
-    def __init__(self, remote: Any, local: "LocalModel | None"):
-        self._remote, self._local = remote, local
+
+def _limited(exc: Exception) -> bool:
+    """A 429 (rate limited) or 529 (overloaded) that the SDK's own retries did not get past."""
+    return isinstance(exc, anthropic.APIStatusError) and exc.status_code in (429, 529)
+
+
+class _Messages:
+    """client.messages (or client.beta.messages) with each request sent to the server that runs its model.
+    A request that is rate limited or overloaded is sent once more, to fallback_model(), before the error is raised."""
+
+    def __init__(self, remote: Any, local: "LocalModel | None", gpt: Any = None):
+        self._remote, self._local, self._gpt = remote, local, gpt
+
+    def _other(self, model: Any) -> Any:
+        """The local model or GPT, for a request to either; None for Claude."""
+        if self._local and is_local(model):
+            return self._local
+        if self._gpt and is_gpt(model):
+            return self._gpt
+        return None
+
+    def _create(self, params: dict) -> Any:
+        other = self._other(params.get("model"))
+        return other.create(params) if other else self._remote.create(**params)
+
+    def _stream(self, params: dict) -> Any:
+        other = self._other(params.get("model"))
+        return other.stream(params) if other else self._remote.stream(**params)
+
+    def _fallback(self, params: dict, exc: Exception) -> dict | None:
+        """The same request for the fallback model, or None when there is none to try."""
+        model = params.get("model")
+        alternative = fallback_model(model) if _limited(exc) else None
+        if not alternative or (is_gpt(alternative) and not self._gpt) or (is_local(alternative) and not self._local):
+            return None  # nothing configured, or a model this client has no route to
+        log.warning("%s answered %s; trying %s instead", model, exc.status_code, alternative)
+        return {**params, "model": alternative}
 
     def create(self, **params: Any) -> Any:
-        if self._local and is_local(params.get("model")):
-            return self._local.create(params)
-        return self._remote.create(**params)
+        try:
+            return self._create(params)
+        except Exception as exc:
+            retry = self._fallback(params, exc)
+            if retry is None:
+                raise
+            try:
+                return self._create(retry)
+            except NeedsClaude:
+                raise exc from None  # the request needs Claude: the rate limit is the error to report
 
-    def stream(self, **params: Any) -> Any:
-        if self._local and is_local(params.get("model")):
-            return self._local.stream(params)
-        return self._remote.stream(**params)
+    @contextmanager
+    def stream(self, **params: Any) -> Iterator[Any]:
+        """A stream fails over only before it starts: the error comes when it is opened, before any text."""
+        with ExitStack() as stack:
+            try:
+                s = stack.enter_context(self._stream(params))
+            except Exception as exc:
+                retry = self._fallback(params, exc)
+                if retry is None:
+                    raise
+                try:
+                    s = stack.enter_context(self._stream(retry))
+                except NeedsClaude:
+                    raise exc from None
+            yield s
 
     def count_tokens(self, **params: Any) -> Any:
-        if self._local and is_local(params.get("model")):
-            return self._local.count_tokens(params)
-        return self._remote.count_tokens(**params)
+        other = self._other(params.get("model"))
+        return other.count_tokens(params) if other else self._remote.count_tokens(**params)
 
     def __getattr__(self, name: str) -> Any:  # batches and anything else go to Anthropic
         return getattr(self._remote, name)
 
 
 class _Beta:
-    def __init__(self, remote: Any, local: "LocalModel | None"):
+    def __init__(self, remote: Any, local: "LocalModel | None", gpt: Any = None):
         self._remote = remote
-        self.messages = _Messages(remote.messages, local)
+        self.messages = _Messages(remote.messages, local, gpt)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._remote, name)
 
 
 class LabClient:
-    """An Anthropic client that sends requests for LOCAL_MODEL to the local server. Files, models and everything else
-    go to Anthropic as before, so code written for the SDK client works unchanged."""
+    """An Anthropic client that sends requests for LOCAL_MODEL to the local server and requests for a GPT deployment to
+    Azure OpenAI. Files, models and everything else go to Anthropic as before, so code written for the SDK client works
+    unchanged."""
 
-    def __init__(self, remote: anthropic.Anthropic, local: "LocalModel | None" = None):
+    def __init__(self, remote: anthropic.Anthropic, local: "LocalModel | None" = None, gpt: Any = None):
         self._remote = remote
         self._local = local or (LocalModel() if LOCAL_MODEL else None)
-        self.messages = _Messages(remote.messages, self._local)
-        self.beta = _Beta(remote.beta, self._local)
+        if gpt is None and ENV.azure_openai_endpoint:
+            from gpt_model import GptModel  # imported here: gpt_model uses this module's checks
+            gpt = GptModel()
+        self._gpt = gpt
+        self.messages = _Messages(remote.messages, self._local, gpt)
+        self.beta = _Beta(remote.beta, self._local, gpt)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._remote, name)

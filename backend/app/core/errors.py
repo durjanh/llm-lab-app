@@ -4,7 +4,7 @@ from __future__ import annotations
 import anthropic
 from fastapi.responses import JSONResponse
 
-from ..shared import LocalUnavailable, LocalUnsupported, Refused
+from ..shared import ModelUnavailable, NeedsClaude, Refused
 
 
 class ApiError(Exception):
@@ -26,10 +26,10 @@ def to_api_error(exc: Exception) -> ApiError:
         return exc
     if isinstance(exc, Refused):
         return ApiError(422, "refused", str(exc))
-    if isinstance(exc, LocalUnsupported):
+    if isinstance(exc, NeedsClaude):
         return ApiError(400, "needs_claude", str(exc))
-    if isinstance(exc, LocalUnavailable):
-        return ApiError(503, "local_model_unavailable", str(exc))
+    if isinstance(exc, ModelUnavailable):
+        return ApiError(503, "model_unavailable", str(exc))
     if isinstance(exc, anthropic.APIStatusError):
         return ApiError(exc.status_code, "api_error", exc.message)
     if isinstance(exc, anthropic.APIConnectionError):
