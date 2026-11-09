@@ -1,0 +1,7 @@
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+# Your own values (the Foundry endpoint): copy appsettings.Local.example.json
+appsettings.Local.json

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The external API layer: Microsoft Foundry behind the service layer's ports. The knowledge base, the agent
+       catalog and the two engines (PromptAgent/: our own tool loop; AgentFramework/: Agent Framework runs it). -->
+  <ItemGroup>
+    <PackageReference Include="Azure.AI.Projects" />
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Microsoft.Agents.AI.Foundry" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MedAssist.Application\MedAssist.Application.csproj" />
+  </ItemGroup>
+</Project>

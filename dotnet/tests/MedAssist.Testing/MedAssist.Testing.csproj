@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Test doubles every test project shares: a fixed clock, a throwaway practice database, a scriptable engine. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MedAssist.Application\MedAssist.Application.csproj" />
+    <ProjectReference Include="..\..\src\MedAssist.Data\MedAssist.Data.csproj" />
+  </ItemGroup>
+</Project>

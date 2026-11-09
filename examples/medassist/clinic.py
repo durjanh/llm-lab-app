@@ -175,7 +175,7 @@ class Session:
         self.db = sqlite3.connect(self.path, check_same_thread=False)  # the web backend answers from worker threads
         self.db.row_factory = sqlite3.Row
         self.db.executescript(CALLS)  # a database made before phone calls gets the table now
-        add_new_patients(self.db)  # and patients added to the list since
+        sync_patients(self.db)  # and patients as PATIENTS has them now: added or changed since
         self.patient = self.db.execute("SELECT * FROM patients WHERE id = ?", (self.patient_id,)).fetchone()
         if self.patient is None:
             raise ValueError(f"No patient {self.patient_id}")
@@ -312,9 +312,25 @@ class Session:
             return {"error": f"Bad arguments for {name}: {exc}"}
 
 
-def add_new_patients(db: sqlite3.Connection) -> None:
-    """Patients added to PATIENTS since the database was made, so it gains them without a reset."""
-    db.executemany("INSERT OR IGNORE INTO patients VALUES (?, ?, ?, ?, ?, ?, ?, ?)", PATIENTS)
+# PATIENTS is the only source of patient details: the database follows it, so editing a patient there (a new phone
+# number, say) needs no reset and loses no bookings. A row is written only when something in it has changed.
+SYNC_PATIENTS = """
+INSERT INTO patients (id, name, date_of_birth, phone, registered_gp, allergies, conditions, medications)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name, date_of_birth = excluded.date_of_birth, phone = excluded.phone,
+    registered_gp = excluded.registered_gp, allergies = excluded.allergies, conditions = excluded.conditions,
+    medications = excluded.medications
+WHERE patients.name IS NOT excluded.name OR patients.date_of_birth IS NOT excluded.date_of_birth
+   OR patients.phone IS NOT excluded.phone OR patients.registered_gp IS NOT excluded.registered_gp
+   OR patients.allergies IS NOT excluded.allergies OR patients.conditions IS NOT excluded.conditions
+   OR patients.medications IS NOT excluded.medications
+"""
+
+
+def sync_patients(db: sqlite3.Connection) -> None:
+    """The database's patients as PATIENTS has them: new ones added, changed details updated."""
+    db.executemany(SYNC_PATIENTS, PATIENTS)
     db.commit()
 
 
@@ -409,7 +425,7 @@ def snapshot(path: Path, patient_id: str, limit: int = 20) -> dict:
     not MedAssist reading the record, so it is not audited as one."""
     with sqlite3.connect(path) as db:
         db.row_factory = sqlite3.Row
-        add_new_patients(db)
+        sync_patients(db)
         p = db.execute("""SELECT p.*, c.name AS gp FROM patients p JOIN clinicians c ON c.id = p.registered_gp
                           WHERE p.id = ?""", (patient_id,)).fetchone()
         if p is None:

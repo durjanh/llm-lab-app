@@ -113,7 +113,16 @@ One failure was the documents' fault. They said to fast "only if told to (usuall
 python medassist.py create          # once: the vector store both versions search
 python medassist_af.py chat
 python medassist_af.py test         # 9 of 9 on each of the last two runs
+python medassist_af.py devui        # DevUI at http://127.0.0.1:8091
 ```
+
+### Watching it in DevUI
+
+`python medassist_af.py devui` serves MedAssist in Agent Framework's DevUI, one agent per patient: choose "MedAssist (Sam Taylor)", say, at the top, and chat. Beside each reply DevUI shows every tool call with its arguments and result: `get_my_record`, `find_appointments`, `book_appointment`, File Search with its queries, the Code Interpreter with its code. A refusal shows too ("Not booked: the patient has not seen these slots yet"). With tracing on, each model call has its timing and tokens. Bookings land in the same database as the lab's MedAssist page, so its "Behind the portal" panel shows what changed. DevUI is a developer's view: the patient's view is the page. It runs this Agent Framework version only; the prompt agent's conversations and traces are in the Foundry portal. `examples/agent-framework/serve_all.py` serves MedAssist beside the casework workflow.
+
+Two middleware make DevUI work with the clinic's rules:
+- **`NewTurn`** starts a turn on the clinic session before every run. The rules count turns (book only in a later turn than the one that showed the slot), and DevUI calls the agent itself, so the turn cannot be counted in `ask()`: every booking from DevUI would have been refused. A new DevUI conversation starts the rules afresh. Two conversations as the same patient share that patient's session.
+- **`TidyStream`**, for streamed replies (DevUI always streams): Agent Framework's Foundry client sends the text in pieces and then all of it again, so the repeat is dropped; and File Search and the Code Interpreter are shown as tool calls, rather than as content types DevUI reports as "Unknown content type".
 
 | | `medassist.py`: Foundry prompt agent | `medassist_af.py`: Agent Framework |
 |---|---|---|
@@ -125,6 +134,8 @@ python medassist_af.py test         # 9 of 9 on each of the last two runs
 | History | A Foundry conversation, deleted at the end | The framework's session, with responses stored and chained by Foundry |
 | Date and signed-in patient | A developer message at the start of the conversation | Added to the instructions |
 | The rules (patient fixed, choose then book, two-step cancel) | In `clinic.py` | The same code in `clinic.py`, unchanged |
+
+Both versions are also in C#, in `dotnet/` at the root of the lab: two engines (`prompt-agent` and `agent-framework`) behind an ASP.NET Core API that this lab's page can call, and a command line, sharing this folder's database, documents and Foundry agent. See `dotnet/README.md`.
 
 The last row is the point. The framework saves writing the loop, but it does not make the agent safer: the rules hold because they are inside the tools, whichever loop calls them. A framework approval (`approval_mode="always_require"`, as in `examples/sdks/agent-framework/04_agent.py`) would be a second way to do the two-step cancel; here the clinic's own rule already does it, so both versions behave the same.
 

@@ -1,0 +1,19 @@
+<Project>
+  <!-- Every test project: the solution's settings, NUnit and AwesomeAssertions. MedAssist.Testing holds the shared
+       test doubles and is not a test project itself. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != 'MedAssist.Testing'">
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'MedAssist.Testing'">
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <Using Include="NUnit.Framework" />
+    <Using Include="AwesomeAssertions" />
+    <ProjectReference Include="..\MedAssist.Testing\MedAssist.Testing.csproj" />
+  </ItemGroup>
+</Project>
