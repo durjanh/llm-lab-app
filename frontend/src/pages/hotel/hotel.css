@@ -106,28 +106,67 @@
   margin-top: 2px;
 }
 .page-hotel .ho-steps {
-  margin-bottom: 4px;
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   max-width: 100%;
 }
-.page-hotel .ho-steps > summary {
-  cursor: pointer;
+.page-hotel .ho-steps li {
+  font-size: 12.5px;
+  border: 1px dashed var(--line2);
+  border-radius: 8px;
+  padding: 4px 9px;
   color: var(--ink2);
+  background: var(--surface);
+  min-width: 0;
 }
-.page-hotel .ho-steps ol {
-  margin: 4px 0 0;
-  padding-left: 20px;
+.page-hotel .ho-steps li.ok {
+  border-style: solid;
+  border-color: var(--good);
+}
+.page-hotel .ho-steps li.stop {
+  border-style: solid;
+  border-color: var(--warn);
+}
+.page-hotel .ho-steps li.ok > details > summary {
+  color: var(--good);
+}
+.page-hotel .ho-steps li.stop > details > summary {
+  color: var(--warn);
+}
+.page-hotel .ho-steps summary {
+  cursor: pointer;
+}
+.page-hotel .ho-steps summary code {
+  font-weight: 600;
+  color: var(--ink);
+}
+.page-hotel .ho-json {
+  margin-top: 4px;
 }
 .page-hotel .ho-steps pre {
-  margin: 4px 0;
+  margin: 2px 0 6px;
   padding: 8px;
   max-height: 260px;
   overflow: auto;
   border-radius: 6px;
   background: var(--soft2);
   border: 1px solid var(--line);
-  font-size: 12px;
+  font:
+    12px/1.5 ui-monospace,
+    Menlo,
+    monospace;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.page-hotel .ho-json-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
 }
 .page-hotel .ho-typing {
   align-self: flex-start;
@@ -433,4 +472,14 @@
 .page-hotel .ho-model-note {
   flex-basis: 100%;
   margin: 4px 0 0;
+}
+.page-hotel .ho-msg.hotel {
+  align-self: center;
+  max-width: 92%;
+}
+.page-hotel .ho-msg.hotel .ho-bubble {
+  background: transparent;
+  border: 1px dashed var(--line2);
+  color: var(--muted);
+  font-size: 13px;
 }

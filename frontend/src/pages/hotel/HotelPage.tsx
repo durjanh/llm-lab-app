@@ -13,7 +13,7 @@ const usd = (v: number) => `$${v < 0.1 ? v.toFixed(4) : v.toFixed(2)}`;
 const BREAK = /break|inject|trick|pretend|manager|upgrade|discount|card|someone|another guest|system/i;
 
 interface Line {
-  from: 'guest' | 'agent';
+  from: 'guest' | 'agent' | 'hotel'; // hotel: a message from the hotel's systems, which only the agent sees
   text: string;
   redactions?: string[];
   steps?: HotelStep[];
@@ -32,26 +32,85 @@ function addDays(iso: string, days: number): string {
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-function Steps({ steps }: { steps: HotelStep[] }) {
+type Tone = '' | 'ok' | 'stop';
+type Json = Record<string, unknown>;
+const pounds0 = (v: unknown) =>
+  `£${Number(v ?? 0)
+    .toFixed(2)
+    .replace(/\.00$/, '')}`;
+
+/** One line saying what a tool call did, in words, and whether a rule in code stopped or asked first. */
+function describe(step: HotelStep): { label: string; tone: Tone } {
+  const r = (step.result ?? {}) as Json;
+  const a = (step.args ?? {}) as Json;
+  if (r.error) return { label: `Refused: ${String(r.error)}`, tone: 'stop' };
+  if (r.status === 'needs_confirmation')
+    return { label: 'Asked the guest to confirm first (rule in code)', tone: 'stop' };
+  switch (step.tool) {
+    case 'check_availability': {
+      const options = (r.options as Json[] | undefined) ?? [];
+      const full = (r.full as string[] | undefined) ?? [];
+      return {
+        label: `${String(a.check_in)} to ${String(a.check_out)}, ${String(a.adults)} adult${a.adults === 1 ? '' : 's'}: ${options.length} room type${options.length === 1 ? '' : 's'} free${full.length ? `; full: ${full.join(', ')}` : ''}`,
+        tone: '',
+      };
+    }
+    case 'book_room':
+      return {
+        label: `Held ${String(r.ref)}, ${String(r.room_type)}, total ${pounds0(r.total)}; payment page shown for the ${pounds0(r.deposit)} deposit`,
+        tone: 'ok',
+      };
+    case 'check_payment':
+      return {
+        label: `${String(r.ref)}: ${String(r.status)}, deposit ${String(r.payment)}`,
+        tone: r.status === 'confirmed' ? 'ok' : '',
+      };
+    case 'find_booking':
+      return { label: `Found ${String(r.ref)} for ${String(r.guest_name)} (reference and email matched)`, tone: '' };
+    case 'quote_change':
+      return {
+        label: `Priced the change: ${pounds0(r.new_total)} (was ${pounds0(r.old_total)}, difference ${pounds0(r.difference)})`,
+        tone: '',
+      };
+    case 'change_booking':
+      return {
+        label: `Changed ${String(r.ref)}: room ${String(r.room_number)}, ${String(r.check_in)} to ${String(r.check_out)}`,
+        tone: 'ok',
+      };
+    case 'cancel_booking':
+      return {
+        label: `Cancelled ${String(r.ref)}; deposit ${String(r.payment)}${r.refund ? ` (${pounds0(r.refund)} back)` : ''}`,
+        tone: 'ok',
+      };
+    default:
+      return { label: 'Done', tone: '' };
+  }
+}
+
+/** Every tool call in a turn: what it did in words, then the exact arguments and result the agent saw. */
+function Steps({ steps, open }: { steps: HotelStep[]; open: boolean }) {
   if (!steps.length) return null;
   return (
-    <details className="ho-steps small">
-      <summary>
-        What the agent did: {steps.length} tool call{steps.length === 1 ? '' : 's'}
-      </summary>
-      <ol>
-        {steps.map((s, i) => (
-          <li key={i}>
-            <details>
+    <ul className="ho-steps">
+      {steps.map((s, i) => {
+        const d = describe(s);
+        return (
+          <li key={i} className={d.tone}>
+            <details open={open}>
               <summary>
-                <code>{s.tool}</code>
+                <code>{s.tool}</code> {d.label}
               </summary>
-              <pre>{JSON.stringify({ arguments: s.args, result: s.result }, null, 2)}</pre>
+              <div className="ho-json">
+                <div className="small muted">Arguments the agent sent</div>
+                <pre>{JSON.stringify(s.args, null, 2)}</pre>
+                <div className="small muted">Result the tool returned</div>
+                <pre>{JSON.stringify(s.result, null, 2)}</pre>
+              </div>
             </details>
           </li>
-        ))}
-      </ol>
-    </details>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -67,6 +126,7 @@ export default function HotelPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [cost, setCost] = useState(0);
+  const [showJson, setShowJson] = useState(true); // the tool calls' JSON, open by default
   const [payments, setPayments] = useState<Payment[]>([]);
   const [desk, setDesk] = useState({ type: '', checkIn: '', checkOut: '' });
   const [deskResult, setDeskResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -153,6 +213,26 @@ export default function HotelPage() {
       const r = await hotelService.pay(token);
       setPayments((ps) => ps.map((p) => (p.token === token ? { ...p, result: { ok: r.ok, message: r.message } } : p)));
       setBoard(r.board);
+      // The payment provider told the hotel, and the hotel told this conversation's agent: let it reply now.
+      if (r.ok && r.chat_id && r.chat_id === chatId) {
+        setBusy(true);
+        try {
+          const u = await hotelService.update(r.chat_id);
+          if (u.reply || u.steps.length) {
+            setLines((ls) => [
+              ...ls,
+              ...(u.event ? [{ from: 'hotel' as const, text: u.event }] : []),
+              { from: 'agent' as const, text: u.reply, steps: u.steps, cost: u.cost_usd },
+            ]);
+            setCost((c) => c + (u.cost_usd || 0));
+          }
+          setBoard(u.board);
+        } catch (err) {
+          setError(errorText(err));
+        } finally {
+          setBusy(false);
+        }
+      }
     } catch (err) {
       setPayments((ps) =>
         ps.map((p) => (p.token === token ? { ...p, result: { ok: false, message: errorText(err) } } : p)),
@@ -226,6 +306,10 @@ export default function HotelPage() {
                     ))}
                   </select>
                 </label>
+                <label className="small ho-json-toggle">
+                  <input type="checkbox" checked={showJson} onChange={(e) => setShowJson(e.target.checked)} /> Show tool
+                  JSON
+                </label>
                 <button className="btn small" onClick={newConversation} disabled={busy}>
                   New conversation
                 </button>
@@ -246,9 +330,13 @@ export default function HotelPage() {
               {lines.map((line, i) => (
                 <div key={i} className={`ho-msg ${line.from}`}>
                   <div className="ho-from small">
-                    {line.from === 'agent' ? 'Harbour Light agent' : 'You (the guest)'}
+                    {line.from === 'agent'
+                      ? 'Harbour Light agent'
+                      : line.from === 'hotel'
+                        ? 'Hotel system → agent'
+                        : 'You (the guest)'}
                   </div>
-                  {line.steps && <Steps steps={line.steps} />}
+                  {line.steps && <Steps steps={line.steps} open={showJson} />}
                   <div className="ho-bubble">
                     {line.from === 'agent' ? (
                       // react-markdown builds React elements and ignores raw HTML, so the model's text cannot add markup
@@ -331,7 +419,9 @@ export default function HotelPage() {
                   <div>
                     Booking <b>{p.ref}</b>: {p.result?.message}
                   </div>
-                  <p className="small muted">Now tell the agent you have paid, and it will check the booking.</p>
+                  <p className="small muted">
+                    The payment provider has told the hotel, and the hotel has told the agent: you do not need to.
+                  </p>
                 </div>
               ))}
             </div>

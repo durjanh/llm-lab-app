@@ -5,7 +5,7 @@
     python examples/hotel/hotel_agent.py --model gpt-5.4-mini    # a GPT deployment, or the local model's id
     python examples/hotel/hotel_agent.py --reset         # a fresh hotel first
 
-Type as the guest. /pay pays the latest deposit on the pretend payment page, /board shows the bookings and outbox,
+Type as the guest. /pay pays the latest deposit on the pretend payment page (the agent is told at once), /board shows the bookings and outbox,
 /desk SEA 2026-11-11 2026-11-12 has reception sell a room (to try the double-booking guard), /quit ends. The database
 is generated/hotel/hotel.db, which the page uses too. Confirmations stay in the outbox here; real sending is the
 backend's (HOTEL_SMS_TO, HOTEL_EMAIL_TO). About $0.001 a message on Haiku.
@@ -60,8 +60,15 @@ def main() -> None:
             show_board(hotel)
             continue
         if text == "/pay":
-            print(f"  Payment page: {hotel.pay(token)['message'] if token else 'No deposit is waiting.'}")
-            continue
+            if not token:
+                print("  Payment page: No deposit is waiting.")
+                continue
+            paid = hotel.pay(token)
+            print(f"  Payment page: {paid['message']}")
+            if not paid.get("paid_now"):
+                continue
+            chat.hotel_event(rules.paid_event(paid))  # the hotel tells the agent, so the guest need not
+            text = ""
         if text.startswith("/desk"):
             try:
                 _, code, ci, co = text.split()
@@ -69,9 +76,13 @@ def main() -> None:
             except ValueError:
                 print("  Use: /desk SEA 2026-11-11 2026-11-12")
             continue
-        screened, removed = chat.guest_says(text)
-        if removed:
-            print(f"  (removed before the agent saw it: {', '.join(removed)})")
+        if text:
+            screened, removed = chat.guest_says(text)
+            if removed:
+                print(f"  (removed before the agent saw it: {', '.join(removed)})")
+            screened = chat.with_events(screened) if chat.events else screened
+        else:
+            screened = chat.with_events()
 
         def charge(response) -> None:
             nonlocal total

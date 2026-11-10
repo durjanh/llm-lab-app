@@ -64,6 +64,24 @@ class HotelService:
             raise ApiError(404, "not_found", "That conversation has ended. Start a new one.")
         chat, model = found
         screened, removed = chat.guest_says(text)
+        # Anything the hotel's systems said since the last turn (a deposit paid) goes in with the guest's words.
+        return {**self._turn(chat, model, chat.with_events(screened) if chat.events else screened),
+                "screened": {"text": screened, "redactions": removed}}
+
+    def update(self, chat_id: str) -> dict[str, Any]:
+        """The agent's turn after the hotel's systems told it something (a deposit paid), with no guest message."""
+        found = self.chats.get(chat_id)
+        if found is None:
+            raise ApiError(404, "not_found", "That conversation has ended. Start a new one.")
+        chat, model = found
+        if not chat.events:
+            return {"reply": "", "steps": [], "cost_usd": 0.0, "payment_links": [], "board": self.board()}
+        event = " ".join(chat.events)
+        # Not a new guest turn: a summary the guest has not answered must stay unconfirmed, whatever the hotel says.
+        chat.payment_links = []
+        return {**self._turn(chat, model, chat.with_events()), "event": event}
+
+    def _turn(self, chat: Any, model: str, text: str) -> dict[str, Any]:
         cost = 0.0
 
         def charge(response: Any) -> None:
@@ -71,16 +89,25 @@ class HotelService:
             cost += self.spend.charge(response, model) or 0.0
 
         try:
-            reply, steps = rules.claude_turn(self.claude.create, chat, model, screened, on_response=charge)
+            reply, steps = rules.claude_turn(self.claude.create, chat, model, text, on_response=charge)
         except ApiError:
             raise
         except Exception as exc:
             raise to_api_error(exc) from exc
-        return {"reply": reply, "steps": steps, "screened": {"text": screened, "redactions": removed},
-                "cost_usd": round(cost, 6), "payment_links": chat.payment_links, "board": self.board()}
+        return {"reply": reply, "steps": steps, "cost_usd": round(cost, 6), "payment_links": chat.payment_links,
+                "board": self.board()}
 
     def pay(self, token: str) -> dict[str, Any]:
-        return {**self.hotel.pay(token), "board": self.board()}
+        """The payment provider confirms a deposit. The conversation that issued the link is told, so its agent
+        knows without the guest having to say so."""
+        result = self.hotel.pay(token)
+        chat_id = None
+        if result.get("paid_now"):
+            for cid, (chat, _) in list(self.chats.items()):
+                if any(link["token"] == token for link in chat.issued):
+                    chat.hotel_event(rules.paid_event(result))
+                    chat_id = cid
+        return {**result, "chat_id": chat_id, "board": self.board()}
 
     def front_desk(self, type_code: str, check_in: str, check_out: str) -> dict[str, Any]:
         try:

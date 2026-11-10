@@ -10,6 +10,7 @@ The model chats and chooses tools. The rules live in the tools, so a persuasive 
 | A room is never sold twice. `room_nights` has one row per room per night, and its primary key refuses a second. | `Hotel._claim` |
 | Booking, changing and cancelling take two turns: a summary first, then the action only after the guest answers. | `Chat._confirmed_later` |
 | A booking is held for 15 minutes until the deposit (the first night) is paid on a payment page. Card numbers typed into the chat are removed before the model sees them (a Luhn check). | `Hotel.hold`, `Hotel.pay`, `screen_guest_text` |
+| When the deposit is paid, the hotel tells the agent in a `<hotel_event>` message, so the guest does not have to; the agent confirms with `check_payment`. Guests cannot send that tag: it is removed from anything they type, and the message never counts as the guest confirming anything. | `HotelService.pay`, `Chat.with_events`, `screen_guest_text` |
 | A booking is seen or changed only after its reference and email address match. Three wrong tries lock the conversation. | `Chat._find_booking`, `Chat._own` |
 | Free cancellation until 48 hours before check-in at 15:00; after that the deposit is kept. | `Hotel.refund_due` |
 | The confirmation email and text are written by the code from reviewed wording, not by the model, when a booking is confirmed, changed or cancelled. | `Hotel.notify` |
