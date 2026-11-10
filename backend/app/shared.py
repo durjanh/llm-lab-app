@@ -20,6 +20,7 @@ from common import (CLAUDE_MODEL, DEFAULT_MODEL, GPT_MODELS, IMAGE_INPUT_PRICE_P
                     TOOL_PRICES, ModelUnavailable, NeedsClaude, Refused, cost_usd, create, describe_usage, is_local,
                     make_client, stream, text_of)
 from local_model import NoVision, local_status  # noqa: E402
+from gpt_model import count_gpt_tokens, gpt_pieces  # noqa: E402  (GPT's exact tokens, for the token counter)
 import translator  # noqa: E402  (live translation: calls and texts)
 from data import HANDBOOK  # noqa: E402
 from settings import EnvSettings  # noqa: E402
@@ -52,7 +53,9 @@ medassist_sms = _load_example("medassist_sms", ROOT / "examples" / "medassist" /
 # The Aftercare follow-up agent's hospital record, rules and tools, shared with examples/aftercare (the Claude and
 # Agent Framework command lines). Standard library only.
 aftercare_ward = _load_example("aftercare_ward", ROOT / "examples" / "aftercare" / "ward.py")
+# The hotel booking agent's hotel, rules and tools, shared with examples/hotel (its command line). Standard library only.
+hotel_rules = _load_example("hotel_rules", ROOT / "examples" / "hotel" / "hotel.py")
 
 __all__ = ["ROOT", "CLAUDE_MODEL", "DEFAULT_MODEL", "GPT_MODELS", "LOCAL_MODEL", "ModelUnavailable", "NeedsClaude", "NoVision", "is_local",
            "local_status", "translator", "IMAGE_INPUT_PRICE_PER_M", "LANGUAGE_PRICE_PER_1K_RECORDS", "PRICES", "TOOL_PRICES", "HANDBOOK", "EnvSettings", "Refused", "cost_usd", "create", "describe_usage",
-           "make_client", "stream", "text_of", "harness_script", "skills_script", "sandbox_skills", "coding_script", "medassist_clinic", "medassist_sms", "aftercare_ward"]
+           "make_client", "stream", "text_of", "harness_script", "skills_script", "sandbox_skills", "coding_script", "medassist_clinic", "medassist_sms", "aftercare_ward", "hotel_rules", "gpt_pieces", "count_gpt_tokens"]

@@ -68,7 +68,7 @@ class EnvSettings:
     azure_speech_region: str = ""
     azure_speech_resource_id: str = ""
     azure_speech_fallback_resource_id: str = ""
-    # GPT models and embeddings in Azure AI Foundry, and Azure AI Search. Signed in with your Azure login.
+    # GPT models and embeddings in Microsoft Foundry, and Azure AI Search. Signed in with your Azure login.
     azure_openai_endpoint: str = ""
     azure_openai_deployments: tuple[str, ...] = ()
     azure_openai_embedding_deployment: str = ""
@@ -86,6 +86,13 @@ class EnvSettings:
     medassist_sms_sender: str = "Durjan Lab"  # a registered alphanumeric sender ID: letters, digits, spaces, 11 at most
     medassist_sms_to: str = ""
     medassist_reminders_table: str = ""
+    # The hotel booking agent's confirmations (examples/hotel/). They are always kept in its outbox; they are sent for
+    # real only when you say where to, because the guests are invented: HOTEL_SMS_TO is your phone (texts go through
+    # the MEDASSIST_SMS_ENDPOINT resource), HOTEL_EMAIL_TO your inbox, and HOTEL_EMAIL_SENDER an address on an email
+    # domain connected to that resource (pip install azure-communication-email).
+    hotel_sms_to: str = ""
+    hotel_email_to: str = ""
+    hotel_email_sender: str = ""
     # Aftercare's real phone call (backend/app/services/aftercare_phone.py), through the same Communication Services
     # resource: AFTERCARE_CALLER_ID is a number you bought in it, AFTERCARE_CALL_TO your own phone, and
     # AFTERCARE_CALLBACK_URL the public address of your backend (a dev tunnel) where the call's events arrive.
@@ -137,6 +144,9 @@ class EnvSettings:
             medassist_sms_sender=get("MEDASSIST_SMS_SENDER") or cls.medassist_sms_sender,
             medassist_sms_to=get("MEDASSIST_SMS_TO", "").strip(),
             medassist_reminders_table=get("MEDASSIST_REMINDERS_TABLE", "").rstrip("/"),
+            hotel_sms_to=get("HOTEL_SMS_TO", "").strip(),
+            hotel_email_to=get("HOTEL_EMAIL_TO", "").strip(),
+            hotel_email_sender=get("HOTEL_EMAIL_SENDER", "").strip(),
             aftercare_caller_id=get("AFTERCARE_CALLER_ID", "").strip(),
             medassist_phone_patient=get("MEDASSIST_PHONE_PATIENT") or cls.medassist_phone_patient,
             medassist_phone_token=get("MEDASSIST_PHONE_TOKEN", "").strip(),

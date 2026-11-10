@@ -220,7 +220,7 @@ class CaseworkService:
 
     def model(self) -> str:
         if not self.gpt or not self.gpt.models:
-            raise ApiError(503, "not_configured", "This lab needs a GPT deployment in Azure AI Foundry: set "
+            raise ApiError(503, "not_configured", "This lab needs a GPT deployment in Microsoft Foundry: set "
                                                   "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENTS in .env.")
         return self.gpt.models[0]
 

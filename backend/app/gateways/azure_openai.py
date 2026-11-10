@@ -1,4 +1,4 @@
-"""GPT models deployed in Azure AI Foundry, signed in with your Azure login (no keys).
+"""GPT models deployed in Microsoft Foundry, signed in with your Azure login (no keys).
 
 The lab's Foundry resource (the same one that holds the speech service) has keys switched off, so
 calls carry an Entra token from DefaultAzureCredential: run `az login` once. Only the document

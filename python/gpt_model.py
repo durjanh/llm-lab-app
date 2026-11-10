@@ -56,6 +56,44 @@ def _result_text(content: Any) -> tuple[str, list[dict]]:
     return "\n".join(texts), images
 
 
+# A request's framing, measured on gpt-5.4-mini against the prompt tokens Azure OpenAI billed (10 November 2026):
+# 3 tokens for the reply, 3 for each message, and 1 more for a system message. The text itself is counted exactly
+# with o200k_base, the tokenizer of GPT-4o, GPT-4.1 and GPT-5.
+GPT_ENCODING = "o200k_base"
+REPLY_PRIMING, PER_MESSAGE, SYSTEM_EXTRA = 3, 3, 1
+
+
+def gpt_encoding() -> Any:
+    try:
+        import tiktoken
+    except ImportError:
+        raise NeedsClaude("Counting GPT tokens needs tiktoken: pip install tiktoken") from None
+    return tiktoken.get_encoding(GPT_ENCODING)
+
+
+def gpt_pieces(text: str) -> list[str]:
+    """The exact tokens GPT cuts the text into. A token can hold part of a character, shown as \ufffd."""
+    enc = gpt_encoding()
+    return [enc.decode_single_token_bytes(t).decode("utf-8", "replace") for t in enc.encode(text)]
+
+
+def count_gpt_tokens(params: dict) -> int:
+    """The input tokens Azure OpenAI will bill for a text-only request, without sending it."""
+    _check(params, f"{params.get('model', 'GPT')} runs in Azure OpenAI and")  # the same refusals as a real request
+    if params.get("tools"):
+        raise NeedsClaude("Counting the tokens of tool definitions for GPT is not supported here.")
+    enc = gpt_encoding()
+    total = REPLY_PRIMING
+    for m in to_chat(params):
+        content = m.get("content") or ""
+        if isinstance(content, list):
+            if any(part.get("type") != "text" for part in content):
+                raise NeedsClaude("Counting the tokens of images for GPT is not supported here.")
+            content = "".join(part.get("text", "") for part in content)
+        total += PER_MESSAGE + len(enc.encode(content)) + (SYSTEM_EXTRA if m["role"] in ("system", "developer") else 0)
+    return total
+
+
 def to_chat(params: dict) -> list[dict]:
     """Claude's system prompt and messages as Chat Completions messages."""
     out: list[dict] = []
@@ -332,5 +370,5 @@ class GptModel:
         return GptStream(self, params)
 
     def count_tokens(self, params: dict) -> Any:
-        raise NeedsClaude(f"{params.get('model')} runs in Azure OpenAI, which cannot count a request's tokens before it is "
-                          "sent. Choose a Claude model for this.")
+        """Azure OpenAI has no endpoint for counting, but GPT's tokenizer is published, so this counts offline."""
+        return SimpleNamespace(input_tokens=count_gpt_tokens(params))

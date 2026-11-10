@@ -119,7 +119,7 @@
 - **Q:** What's the trade-off?
   **A:** Quality and speed. A 9B model is noticeably weaker than Claude or GPT-5 at long agent tasks and tool calling, and it's slower on a laptop. So I use it for development and side-by-side comparisons, not as the production model, and pages that need Claude-only features stay on Claude.
 - **Q:** How would you deploy an open model in production?
-  **A:** Not on a laptop. I'd host it on a GPU server behind an OpenAI-compatible inference server such as vLLM, which batches many users' requests to use the GPU efficiently, or use the open models that Azure AI Foundry hosts. Because my client already talks a standard API, the application code wouldn't change: only the base URL and the model name.
+  **A:** Not on a laptop. I'd host it on a GPU server behind an OpenAI-compatible inference server such as vLLM, which batches many users' requests to use the GPU efficiently, or use the open models that Microsoft Foundry hosts. Because my client already talks a standard API, the application code wouldn't change: only the base URL and the model name.
 - **Q:** Why does the model need a GPU, and why couldn't it run in a normal container on a Mac?
   **A:** Generating each token reads all the weights from memory, so speed depends on memory bandwidth, and the GPU's is far higher than the CPU's. On a Mac, Docker containers run in a Linux VM that can't use the Metal GPU. Model Runner runs llama.cpp on the host instead, so it can.
 - **Q:** How do you switch to a different model?

@@ -92,6 +92,18 @@ export default function IndexPage() {
           </span>
           <span className="dl">Tokenizer download, 2 MB</span>
         </a>{' '}
+        <a className="lab-card" href="/token-counter">
+          <span className="num">Lab 51</span>
+          <h3>Token counter</h3>
+          <p>
+            Paste a prompt and a system prompt and see the exact token count from each Claude model, what sending it
+            costs, and how much of the context window it fills.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> whether a prompt is worth trimming, and what it costs at volume.
+          </span>
+          <span className="dl">No download; needs the backend and an API key (counting is free)</span>
+        </a>{' '}
         <a className="lab-card" href="/sampling">
           <span className="num">Lab 2</span>
           <h3>Sampling</h3>
@@ -142,6 +154,19 @@ export default function IndexPage() {
             <b>Helps you decide:</b> where automation stops and a person must decide when a mistake accuses someone.
           </span>
           <span className="dl">No download</span>
+        </a>{' '}
+        <a className="lab-card" href="/agent-types">
+          <span className="num">Lab 50</span>
+          <h3>Thirteen types of agent</h3>
+          <p>
+            Reflex, LLM, tool-using, planning, memory, multi-agent, hierarchical, self-improving, RAG, code, web
+            browsing, computer use and autonomous agents: what each is for, when not to use it, and a working example of
+            every one, from a free rules engine to Claude driving a browser and a desktop.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> the simplest kind of agent that does your job, and the limits it needs in code.
+          </span>
+          <span className="dl">Python scripts; the browser and desktop agents need Chrome</span>
         </a>{' '}
         <a className="lab-card" href="/workflows">
           <span className="num">Lab 48</span>
@@ -450,6 +475,19 @@ export default function IndexPage() {
             <b>Helps you decide:</b> which rules belong in code when an agent talks to patients, and how to test them.
           </span>
           <span className="dl">Needs the lab backend; Agent Framework needs a Microsoft Foundry project</span>
+        </a>{' '}
+        <a className="lab-card" href="/hotel">
+          <span className="num">Lab 52</span>
+          <h3>Hotel booking agent</h3>
+          <p>
+            A guest books, changes and cancels a room by chatting with an agent on Claude, GPT or a local model. Prices,
+            availability, the refund policy, who may see a booking and payment are enforced in the tools; confirmations
+            go out by email and text, and a room can never be sold twice.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which rules a booking agent needs in code, and what to keep out of the chat.
+          </span>
+          <span className="dl">Needs the lab backend</span>
         </a>{' '}
         <a className="lab-card" href="/data-agent">
           <span className="num">Lab 45</span>

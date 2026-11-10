@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from .gateways.agent_framework import AgentFramework, FrameworkAgents
+from .gateways import hotel_notify
+from .gateways.hf_tokenizers import HfTokenizers
 from .gateways.agent_workflows import AgentWorkflows, WorkflowRunner
 from .gateways.azure_language import AzureLanguage, TextAnalyzer
 from .gateways.azure_openai import AzureOpenAI, StructuredModel
@@ -20,6 +22,8 @@ from .gateways.foundry_agent import AgentConversations, FoundryAgent
 from .gateways.foundry_tools import FoundryTools
 from .services.aftercare import AftercareService
 from .services.aftercare_phone import AftercarePhone
+from .services.hotel import HotelService
+from .services.token_counter import TokenCounterService
 from .services.medassist_phone import MedAssistPhone
 from .services.transcripts import TranscriptArchive
 from .shared import translator as shared_translator
@@ -72,6 +76,8 @@ class Container:
     reviews: ReviewsService
     aftercare: AftercareService
     aftercare_phone: AftercarePhone
+    hotel: HotelService
+    token_counter: TokenCounterService
     medassist_phone: MedAssistPhone
     guardrails: GuardrailsService
     understanding: UnderstandingService
@@ -159,6 +165,10 @@ class Container:
             medassist_phone=medassist_line,
             reviews=ReviewsService(language, claude, spend),
             aftercare=aftercare,
+            token_counter=TokenCounterService(claude, HfTokenizers(settings.generated_dir / "tokenizers")),
+            hotel=HotelService(claude, spend, settings.generated_dir / "hotel" / "hotel.db", hotel_notify.from_settings(
+                settings.medassist_sms_endpoint, settings.medassist_sms_sender, settings.hotel_sms_to,
+                settings.hotel_email_sender, settings.hotel_email_to)),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),
             guardrails=GuardrailsService(tools, spend),
