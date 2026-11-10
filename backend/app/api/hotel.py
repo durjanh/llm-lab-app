@@ -34,6 +34,12 @@ def message(chat_id: str, body: HotelMessage, service: HotelService = Depends(ho
     return service.message(chat_id, body.message.strip())
 
 
+@router.post("/hotel/chats/{chat_id}/update", dependencies=[Depends(require_budget)])
+def update(chat_id: str, service: HotelService = Depends(hotel)) -> dict[str, Any]:
+    """The agent's turn after the hotel's systems told it something, such as a deposit paid on the payment page."""
+    return service.update(chat_id)
+
+
 @router.post("/hotel/pay/{token}")
 def pay(token: str, service: HotelService = Depends(hotel)) -> dict[str, Any]:
     """The pretend payment provider: the deposit is paid here, never in the chat."""

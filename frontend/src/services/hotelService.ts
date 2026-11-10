@@ -113,6 +113,12 @@ export interface ActionResult {
   ref: string | null;
   message: string;
   board: Board;
+  chat_id?: string | null; // after a payment: the conversation whose agent has been told
+}
+
+/** The agent's turn after the hotel's systems told it something, with no guest message. */
+export interface UpdateResult extends Omit<TurnResult, 'screened'> {
+  event?: string;
 }
 
 /** The hotel booking agent: a guest's chat, the mock payment provider, the front desk and the back office. */
@@ -133,6 +139,11 @@ export class HotelService {
 
   send(chatId: string, message: string): Promise<TurnResult> {
     return this.client.post(`/api/hotel/chats/${encodeURIComponent(chatId)}/messages`, { message });
+  }
+
+  /** The agent's reply to what the hotel's systems told it (a deposit paid). */
+  update(chatId: string): Promise<UpdateResult> {
+    return this.client.post(`/api/hotel/chats/${encodeURIComponent(chatId)}/update`, {});
   }
 
   /** The mock payment provider. No card data is sent: paying is a button press. */
