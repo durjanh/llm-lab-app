@@ -23,3 +23,10 @@
 .page-storewatch .sw-notices li.high{border-left-color:var(--bad)}
 .page-storewatch .sw-audit{list-style:none;margin:0 0 10px;padding:0;font-size:13px;color:var(--ink2);display:flex;flex-direction:column;gap:3px;max-height:260px;overflow:auto}
 .page-storewatch table{margin-top:10px}
+.page-storewatch .sw-video{display:none;width:100%;max-width:420px;margin-top:10px;border-radius:10px;background:#000;transform:scaleX(-1)}
+.page-storewatch .sw-video.on{display:block}
+.page-storewatch .sw-frames{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.page-storewatch .sw-frames img{width:min(100%,220px);border-radius:8px}
+.page-storewatch .sw-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover}
+.page-storewatch .sw-layout{width:100%;box-sizing:border-box;margin-top:8px;padding:7px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+.page-storewatch .sw-visit{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--ink2)}

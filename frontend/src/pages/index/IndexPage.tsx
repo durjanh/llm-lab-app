@@ -134,8 +134,9 @@ export default function IndexPage() {
           <span className="num">Lab 49</span>
           <h3>Shoplifting alert desk</h3>
           <p>
-            A behaviour alert, a person&apos;s decision, a watchlist and a check at the door, simulated with invented
-            people. High scores alert the admin at once, and only a person can put anyone on the list.
+            A behaviour alert, a person&apos;s decision, a watchlist and a check at the door, with scripted people or
+            your own webcam and consenting test participants. High scores alert the admin at once, and only a person can
+            put anyone on the list.
           </p>
           <span className="decides">
             <b>Helps you decide:</b> where automation stops and a person must decide when a mistake accuses someone.

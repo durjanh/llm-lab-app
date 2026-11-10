@@ -5,9 +5,9 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from ..schemas import ComplianceRequest, DoorRequest, MatchDecision, RemoveEntry, ReviewRequest
+from ..schemas import CameraAnalyse, CameraConsent, CameraDoor, ComplianceRequest, DoorRequest, MatchDecision, RemoveEntry, ReviewRequest
 from ..services.storewatch import StoreWatchService
-from .deps import require_lab_page, storewatch
+from .deps import require_budget, require_lab_page, storewatch
 
 router = APIRouter(prefix="/storewatch", dependencies=[Depends(require_lab_page)])
 
@@ -45,6 +45,21 @@ def decide(match_id: int, body: MatchDecision, service: StoreWatchService = Depe
 @router.post("/watchlist/{entry_id}/remove")
 def remove(entry_id: int, body: RemoveEntry, service: StoreWatchService = Depends(storewatch)) -> dict[str, Any]:
     return service.remove(entry_id, body.by, body.reason)
+
+
+@router.post("/camera/consent")
+def camera_consent(body: CameraConsent, service: StoreWatchService = Depends(storewatch)) -> dict[str, Any]:
+    return service.camera_consent(body.by)
+
+
+@router.post("/camera/analyse", dependencies=[Depends(require_budget)])
+def camera_analyse(body: CameraAnalyse, service: StoreWatchService = Depends(storewatch)) -> dict[str, Any]:
+    return service.camera_analyse(body.frames, body.descriptor, body.thumbnail, body.layout)
+
+
+@router.post("/camera/door")
+def camera_door(body: CameraDoor, service: StoreWatchService = Depends(storewatch)) -> dict[str, Any]:
+    return service.camera_door(body.descriptor, body.threshold)
 
 
 @router.post("/advance/{days}")

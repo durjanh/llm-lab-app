@@ -14,6 +14,7 @@ import {
   statusService,
   tutorService,
 } from '@/services';
+import { ReplyPlayer } from '@/lib/replyPlayer';
 import { Speech } from '@/pages/tutor/speech';
 import './aftercare.css';
 
@@ -25,6 +26,9 @@ const VOICES = {
   es: { agent: 'es-ES-ElviraNeural', patient: 'es-ES-AlvaroNeural', listen: 'es-ES' },
 } as const;
 type Lang = keyof typeof VOICES;
+
+const VOICE_TIMEOUT_MS = 20_000;
+const NOTHING_HEARD_MS = 8000;
 
 interface Line {
   from: 'agent' | 'patient';
@@ -187,7 +191,9 @@ export default function AftercarePage() {
   const [phone, setPhone] = useState<PhoneState | null>(null); // a real call to your phone, while it lasts
   const onPhone = phone !== null && (phone.state === 'ringing' || phone.state === 'talking');
   const speech = useRef<Speech | null>(null);
-  const player = useRef<HTMLAudioElement | null>(null);
+  const player = useRef(new ReplyPlayer());
+  const interrupted = useRef(false); // the person started talking, so the rest of this reply is not read out
+  const [blocked, setBlocked] = useState<ArrayBuffer | null>(null);
   const voiceRef = useRef(false);
   const langRef = useRef<Lang>('en');
   voiceRef.current = voiceOn;
@@ -215,7 +221,7 @@ export default function AftercarePage() {
       .catch(() => setSpeechReady(false));
     return () => {
       autoRef.current = false;
-      player.current?.pause();
+      player.current.stop();
       speech.current?.stopListening(false);
       evalAbort.current?.abort();
       if (callRef.current) void aftercareService.end(callRef.current).catch(() => undefined);
@@ -278,25 +284,38 @@ export default function AftercarePage() {
 
   /** Reads a line aloud in the call's language and waits until it has been heard. No voice: returns at once. */
   async function say(text: string, who: 'agent' | 'patient') {
-    if (!voiceRef.current || !text.trim()) return;
+    if (!voiceRef.current || !text.trim() || interrupted.current) return;
     setSpeaking(true);
     try {
       speech.current ??= new Speech();
-      const spoken = await speech.current.synthesize(text, VOICES[langRef.current][who], 1);
-      const url = URL.createObjectURL(new Blob([spoken.audio], { type: 'audio/wav' }));
-      player.current?.pause();
-      const el = new Audio(url); // made new each time, so it follows the current speakers or headphones
-      player.current = el;
-      await new Promise<void>((resolve) => {
-        el.onended = el.onerror = el.onpause = () => resolve();
-        el.play().catch(() => resolve()); // sound the browser blocks: the text is already on screen
-      });
-      URL.revokeObjectURL(url);
+      const spoken = await Promise.race([
+        speech.current.synthesize(text, VOICES[langRef.current][who], 1),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Azure Speech took too long to answer.')), VOICE_TIMEOUT_MS),
+        ),
+      ]);
+      if (interrupted.current) return;
+      const result = await player.current.play(spoken.audio);
+      if (result === 'blocked') setBlocked(spoken.audio);
+      if (result === 'failed')
+        setError('Voice: the audio did not play to the end. Check your speakers and the volume for this tab.');
     } catch (e) {
       setError(`Voice: ${(e as Error).message}`);
     } finally {
       setSpeaking(false);
     }
+  }
+
+  /** Plays a reply the browser refused, from inside this click. */
+  function playBlocked() {
+    if (!blocked) return;
+    const audio = blocked;
+    setBlocked(null);
+    player.current.unlock();
+    void player.current.play(audio).then((result) => {
+      if (result === 'blocked')
+        setError('Voice: this browser is still refusing sound. Allow audio for this site in its settings.');
+    });
   }
 
   /** The microphone, in the call's language. A pause ends the patient's turn, and what was heard is sent. */
@@ -306,20 +325,37 @@ export default function AftercarePage() {
       return;
     }
     setError('');
+    setBlocked(null);
+    player.current.unlock();
+    interrupted.current = true; // talking over the agent stops it, as on a real call
+    player.current.stop();
     setListening(true);
+    let heardSomething = false;
+    const silent = setTimeout(() => {
+      if (!heardSomething)
+        setError('Microphone: nothing heard yet. Check the input device and that this site may use the microphone.');
+    }, NOTHING_HEARD_MS);
     try {
       speech.current ??= new Speech();
       const heard = await speech.current.listen({
         language: VOICES[langRef.current].listen,
         endOnPause: true,
-        onPartial: setDraft,
+        onPartial: (text) => {
+          if (text.trim()) {
+            heardSomething = true;
+            setError('');
+          }
+          setDraft(text);
+        },
       });
       setListening(false);
       setDraft('');
       if (heard.text.trim()) await turn(false, heard.text.trim());
+      else setError('Microphone: nothing was heard. Check the input device, then press Speak and try again.');
     } catch (e) {
       setError(`Microphone: ${(e as Error).message}`);
     } finally {
+      clearTimeout(silent);
       setListening(false);
     }
   }
@@ -332,6 +368,9 @@ export default function AftercarePage() {
   }
 
   async function startCall(id: string) {
+    player.current.unlock(); // inside the click: the first reply can take many seconds to arrive
+    interrupted.current = false;
+    setBlocked(null);
     autoRef.current = false;
     setAuto(false);
     setError('');
@@ -362,6 +401,9 @@ export default function AftercarePage() {
 
   async function turn(simulate: boolean, text = ''): Promise<boolean> {
     if (!call) return false;
+    player.current.unlock();
+    interrupted.current = false;
+    setBlocked(null);
     setBusy(true);
     setError('');
     if (!simulate) setLines((ls) => [...ls, { from: 'patient', text }]);
@@ -407,7 +449,7 @@ export default function AftercarePage() {
 
   async function hangUp() {
     autoRef.current = false;
-    player.current?.pause();
+    player.current.stop();
     speech.current?.stopListening(false);
     if (callRef.current) await aftercareService.end(callRef.current).catch(() => undefined);
     callRef.current = '';
@@ -539,7 +581,7 @@ export default function AftercarePage() {
           <b>Spent this session</b> {usd(spent)}
         </span>
       </div>
-      {error && <p className="ac-bad small">{error}</p>}
+      {error && !call && <p className="ac-bad small">{error}</p>}
 
       <h2>The worklist</h2>
       <p className="small muted">
@@ -646,16 +688,32 @@ export default function AftercarePage() {
               {phone && (
                 <div className={`ac-typing small${phone.state === 'failed' ? ' ac-error' : ''}`}>
                   On your phone ({phone.to}):{' '}
-                  {{ ringing: 'ringing…', talking: 'talking. The transcript appears here as you speak.', ended: 'the call has ended.', failed: 'the call failed.' }[phone.state]}
+                  {
+                    {
+                      ringing: 'ringing…',
+                      talking: 'talking. The transcript appears here as you speak.',
+                      ended: 'the call has ended.',
+                      failed: 'the call failed.',
+                    }[phone.state]
+                  }
                   {phone.note && ` ${phone.note}`}
                 </div>
               )}
               <Bubbles lines={lines} who={who} />
               {busy && !speaking && <div className="ac-typing small muted">The agent is working…</div>}
-              {speaking && <div className="ac-typing small muted">Speaking…</div>}
+              {speaking && <div className="ac-typing small muted">Speaking… press Speak to talk over it.</div>}
+              {blocked && (
+                <div className="ac-typing small">
+                  Your browser blocked the sound.{' '}
+                  <button type="button" className="btn small" onClick={playBlocked}>
+                    Play the reply
+                  </button>
+                </div>
+              )}
               {listening && <div className="ac-typing small">Listening… pause when you have finished.</div>}
               {done && <div className="ac-ended small">The call has finished and the note is in the record.</div>}
             </div>
+            {error && <p className="ac-bad small ac-call-error">{error}</p>}
             <form className="ac-input" onSubmit={onSubmit}>
               <input
                 value={draft}
@@ -670,7 +728,7 @@ export default function AftercarePage() {
                   type="button"
                   className={`btn${listening ? ' primary' : ''}`}
                   onClick={() => void talk()}
-                  disabled={!call || (busy && !listening) || done || auto}
+                  disabled={!call || (busy && !listening && !speaking) || done || auto}
                   aria-pressed={listening}
                 >
                   {listening ? 'Done' : 'Speak'}
@@ -685,7 +743,11 @@ export default function AftercarePage() {
               </button>
             </form>
             <div className="ac-actions">
-              <button className="btn" onClick={() => void turn(true)} disabled={!call || busy || done || auto || onPhone}>
+              <button
+                className="btn"
+                onClick={() => void turn(true)}
+                disabled={!call || busy || done || auto || onPhone}
+              >
                 Let the patient answer
               </button>
               {auto ? (

@@ -1,14 +1,18 @@
 """The shoplifting alert desk's rules. They live in the service, so the page can't get round them."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.core.errors import ApiError
 from backend.app.main import create_app
-from backend.app.services.storewatch import StoreWatchService
+from backend.app.services.spend import SpendTracker
+from backend.app.services.storewatch import StoreWatchService, follow_visit
 from backend.app.settings import Settings
 
 NOTE = "Saw two bottles go into the coat on camera 3."
@@ -125,3 +129,128 @@ def test_the_routes_need_the_lab_page(tmp_path: Path) -> None:
     with TestClient(create_app(Settings(generated_dir=tmp_path), client=object())) as client:
         assert client.get("/api/storewatch/state", headers={"host": "localhost:8000"}).status_code == 403
         assert client.get("/api/storewatch/state", headers={"x-llm-lab": "1", "host": "localhost:8000"}).status_code == 200
+
+
+class FakeVision:
+    models = ["gpt-5.4-mini"]
+
+    def __init__(self, score: int):
+        self.score, self.seen, self.seen_next = score, [], {}
+
+    def chat(self, model: str, messages: list[dict], **_: Any) -> tuple[Any, Any]:
+        self.seen.append(messages)
+        usage = SimpleNamespace(input_tokens=100, output_tokens=20, cache_read_input_tokens=0)
+        seen = {"observed": "Hid a tin inside a coat.", "reasoning": "It went out of sight.", "score": self.score, **self.seen_next}
+        return SimpleNamespace(content=json.dumps(seen)), usage
+
+
+FRAME = "data:image/jpeg;base64,AAAA"
+ME = [0.1] * 128
+NEAR = [0.1 + 0.02 * (-1) ** i for i in range(128)]  # distance 0.226, a score of 97.4
+FAR = [0.1 + 0.2 * (-1) ** i for i in range(128)]  # distance 2.26
+
+
+def camera(tmp_path: Path, score: int) -> StoreWatchService:
+    desk = StoreWatchService(tmp_path / "c.db", gpt=FakeVision(score), spend=SpendTracker(1.0))
+    ready(desk)
+    desk.camera_consent("Sam")
+    return desk
+
+
+def test_the_camera_needs_consent(tmp_path: Path) -> None:
+    desk = StoreWatchService(tmp_path / "c.db", gpt=FakeVision(95))
+    ready(desk)
+    with pytest.raises(ApiError):
+        desk.camera_analyse([FRAME], ME, None)
+    with pytest.raises(ApiError):
+        desk.camera_door(ME, 80)
+
+
+def test_a_low_camera_score_keeps_nothing(tmp_path: Path) -> None:
+    state = camera(tmp_path, 20).camera_analyse([FRAME], ME, FRAME)
+    assert state["alerts"] == [] and state["watchlist"] == [] and state["last_camera"]["alerted"] is False
+
+
+def test_a_high_camera_score_only_holds_and_a_person_makes_it_live(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 95)
+    state = desk.camera_analyse([FRAME], ME, FRAME)
+    assert status(state) == ["held"] and state["notices"][0]["level"] == "high"
+    assert desk.camera_door(NEAR, 80)["matches"] == []  # held: can't match
+    desk.review(1, "Sam", True, NOTE, True)
+    state = desk.camera_door(NEAR, 80)
+    assert state["matches"][0]["score"] == 97.4 and state["matches"][0]["thumbnail"] == FRAME
+
+
+def test_the_camera_door_forgets_strangers_and_does_not_repeat_an_open_match(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 95)
+    desk.camera_analyse([FRAME], ME, FRAME)
+    desk.review(1, "Sam", True, NOTE, True)
+    assert desk.camera_door(FAR, 80)["visitors_discarded"] == 1
+    desk.camera_door(NEAR, 80)
+    assert len(desk.camera_door(NEAR, 80)["matches"]) == 1
+
+
+def test_rejecting_or_removing_deletes_the_footage_and_face(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 95)
+    desk.camera_analyse([FRAME], ME, FRAME)
+    desk.review(1, "Sam", False, "", False)
+    with desk._db() as db:
+        assert db.execute("SELECT COUNT(*) n FROM media").fetchone()["n"] == 0
+
+
+def test_footage_nobody_reviews_is_deleted(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 60)
+    desk.camera_analyse([FRAME], ME, FRAME)
+    state = desk.advance(4)
+    assert state["alerts"][0]["status"] == "expired"
+    with desk._db() as db:
+        assert db.execute("SELECT COUNT(*) n FROM media").fetchone()["n"] == 0
+
+
+def test_an_alert_with_no_face_cannot_add_anyone(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 95)
+    desk.camera_analyse([FRAME], None, None)
+    with pytest.raises(ApiError):
+        desk.review(1, "Sam", True, NOTE, True)
+
+
+VISIT = {"log": [], "carrying": False}
+
+
+@pytest.mark.parametrize("steps,left_unpaid", [
+    ([{"picked_up": True}, {"left_exit": True}], True),
+    ([{"concealed": True}, {"left_exit": True}], True),
+    ([{"picked_up": True}, {"paid": True}, {"left_exit": True}], False),
+    ([{"picked_up": True}, {"put_back": True}, {"left_exit": True}], False),
+    ([{"left_exit": True}], False),
+    ([{"picked_up": True, "paid": True}, {"left_exit": True}], False),
+])
+def test_following_a_visit(steps: list[dict], left_unpaid: bool) -> None:
+    visit, left = VISIT, False
+    for seen in steps:
+        visit, left = follow_visit(visit, seen)
+    assert left is left_unpaid
+
+
+def test_leaving_with_an_item_alerts_and_holds_even_if_the_model_scored_it_low(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 10)
+    desk.gpt.seen_next = {"picked_up": True}
+    assert desk.camera_analyse([FRAME], ME, FRAME)["alerts"] == []  # picking something up is normal
+    desk.gpt.seen_next = {"left_exit": True}
+    state = desk.camera_analyse([FRAME], ME, FRAME)
+    assert state["last_camera"]["left_unpaid"] is True and status(state) == ["held"]  # held for a person, never live
+
+
+def test_the_model_is_told_what_happened_earlier(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 10)
+    desk.gpt.seen_next = {"observed": "Took a tin from the shelf."}
+    desk.camera_analyse([FRAME], ME, FRAME)
+    desk.camera_analyse([FRAME], ME, FRAME)
+    assert "Took a tin from the shelf." in desk.gpt.seen[1][0]["content"]
+
+
+def test_leaving_ends_the_visit(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 10)
+    desk.gpt.seen_next = {"picked_up": True, "left_exit": True}
+    assert desk.camera_analyse([FRAME], ME, FRAME)["camera_visit"]["carrying"] is False
+

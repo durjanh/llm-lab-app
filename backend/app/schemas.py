@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from .settings import MODELS
 from .shared import DEFAULT_MODEL
@@ -317,6 +317,26 @@ class HarnessRequest(ModelChoice):
     number: int = Field(12, ge=2, le=1_000_000)
     task: str | None = Field(None, max_length=500)
     effort: Literal["low", "medium", "high"] = "low"
+
+
+JPEG_DATA = r"^data:image/jpeg;base64,[A-Za-z0-9+/=]+$"
+
+
+class CameraConsent(BaseModel):
+    by: str = Field(min_length=2, max_length=120)
+    agreed: Literal[True]
+
+
+class CameraAnalyse(BaseModel):
+    frames: list[Annotated[str, StringConstraints(pattern=JPEG_DATA, max_length=300_000)]] = Field(min_length=1, max_length=4)
+    descriptor: list[float] | None = Field(default=None, min_length=128, max_length=128)
+    thumbnail: Annotated[str, StringConstraints(pattern=JPEG_DATA, max_length=40_000)] | None = None
+    layout: str | None = Field(default=None, max_length=300)
+
+
+class CameraDoor(BaseModel):
+    descriptor: list[float] = Field(min_length=128, max_length=128)
+    threshold: float = Field(default=80, ge=50, le=99)
 
 
 class ComplianceRequest(BaseModel):

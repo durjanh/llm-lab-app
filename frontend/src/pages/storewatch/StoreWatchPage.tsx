@@ -1,6 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { storeWatchService as desk, type Alert, type DeskState } from '@/services/storewatchService';
+import { CameraDesk } from './CameraDesk';
 import './storewatch.css';
+
+/** A person's label: camera test participants are named as such, and simulated ones as invented. */
+const who = (person: string) => (person.startsWith('Camera') ? person : `Invented person ${person}`);
 
 function AlertCard({
   alert,
@@ -22,10 +26,21 @@ function AlertCard({
         <span className={`sw-score ${high ? 'high' : ''}`}>Score {alert.score}</span>
         {high && <span className="sw-tag">Face held, admin alerted</span>}
       </div>
-      <p>{alert.what.split('.')[0]}.</p>
-      <p className="small muted">
-        The footage for this invented person is described above. In a real shop you would watch the clip here.
-      </p>
+      <p>{alert.frames ? alert.what : `${alert.what.split('.')[0]}.`}</p>
+      {alert.frames ? (
+        <div className="sw-frames">
+          {alert.frames.map((f, i) => (
+            <img key={i} src={f} alt={`Frame ${i + 1} from the camera, with faces blurred`} />
+          ))}
+        </div>
+      ) : (
+        <p className="small muted">
+          The footage for this invented person is described above. In a real shop you would watch the clip here.
+        </p>
+      )}
+      {alert.has_face === false && (
+        <p className="small sw-error">No face was captured, so this alert can't add anyone.</p>
+      )}
       <label className="sw-check">
         <input type="checkbox" checked={watched} onChange={(e) => setWatched(e.target.checked)} /> I watched the footage
       </label>
@@ -104,8 +119,9 @@ export default function StoreWatchPage() {
         is really them.
       </p>
       <div className="sw-banner">
-        <b>Simulation.</b> Every person here is invented and no camera or real face is involved. The behaviour alerts
-        are scripted and the faces are random numbers. The rules are real, and the backend enforces them.
+        <b>Two ways to try it.</b> The scripted alerts use invented people. Step 2 uses your real webcam, a real
+        behaviour model and real face templates, for you and adults who have agreed. It does not connect to shop CCTV.
+        The backend enforces the rules in both.
       </div>
       {error && <p className="sw-error">{error}</p>}
 
@@ -153,15 +169,17 @@ export default function StoreWatchPage() {
         )}
       </section>
 
+      <CameraDesk state={state} name={name} threshold={threshold} onState={setState} onError={setError} />
+
       <section className="card sw-step">
-        <h2>2. Behaviour alerts</h2>
+        <h2>3. Behaviour alerts</h2>
         <p className="muted">
           A score of {state.high_score} or more alerts the admin at once and holds the face at the top of the queue. A
           held face cannot match at the door, and it is deleted after {state.hold_hours} hours if nobody reviews it.
         </p>
         <div className="sw-row">
           <button className="btn primary" disabled={!state.more_alerts} onClick={() => run(desk.nextAlert())}>
-            {state.more_alerts ? 'Next behaviour alert' : 'No more alerts'}
+            {state.more_alerts ? 'Next scripted alert' : 'No more scripted alerts'}
           </button>
           <label className="sw-name">
             Reviewer <input value={name} onChange={(e) => setName(e.target.value)} />
@@ -217,12 +235,13 @@ export default function StoreWatchPage() {
       </section>
 
       <section className="card sw-step">
-        <h2>3. Watchlist</h2>
+        <h2>4. Watchlist</h2>
         {state.watchlist.length === 0 && <p className="muted">Empty.</p>}
         {state.watchlist.map((e) => (
           <div key={e.id} className="sw-item">
             <div className="sw-row">
-              <b>Invented person {e.person}</b>
+              {e.thumbnail && <img className="sw-thumb" src={e.thumbnail} alt="The face on this entry" />}
+              <b>{who(e.person)}</b>
               <span className={`sw-tag ${e.status}`}>{e.status === 'active' ? 'Live' : 'Held: cannot match'}</span>
               <span className="small muted">
                 Deleted on {e.expires.slice(0, 10)}
@@ -250,7 +269,7 @@ export default function StoreWatchPage() {
       </section>
 
       <section className="card sw-step">
-        <h2>4. At the door</h2>
+        <h2>5. At the door</h2>
         <p className="muted">
           Each visitor is compared with live entries only. Someone who matches nobody is forgotten at once. Above{' '}
           {state.high_score} also alerts the admin, but it is still a possible match.
@@ -261,7 +280,7 @@ export default function StoreWatchPage() {
             disabled={!state.more_visitors}
             onClick={() => run(desk.nextVisitor(threshold))}
           >
-            {state.more_visitors ? 'Next person enters' : 'No more visitors'}
+            {state.more_visitors ? 'Next scripted visitor' : 'No more scripted visitors'}
           </button>
           <label className="sw-name">
             Match threshold{' '}
@@ -273,7 +292,8 @@ export default function StoreWatchPage() {
         {open.map((m) => (
           <div key={m.id} className={`sw-item ${m.high ? 'high' : ''}`}>
             <div className="sw-row">
-              <b>Possible match with invented person {m.person}</b>
+              {m.thumbnail && <img className="sw-thumb" src={m.thumbnail} alt="The face on the watchlist" />}
+              <b>Possible match with {who(m.person)}</b>
               <span className={`sw-score ${m.high ? 'high' : ''}`}>Similarity {m.score}</span>
             </div>
             <p className="small muted">Compare the live view with the record before anyone speaks to this person.</p>
@@ -302,8 +322,14 @@ export default function StoreWatchPage() {
                 <tr key={m.id}>
                   <td>{m.score}</td>
                   <td>{m.status === 'same' ? 'same person' : 'not the same'}</td>
-                  <td>{m.visitor}</td>
-                  <td>{(m.status === 'same') === (m.correct === 1) ? 'Yes' : 'No: wrong call'}</td>
+                  <td>{m.visitor ?? 'Not known'}</td>
+                  <td>
+                    {m.correct == null
+                      ? 'Not known'
+                      : (m.status === 'same') === (m.correct === 1)
+                        ? 'Yes'
+                        : 'No: wrong call'}
+                  </td>
                 </tr>
               ))}
             </tbody>
