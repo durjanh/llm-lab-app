@@ -196,9 +196,9 @@ export default function DocumentsPage() {
                 <option key={m}>{m}</option>
               ))}
             </optgroup>
-            {/* GPT deployments in the lab's Azure AI Foundry resource, for comparing on the same tasks. */}
+            {/* GPT deployments in the lab's Microsoft Foundry resource, for comparing on the same tasks. */}
             {!!status?.gpt_models?.length && (
-              <optgroup label="GPT (Azure AI Foundry)">
+              <optgroup label="GPT (Microsoft Foundry)">
                 {status.gpt_models.map((m) => (
                   <option key={m}>{m}</option>
                 ))}

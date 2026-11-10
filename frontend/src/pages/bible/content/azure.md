@@ -1,10 +1,10 @@
 ## Document Automation (`/documents`)
-**In one line:** document assembly stays deterministic (a Word template filled from interview answers), and the model only works around it: authoring templates, proposing answers with quotes, and reviewing the result.
+**In one line:** document assembly stays deterministic (a Word template filled from questionnaire answers), and the model only works around it: authoring templates, proposing answers with quotes, and reviewing the result.
 
 **Key terms**
 - **Document assembly**: generating a document by filling a template's variables, conditional clauses and repeated sections from structured answers, with no model in the loop.
 - **docxtpl / Jinja tags**: the Python library the lab uses; `{{ field }}` is a variable, `{%p if x %}` an optional paragraph, `{%p for item in list %}` a repeated paragraph.
-- **Interview**: the form of questions, generated from the template's fields, whose answers drive assembly.
+- **Questionnaire**: the form of questions, generated from the template's fields, whose answers drive assembly.
 - **Structured outputs**: the model's reply is constrained to a JSON schema (here `output_config.format = json_schema`), so the code gets fields, not prose to parse.
 - **Extraction with provenance**: every proposed answer carries the quote it came from and a confidence, so a person can verify it at a glance.
 - **Human in the loop**: AI proposes, a person confirms; nothing enters the document without being shown.
@@ -20,7 +20,7 @@
 - **Q:** What are the failure modes in turning a finished document into a template?
   **A:** The model can propose replacements that are not in the text, or overlapping clauses. The code only wraps text it actually finds, replaces longer strings first (so a full company name is replaced before its short form), refuses overlapping clause spans, and reports anything it could not find rather than silently skipping it.
 
-**What I built:** A FastAPI service using docxtpl for deterministic assembly and a live preview, with Claude (or an Azure OpenAI GPT deployment, same schema) for template authoring, interview extraction with quotes, a talk-to-fill chat with Azure Speech dictation, and a final review. Each AI step is a schema-constrained call charged to a spend tracker, and the page shows its cost.
+**What I built:** A FastAPI service using docxtpl for deterministic assembly and a live preview, with Claude (or an Azure OpenAI GPT deployment, same schema) for template authoring, questionnaire answers extracted with quotes, a talk-to-fill chat with Azure Speech dictation, and a final review. Each AI step is a schema-constrained call charged to a spend tracker, and the page shows its cost.
 
 ## Case Handling on Azure (`/casework`)
 **In one line:** a multi-agent pipeline drafts complaint decisions from records and policy, separate checks verify it, a named person approves, and everything goes into a tamper-evident audit log with a release gate.
@@ -244,6 +244,23 @@
   **A:** An indexer suits data already in Blob, SharePoint or SQL that changes on a schedule: it handles change tracking and retries, and skillsets do enrichment. Push gives full control over chunking and enrichment and works for any source, at the cost of writing the orchestration. Either way, cache the extraction output, because it is the slow, costly step, and re-chunk or re-embed from the cache.
 - **Q:** What are the limits of the Free tier?
   **A:** Three indexes, 50 MB, and the semantic ranker's free plan of 1,000 queries a month. Fine for a lab, but production needs Basic or above for capacity, an SLA with replicas, and private endpoints.
+- **Q:** What does the semantic ranker do, and what did it change in your measurements?
+  **A:** It is a second stage. The first ranking (BM25 or hybrid RRF) finds candidates; the semantic ranker rereads up to the top 50 with a language model, scores each from 0 to 4 (`@search.rerankerScore`), and can return extractive captions and an answer. It needs a semantic configuration naming the title, content and keyword fields, and it reads only part of each document, so put the key text in the prioritised fields and keep chunks moderate. In the lab's run (12 labelled questions, 15 chunks, Free tier, 10 November 2026) it lifted hybrid's hit@1 from 9/12 to 11/12: "What excess do I pay for water damage?" went from rank 3 to 1 and "How long do I have to report the damage?" from 2 to 1. In the same run it dropped the long video transcript chunk out of the top five, where hybrid had it third and vector search first. MRR was 0.92 against hybrid's 0.85, and it added about 50 ms a query (134 ms against 87 ms). Turn it on per query where precision at the top matters, and keep checking the questions it loses.
+- **Q:** What were the four modes' numbers on the search lab?
+  **A:** 12 labelled questions over 15 chunks from policy wording, documents, photos and a video, top 5, 10 November 2026. These are small numbers, so one question moves a score by 8 points.
+
+  | Mode | Hit@1 | Hit@3 | MRR | Average query |
+  |---|---|---|---|---|
+  | Keyword (BM25) | 8 | 9 | 0.75 | 185 ms (ran first for each question, so it may include warm-up) |
+  | Vector (HNSW) | 10 | 12 | 0.92 | 80 ms |
+  | Hybrid (RRF) | 9 | 12 | 0.85 | 87 ms |
+  | Hybrid + semantic ranker | 11 | 11 | 0.92 | 134 ms |
+
+  Keyword never found the video for "What did the narrator say about the plumber's van?", and put "How long do I have to report the damage?" fourth because the policy says "tell us" rather than "report".
+- **Q:** How do you keep a large vector index affordable in Azure AI Search?
+  **A:** Vectors dominate the index. In the lab, 15 chunks of 1,536-dimension float32 vectors took 279,480 bytes of vector index, about 18.6 KB a chunk with the HNSW graph, against 6,144 bytes for the raw vector. Three levers: scalar quantisation to int8 (a quarter of the size), binary quantisation (a thirty-second), and, for text-embedding-3 models, truncating the vector to fewer dimensions (Matryoshka training keeps the first dimensions most informative). Compression loses a little accuracy, so oversample the candidates and rescore them with the full-precision vectors, and measure recall on your own questions before and after. Also set vector fields to not retrievable when nothing needs the raw vector back.
+- **Q:** How do you measure groundedness with Azure's tools?
+  **A:** The Azure AI Evaluation SDK's GroundednessEvaluator is an LLM judge that scores an answer against its context from 1 to 5; GroundednessProEvaluator uses Azure AI Content Safety and returns grounded or not. In the lab's cloud evaluation (5 November 2026, four answers) groundedness scored a made-up answer 2 out of 5 and failed it, while relevance passed the same answer, correctly, because it did answer the question. F1 failed a correct answer ("The excess for escape of water is £350." against "£350") because it only counts word overlap. The CI gate in `examples/foundry-cicd/eval_gate.py` runs groundedness and relevance on labelled cases after every deployment and fails the pipeline below its threshold; its last local run scored 5.00 on both. Use the built-in evaluators for a quick, comparable score; add claim-level checks and citation checks when you need to know which sentence is wrong.
 
 **What I built:** Content Understanding extracts text from documents, photos and video; chunks of 900 characters with 100 overlap get Azure Language key phrases and text-embedding-3-small vectors (1536 dims, HNSW, cosine) and go into one index with a semantic configuration. A relevance panel scores the four modes, and gpt-5.4-mini gets one function, `search_claim_file`, that runs hybrid plus semantic search and answers with citations. All calls use Entra tokens.
 
@@ -296,5 +313,18 @@ Profanity handling only covers what Translator classes as profanity, so it is no
   **A:** Keyless and a managed identity are in place, but public network access is still on. Production wants private endpoints, selected networks only, diagnostic logs to Log Analytics, and alerts on BlockedCalls, RAI metrics and time to response.
 - **Q:** How do you find where latency comes from in a RAG request?
   **A:** Trace it. Each step is a span: embedding, search, chat, content safety. Here the model call was most of the time, and the search span showed what the answer was built from. In Foundry, the spans go to the project's connected Application Insights.
+
+- **Q:** Walk me through gating a release end to end.
+  **A:** A golden set, evaluators, thresholds and a pipeline that fails. The golden set holds real questions with the source each answer must come from and a reference answer, plus deliberate bad cases the gate must catch. Each prompt and model version is recorded with every result, so a score can be traced to what produced it. In CI the job signs in with OpenID Connect (no stored secret), runs the evaluators, and exits non-zero below a threshold, which stops promotion. The lab does this twice: `examples/foundry-cicd/eval_gate.py` runs in `.github/workflows/infra.yml` after `azd provision`, with 3 cases and minimum groundedness and relevance of 4.0, and passed locally at 5.00 and 5.00 on 5 November 2026. The `/foundry-operations` page runs a 6-case set with four metrics.
+- **Q:** What did the gate actually catch, and what did each evaluator miss?
+  **A:** On the page's 6 cases, run on 10 November 2026 with gpt-5.4-mini as judge, the means were groundedness 3.67, relevance 4.33, coherence 4.83 and F1 0.45, so the release was blocked. That is right: two answers are planted to fail. A slow-drip answer that contradicts the policy scored groundedness 1 but relevance 5, because it does answer the question. An off-topic answer about call-centre hours scored 1 for both, yet coherence 4. Content Safety's groundedness detection flagged the same two answers and passed the other four, so the two checks agreed on all 6. F1 failed a correct answer: "The excess for escape of water claims is £350" against the reference "£350" scores 0.20, under the 0.3 bar. That is why the gate uses means across metrics, and why you read the low rows before trusting any one score. The run took 5.6 seconds and cost $0.0068.
+- **Q:** Which Microsoft Foundry evaluators would you use, and should they run locally or in the cloud?
+  **A:** For RAG answers: groundedness (is every claim in the context), relevance (does it answer the question), coherence, and a reference-based score such as F1 or similarity where you have a gold answer. For safety: the content-harm evaluators (violence, hate and unfairness, sexual, self-harm), protected material, and indirect attack for content the agent reads. The Azure AI Evaluation SDK runs them locally in CI, and a cloud evaluation in the Microsoft Foundry project keeps the results and history beside the deployment. The lab's gate uses its own judge prompt with the same 1-to-5 scales, so it runs with only an Azure OpenAI endpoint and a role.
+- **Q:** How do you set each threshold?
+  **A:** From your own labelled data, per metric, never one number for all. Groundedness is the strictest because an unsupported claim is the costliest failure; the lab uses 4.0 out of 5. F1 gets a low bar (0.3) because correct but longer answers score low, as the £350 case shows. Calibrate the judge first: label 50 to 100 outputs yourself and check agreement, or the threshold measures the judge's taste rather than quality. Raise a bar only when a regression would have passed it.
+- **Q:** Run the evaluation on every pull request, or nightly?
+  **A:** Both, at different sizes. A small, fast set on every change to a prompt, model or retrieval setting, so a regression never merges; the lab's 6 cases take about 6 seconds and under a cent. The full golden set nightly or before a release, where minutes and a few dollars are fine. Keep each run's scores with the prompt and model version, so a drop shows which change caused it.
+- **Q:** What happens after release?
+  **A:** Online evaluation on real traffic. Trace every request (the lab records OpenTelemetry spans for embedding, search, chat and safety, exported to Application Insights), sample a share of production traces, and run the same evaluators on them on a schedule. Alert on falling groundedness, rising blocked calls and slower responses, and add every reported failure to the golden set so it can never come back unnoticed.
 
 **What I built:** The service reads deployments, quotas, metrics and role assignments read-only from Azure Resource Manager with an Entra token, makes one small call to show the rate-limit headers, runs the evaluation with gpt-5.4-mini as judge plus Content Safety groundedness detection, and records a traced RAG answer with the OpenTelemetry SDK. Deployments are code in `infra/resources.bicep`.

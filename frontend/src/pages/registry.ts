@@ -69,6 +69,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./tokens/TokensPage')),
   },
   {
+    id: 'token-counter',
+    path: '/token-counter',
+    title: 'Token Counter',
+    label: 'Token counter',
+    group: 'Foundations',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./token-counter/TokenCounterPage')),
+  },
+  {
     id: 'sampling',
     path: '/sampling',
     title: 'Sampling Lab',
@@ -112,6 +121,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./agents/AgentsPage')),
+  },
+  {
+    id: 'agent-types',
+    path: '/agent-types',
+    title: 'Agent Types',
+    label: 'Agent types',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./agent-types/AgentTypesPage')),
   },
   {
     id: 'context-engineering',
@@ -211,6 +229,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./aftercare/AftercarePage')),
+  },
+  {
+    id: 'hotel',
+    path: '/hotel',
+    title: 'Hotel Booking Agent',
+    label: 'Hotel booking',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./hotel/HotelPage')),
   },
   {
     id: 'dataagent',

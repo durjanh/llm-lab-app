@@ -25,7 +25,12 @@ export interface ClaudeMessage {
   model: string;
   content: ContentBlock[];
   stop_reason: string | null;
-  usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 }
 
 export interface MessagesResult {
@@ -35,10 +40,19 @@ export interface MessagesResult {
   spent_usd: number;
 }
 
+/** Where a prompt's tokens go, measured word by word with count_tokens (Claude's tokenizer is not published). */
+export interface TokenBreakdown {
+  model: string;
+  total: number;
+  framing: number;
+  system: number;
+  prompt: number;
+  words: { text: string; tokens: number }[];
+  grouped: boolean;
+}
+
 type StreamLine =
-  | { type: 'text'; text: string }
-  | ({ type: 'done' } & MessagesResult)
-  | { type: 'error'; message: string };
+  { type: 'text'; text: string } | ({ type: 'done' } & MessagesResult) | { type: 'error'; message: string };
 
 /** One request to Claude at a time: /api/messages, /api/stream and /api/count_tokens. */
 export class MessagesService {
@@ -50,6 +64,10 @@ export class MessagesService {
 
   countTokens(body: MessagesRequest): Promise<{ input_tokens: number }> {
     return this.client.post('/api/count_tokens', body);
+  }
+
+  tokenBreakdown(body: { model: string; system: string; prompt: string }): Promise<TokenBreakdown> {
+    return this.client.post('/api/count_tokens/breakdown', body);
   }
 
   /** Streams one request. onText(chunk) is called as text arrives; resolves to the final result. */
@@ -66,7 +84,12 @@ export class MessagesService {
 
   /** The visible text of a reply. */
   static text(message: ClaudeMessage | null | undefined): string {
-    return message?.content ? message.content.filter((b) => b.type === 'text').map((b) => b.text ?? '').join('') : '';
+    return message?.content
+      ? message.content
+          .filter((b) => b.type === 'text')
+          .map((b) => b.text ?? '')
+          .join('')
+      : '';
   }
 }
 

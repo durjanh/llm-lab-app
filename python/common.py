@@ -36,6 +36,10 @@ PRICES: dict[str, dict[str, float]] = {
     "claude-opus-5-5": {"input": 4.00, "output": 20.00, "cache_read": 0.20},
     "claude-sonnet-5-5": {"input": 2.00, "output": 10.00, "cache_read": 0.20},
     "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_read": 0.01},
+    # Earlier models, for the token counter's comparison only (the lab does not generate with them).
+    "claude-opus-4-8": {"input": 5.00, "output": 25.00, "cache_read": 0.50},
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00, "cache_read": 0.30},
+    "claude-haiku-4-5": {"input": 1.00, "output": 5.00, "cache_read": 0.10},
 }
 # Azure OpenAI Global Standard list prices per million tokens, from the Azure retail price list (UK South).
 # Here so the backend's spend tracker and the scripts charge GPT calls from the same table as Claude's.

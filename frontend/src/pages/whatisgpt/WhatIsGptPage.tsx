@@ -33,7 +33,7 @@ const HISTORY: { year: string; name: string; what: string }[] = [
   { year: '2023', name: 'GPT-4', what: 'Much more capable, and accepts images as input. Its size is not published.' },
   { year: '2024', name: 'GPT-4o, GPT-4o mini, o1', what: 'GPT-4o ("omni") handles text, images and audio in one model; GPT-4o mini is a cheaper model taking text and images; o1 is the first "reasoning" model, thinking before it answers.' },
   { year: '2025', name: 'GPT-4.1, GPT-5', what: 'GPT-4.1 (April) for long context and coding; GPT-5 (August).' },
-  { year: '2025–26', name: 'GPT-5.x', what: 'A fast series of versions: in Azure AI Foundry\'s catalogue, gpt-5.1 (November 2025), 5.2 (December), 5.4 (March 2026), 5.5 (April), 5.6 (July), with mini and nano sizes. This lab\'s Azure deployment is gpt-5.4-mini.' },
+  { year: '2025–26', name: 'GPT-5.x', what: 'A fast series of versions: in Microsoft Foundry\'s catalogue, gpt-5.1 (November 2025), 5.2 (December), 5.4 (March 2026), 5.5 (April), 5.6 (July), with mini and nano sizes. This lab\'s Azure deployment is gpt-5.4-mini.' },
 ];
 
 const CHALLENGES: { name: string; what: string; lab: [string, string] }[] = [

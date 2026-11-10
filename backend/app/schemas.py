@@ -59,6 +59,16 @@ class AftercareMessage(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
 
 
+class HotelMessage(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class HotelFrontDesk(BaseModel):
+    type_code: Literal["STD", "TWN", "SEA", "FAM", "STE"]
+    check_in: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    check_out: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
 class AftercareTaskClose(BaseModel):
     note: str = Field(default="Done", max_length=300)
 
@@ -279,6 +289,30 @@ class TutorTurnRequest(ModelChoice):
     tutor_name: str = Field(default="Alex", pattern=r"^[A-Z][a-z]{1,19}$")  # the person the learner talks to
     coaching: bool = True  # English: after each answer, say how to make it stronger
     interview_brief: str = Field(default="", max_length=8000)  # the job interview scenario: the role and company
+
+
+class TokenCompareRequest(BaseModel):
+    system: str = Field(default="", max_length=50000)
+    prompt: str = Field(min_length=1, max_length=50000)
+
+
+class TokenCountRequest(TokenCompareRequest):
+    """One model from the token counter's catalogue (services/token_counter.py), which checks the id."""
+    model: str = Field(min_length=1, max_length=100)
+
+
+class TokenBreakdownRequest(BaseModel):
+    """A prompt to measure word by word, on any model the lab offers: Claude, a GPT deployment or the local model."""
+    model: str = "claude-haiku-5-5"
+    system: str = Field(default="", max_length=20000)
+    prompt: str = Field(min_length=1, max_length=20000)
+
+    @field_validator("model")
+    @classmethod
+    def known_model(cls, value: str) -> str:
+        if value not in MODELS and not value.startswith("claude-"):  # earlier Claude models can be counted too
+            raise ValueError(f"Model must be one of: {', '.join(MODELS)}, or another Claude model")
+        return value
 
 
 class MessagesRequest(ModelChoice):

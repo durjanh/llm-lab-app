@@ -37,7 +37,7 @@ class Settings:
     azure_speech_resource_id: str = ""
     # Used when the first resource refuses, for example once a free tier's monthly allowance is used up.
     azure_speech_fallback_resource_id: str = ""
-    # GPT models in Azure AI Foundry, offered beside Claude in the document automation lab. Signed in
+    # GPT models in Microsoft Foundry, offered beside Claude in the document automation lab. Signed in
     # with your Azure login; empty means Claude only.
     azure_openai_endpoint: str = ""
     azure_openai_deployments: tuple[str, ...] = ()
@@ -65,6 +65,10 @@ class Settings:
     medassist_phone_token: str = ""
     medassist_phone_language: str = ""
     aftercare_db: Path = ROOT / "examples" / "aftercare" / "data" / "aftercare.db"
+    # The hotel booking agent: see services/hotel.py. Its database is runtime data in generated/hotel/.
+    hotel_sms_to: str = ""
+    hotel_email_to: str = ""
+    hotel_email_sender: str = ""
     # Azure Language in Foundry Tools, for the review dashboard. Signed in with your Azure login; empty means offline.
     azure_language_endpoint: str = ""
     azure_media_endpoint: str = ""
@@ -94,6 +98,9 @@ class Settings:
             medassist_sms_sender=env.medassist_sms_sender,
             medassist_sms_to=env.medassist_sms_to,
             medassist_reminders_table=env.medassist_reminders_table,
+            hotel_sms_to=env.hotel_sms_to,
+            hotel_email_to=env.hotel_email_to,
+            hotel_email_sender=env.hotel_email_sender,
             aftercare_caller_id=env.aftercare_caller_id,
             aftercare_call_to=env.aftercare_call_to,
             aftercare_callback_url=env.aftercare_callback_url,

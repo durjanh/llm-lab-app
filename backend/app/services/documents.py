@@ -271,7 +271,7 @@ def format_value(value: Any, kind: str) -> Any:
 class DocumentService:
     def __init__(self, claude: ClaudeGateway, spend: SpendTracker, gpt: StructuredModel | None = None):
         self.claude, self.spend = claude, spend
-        self.gpt = gpt  # GPT deployments in Azure AI Foundry, if configured: an alternative to Claude for every AI step
+        self.gpt = gpt  # GPT deployments in Microsoft Foundry, if configured: an alternative to Claude for every AI step
         self.templates, self.assembled = Kept(), Kept()
 
     # Templates ---------------------------------------------------------------------------------

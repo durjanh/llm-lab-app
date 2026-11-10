@@ -134,7 +134,13 @@ def test_what_only_claude_can_do_is_refused_with_a_message_naming_gpt(extra):
     with pytest.raises(L.NeedsClaude, match="Azure OpenAI"):
         G.to_request(ask(**extra))
     with pytest.raises(L.NeedsClaude):
-        gpt()[0].count_tokens(ask())
+        gpt()[0].count_tokens(ask(**extra))
+
+
+def test_text_is_counted_offline_with_the_framing_azure_bills():
+    # Measured on gpt-5.4-mini: 6 tokens of framing for one message, 10 with a system prompt ("hi" is one token).
+    assert gpt()[0].count_tokens(ask()).input_tokens == 6 + 1
+    assert gpt()[0].count_tokens(ask(system="Be brief.")).input_tokens == 10 + 1 + len(G.gpt_pieces("Be brief."))
 
 
 def test_azure_failures_become_the_errors_the_lab_already_shows():

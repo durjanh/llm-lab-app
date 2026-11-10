@@ -9,6 +9,8 @@ from ..container import Container
 from ..core.errors import ApiError
 from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
+from ..services.hotel import HotelService
+from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
 from ..services.coding import CodingService
 from ..services.data_model import VIEWERS, Viewer
@@ -94,6 +96,14 @@ def reviews(c: Container = Depends(container)) -> ReviewsService:
 
 def aftercare(c: Container = Depends(container)) -> AftercareService:
     return c.aftercare
+
+
+def hotel(c: Container = Depends(container)) -> HotelService:
+    return c.hotel
+
+
+def token_counter(c: Container = Depends(container)) -> TokenCounterService:
+    return c.token_counter
 
 
 def aftercare_phone(c: Container = Depends(container)) -> AftercarePhone:

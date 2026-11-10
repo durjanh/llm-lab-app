@@ -4,3 +4,7 @@ fastembed>=0.8.1,<1
 # Only needed for the GPT readers in 15_vision.py (Azure OpenAI with your Azure login)
 openai>=3.41,<4
 azure-identity~=1.26
+# Only needed for 24_browser_agent.py and 25_computer_use_agent.py (they drive Chrome over the DevTools protocol)
+websockets>=13,<18
+# Only needed to count GPT tokens offline (o200k_base), in the token counter and scripts
+tiktoken>=0.9,<1
