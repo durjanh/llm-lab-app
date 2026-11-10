@@ -143,7 +143,7 @@ class Container:
                                    approval_timeout_s=settings.approval_timeout_s),
             workflows=WorkflowService(workflows, spend, registry, streamer, run_budget_usd=settings.run_budget_usd,
                                       approval_timeout_s=settings.approval_timeout_s),
-            storewatch=StoreWatchService(settings.generated_dir / "storewatch" / "storewatch.db"),
+            storewatch=StoreWatchService(settings.generated_dir / "storewatch" / "storewatch.db", gpt=gpt, spend=spend),
             skills=skills,
             decks=DeckService(claude, spend, streamer, skills, DeckChats()),
             sites=SiteService(claude, spend, streamer, SiteStore(settings.sites_dir),

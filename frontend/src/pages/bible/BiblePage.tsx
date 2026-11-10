@@ -28,7 +28,7 @@ const SOURCES: [string, string, string, string][] = [
   [
     'essentials',
     'The essentials',
-    'The questions that come up whatever the page: sampling, saving tokens, production.',
+    'The questions that come up whatever the page: sampling, saving tokens, production, running a model locally.',
     essentials,
   ],
   ['foundations', 'Foundations', 'How models are built, trained and run.', foundations],

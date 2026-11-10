@@ -6,6 +6,8 @@ export interface Alert {
   what: string;
   score: number;
   truth?: string;
+  frames?: string[];
+  has_face?: boolean;
   status: 'pending' | 'confirmed' | 'rejected' | 'expired';
   reviewer: string | null;
   note: string | null;
@@ -19,21 +21,27 @@ export interface Entry {
   reason: string;
   added_by: string | null;
   expires: string;
+  thumbnail: string | null;
 }
 
 export interface Match {
   id: number;
   person: string;
-  visitor?: string;
+  visitor?: string | null;
   score: number;
   high: number;
   status: 'open' | 'same' | 'not_same';
   staff: string | null;
-  correct?: number;
+  correct?: number | null;
+  thumbnail: string | null;
 }
 
 export interface DeskState {
   compliance: { controller: string; lawful_basis: string; dpia_reference: string } | null;
+  camera_consent: { by: string } | null;
+  camera_available: boolean;
+  camera_visit: { log: string[]; carrying: boolean } | null;
+  default_layout: string;
   alerts: Alert[];
   watchlist: Entry[];
   matches: Match[];
@@ -61,6 +69,14 @@ export class StoreWatchService {
   state = () => this.client.get<DeskState>('/api/storewatch/state');
   compliance = (body: { controller: string; lawful_basis: string; dpia_reference: string; signage: boolean }) =>
     this.act('compliance', body);
+  cameraConsent = (by: string) => this.act('camera/consent', { by, agreed: true });
+  cameraAnalyse = (frames: string[], descriptor: number[] | null, thumbnail: string | null, layout: string) =>
+    this.client.post<
+      DeskState & {
+        last_camera: { score: number; what: string; alerted: boolean; left_unpaid: boolean; carrying: boolean };
+      }
+    >('/api/storewatch/camera/analyse', { frames, descriptor, thumbnail, layout });
+  cameraDoor = (descriptor: number[], threshold: number) => this.act('camera/door', { descriptor, threshold });
   nextAlert = () => this.act('alerts/next');
   review = (id: number, body: { reviewer: string; theft: boolean; note: string; watched_footage: boolean }) =>
     this.act(`alerts/${id}/review`, body);

@@ -350,6 +350,8 @@
 **Questions they could ask**
 - **Q:** Why not add someone to the watchlist automatically when the model is over 90% confident?
   **A:** Because the score measures how much a movement looked like theft, not whether a theft happened. In my simulation, a phone going back in a handbag scores 93. Auto-adding would put an innocent person on a list that flags them at every visit, on a fully automated decision about biometric data. So a high score does everything short of that: it alerts the admin at once and holds the face at the top of the queue, and a held face can't match at the door.
+- **Q:** How can a model tell someone left without paying, when it only sees a few frames at a time?
+  **A:** It can't from one look, so I give it memory. Each few seconds it reports what it can see, such as picked up, put back, paid or left, along with its reasoning, and it gets its own earlier notes as context. Plain code then keeps the state: picking up starts carrying, paying or putting back ends it, and leaving while carrying raises the alert. The model reads the pictures, and the rule is code you can test.
 - **Q:** How do you decide what can be automated?
   **A:** By the cost of being wrong and whether it can be undone. Alerting a person is cheap to get wrong, so I automate it. Accusing someone is not, so a person decides, and the system records who decided and on what evidence.
 - **Q:** What happens to shoppers who aren't on the list? (privacy)
@@ -359,4 +361,4 @@
 - **Q:** What would stop you shipping this to a real shop?
   **A:** A completed DPIA and legal advice on the lawful basis, because substantial public interest for shoplifting is contested. Then signage, staff training, a tested provider and a way to handle erasure requests. The simulation enforces the shape of these, but recording a reference doesn't make anything lawful.
 
-**What I built:** a simulation with invented people, where the rules are enforced in the service and covered by tests, not the page. It has a score-driven admin alert, held faces that expire, one named reviewer who must confirm having watched the footage, possible matches for staff, retention, removal and an audit log.
+**What I built:** an alert desk that runs on scripted people or, in a test mode for people who have agreed, a real webcam. A behaviour model on Azure OpenAI sees frames with faces blurred in the browser and keeps a running account of the visit, and plain code applies the rule that someone left while carrying something unpaid. A face model in the browser makes 128-number templates. The rules are enforced in the service and covered by tests, not the page. It has a score-driven admin alert, held faces that expire, one named reviewer who must confirm having watched the footage, possible matches for staff, retention, removal and an audit log.

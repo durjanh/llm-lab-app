@@ -92,3 +92,35 @@
   **A:** Pin the model version and run the same golden set on every change. Sample live traffic into online evaluations (groundedness, relevance, an LLM judge checked against human labels). Watch the drift signals: rising refusals, more thumbs-down, longer outputs. Alert when any of them moves.
 - **Q: How do you secure an agent that can call tools?**
   **A:** Give it least-privilege identities and as few tools as it needs. Treat everything a tool returns as untrusted data, not instructions. Run code in a sandbox that can't reach the backend's credentials. Ask a human to approve writes and anything that can't be undone. Keep an audit log. In my lab, the coding agent's shell runs in an OS sandbox or a Docker or Azure dynamic session, never next to the backend's credentials.
+
+## D. Running an open model locally
+*Pages to open: [Live Claude](/live) · [Coding agent](/coding-agent) · [Hardware for AI](/hardware) · [Routing](/routing)*
+
+**The short answer**
+"I ran an open model, Qwen 3.5 9B quantised to 4-bit, on my MacBook with Docker Model Runner, which is built into Docker Desktop. One script, `tools/local-model.sh`, does the deployment: it turns on Model Runner on port 12434, pulls the model from Docker Hub, raises the context window to 32k for agent prompts, and sends a test request. On a Mac, Model Runner runs llama.cpp directly on the host with Metal, so the model uses the GPU, which an ordinary container can't reach. Model Runner serves the Anthropic Messages API, so the lab calls the local model with the same Anthropic SDK as Claude. One setting, `LLM_LAB_LOCAL_MODEL`, switches every page over, and it costs nothing per token."
+
+**Key terms**
+- **Docker Model Runner**: Docker Desktop's built-in server for open models. It runs llama.cpp, and serves both the Anthropic API (`/anthropic`) and the OpenAI API (`/engines/v1`) on port 12434.
+- **Quantisation**: storing weights in fewer bits. At 4-bit, a 9B model is about 7 GB instead of about 18 GB at 16-bit, at some cost in accuracy.
+- **Context size**: the number of tokens the server holds for one request. Agent prompts with instructions, tools and history need more than the default, so the script sets 32,768.
+- **Keep-alive**: how long the model stays loaded in memory after the last request. The first request after that loads it again and takes a few seconds.
+- **Constrained decoding (a grammar)**: llama.cpp forces each next token to fit a JSON schema, so structured output is valid by construction.
+
+**How it's used**
+- One client, `LabClient` in `python/local_model.py`, decides where each request goes. A local model name goes to `localhost:12434`, a GPT deployment to Azure OpenAI, and anything else to Claude. No page needs to know which model it's talking to.
+- **Thinking off by default:** Qwen reasons before every answer unless told not to, which is slow and uses up the token limit. It's switched off unless a request asks for it.
+- **Schemas:** the local Anthropic endpoint ignores JSON schemas, so requests that need one go to the OpenAI-compatible endpoint, where the grammar enforces them.
+- **Claude-only features are refused, not dropped:** web search, code execution, files, MCP connectors and PDFs raise `NeedsClaude` with a clear message. Dropping them silently would change what a page is testing.
+- It's priced at zero in the spend tracker, and the tests switch it off so they always see Claude.
+
+**Questions they could ask**
+- **Q:** Why run a model locally?
+  **A:** No cost per token, nothing leaves the machine, and it works offline. That makes it good for development, for repeated experiments, and for data that can't be sent to an outside API.
+- **Q:** What's the trade-off?
+  **A:** Quality and speed. A 9B model is noticeably weaker than Claude or GPT-5 at long agent tasks and tool calling, and it's slower on a laptop. So I use it for development and side-by-side comparisons, not as the production model, and pages that need Claude-only features stay on Claude.
+- **Q:** How would you deploy an open model in production?
+  **A:** Not on a laptop. I'd host it on a GPU server behind an OpenAI-compatible inference server such as vLLM, which batches many users' requests to use the GPU efficiently, or use the open models that Azure AI Foundry hosts. Because my client already talks a standard API, the application code wouldn't change: only the base URL and the model name.
+- **Q:** Why does the model need a GPU, and why couldn't it run in a normal container on a Mac?
+  **A:** Generating each token reads all the weights from memory, so speed depends on memory bandwidth, and the GPU's is far higher than the CPU's. On a Mac, Docker containers run in a Linux VM that can't use the Metal GPU. Model Runner runs llama.cpp on the host instead, so it can.
+- **Q:** How do you switch to a different model?
+  **A:** Change one environment variable, `LLM_LAB_LOCAL_MODEL`, and rerun the script. Any model from Docker Hub's `ai/` namespace that can call tools works the same way, because the client doesn't depend on the model.
