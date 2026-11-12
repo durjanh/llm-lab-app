@@ -38,7 +38,11 @@ export function ForceChart({ state }: { state: FilmState }) {
         <text x={(PAD.left + W - PAD.right) / 2} y={H - 4} textAnchor="middle" className="at-label">
           Distance between the two atoms’ centres (nanometres)
         </text>
-        <text transform={`translate(13 ${(PAD.top + H - PAD.bottom) / 2}) rotate(-90)`} textAnchor="middle" className="at-label">
+        <text
+          transform={`translate(13 ${(PAD.top + H - PAD.bottom) / 2}) rotate(-90)`}
+          textAnchor="middle"
+          className="at-label"
+        >
           Force (piconewtons)
         </text>
         <text x={x(REST_GAP) + 8} y={PAD.top + 26} className="at-note">
@@ -68,7 +72,9 @@ export function ForceChart({ state }: { state: FilmState }) {
             .
           </>
         ) : (
-          <>Now: {formatLength(state.gap)} apart. The atoms are far too distant to feel each other: no force yet.</>
+          <>
+            Now: {formatLength(state.shownGap)} apart. The atoms are far too distant to feel each other: no force yet.
+          </>
         )}
       </figcaption>
     </figure>

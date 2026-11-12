@@ -32,6 +32,10 @@ URGENT = ("The model flagged something it thinks should be looked at quickly. It
           "weakness, confusion, chest pain, trouble breathing, a severe headache), call 999.")
 NOT_MEDICAL = "This does not look like a medical image, so there is nothing to explain. Upload a scan or a photograph taken for a doctor."
 
+# Where on the picture something is: left, top, width and height as fractions of the picture (0 to 1). Code checks the
+# numbers and the page draws the box; a box marks where to look, it does not trace a border.
+BOX: dict[str, Any] = {"type": "array", "items": {"type": "number"}}
+
 SCHEMA: dict[str, Any] = {
     "type": "object", "additionalProperties": False,
     "required": ["is_medical_image", "modality", "body_region", "view", "quality", "quality_limits", "observations",
@@ -44,8 +48,8 @@ SCHEMA: dict[str, Any] = {
         "quality": {"type": "string", "enum": ["good", "limited", "poor"]},
         "quality_limits": {"type": "string"},
         "observations": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False, "required": ["what", "where", "confidence", "plain"],
-            "properties": {"what": {"type": "string"}, "where": {"type": "string"},
+            "type": "object", "additionalProperties": False, "required": ["what", "where", "confidence", "plain", "box"],
+            "properties": {"what": {"type": "string"}, "where": {"type": "string"}, "box": BOX,
                            "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
                            "plain": {"type": "string"}}}},
         "looks_normal": {"type": "array", "items": {"type": "string"}},
@@ -74,6 +78,9 @@ Fill in the form as JSON.
 - observations: what you can actually see that may matter, most important first. "what" in a radiologist's words,
   "where" as exactly as you can, "plain" in words a patient understands. "confidence" is how sure you are that the
   feature is really there and not an artefact or normal variation; use "high" rarely.
+- observations[].box: where the feature is on the picture, as [left, top, width, height], each a fraction of the
+  picture's width or height from 0 to 1 (a feature in the middle third is about [0.33, 0.33, 0.33, 0.33]). Draw it a
+  little larger than the feature. Use [] when the feature has no single place (such as "the whole image is blurred").
 - looks_normal: structures that look as expected. Never write "normal scan": you have not seen the whole study.
 - cannot_tell: what this picture cannot show, and what a radiologist would need to judge it.
 - possibilities: what the observations could be consistent with, most likely first, each with why and what else would
@@ -91,10 +98,36 @@ Rules for every field: describe, do not diagnose. Write "may", "could be consist
 a medicine or a dose. If the patient's note asks whether they have a condition, say what the picture shows and that
 the doctor decides. Do not read out or repeat any name, date of birth or hospital number visible on the image."""
 
+ASK_SCHEMA: dict[str, Any] = {
+    "type": "object", "additionalProperties": False, "required": ["answer", "marks"],
+    "properties": {
+        "answer": {"type": "string"},
+        "marks": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["label", "box"],
+            "properties": {"label": {"type": "string"}, "box": BOX}}},
+    },
+}
+
 ASK_SYSTEM = """You are answering a patient's follow-up question about a medical image and the explanation they were
 given (inside <reading>). Answer in plain words, in a short paragraph. Describe and explain; do not diagnose, and do
 not suggest treatment, medicines or doses. Use "may" and "could". If the answer needs the full scan, an examination or
-the patient's history, say so and suggest they ask their doctor. You are not a doctor."""
+the patient's history, say so and suggest they ask their doctor. You are not a doctor.
+
+Answer as JSON: "answer" is the reply. "marks" are the places on the picture the reply talks about, so the page can
+draw a box round each: a short label and a box [left, top, width, height] as fractions of the picture from 0 to 1,
+drawn a little larger than the feature. When asked to show, point out, circle or highlight something, always mark it;
+the page does the drawing, so never say you cannot draw. Leave marks empty when nothing in the reply has a place."""
+
+
+def clean_box(box: Any) -> list[float]:
+    """A box the page can draw, clipped to the picture, or [] when the numbers make no sense."""
+    if not isinstance(box, list) or len(box) != 4 or not all(isinstance(v, (int, float)) for v in box):
+        return []
+    x, y, w, h = (float(v) for v in box)
+    if w <= 0 or h <= 0 or x >= 1 or y >= 1 or x + w <= 0 or y + h <= 0:
+        return []
+    x0, y0, x1, y1 = max(0.0, x), max(0.0, y), min(1.0, x + w), min(1.0, y + h)
+    return [round(x0, 4), round(y0, 4), round(x1 - x0, 4), round(y1 - y0, 4)]
 
 # Wording that states a conclusion. The model is told not to use it; code checks that it did not.
 CONDITIONS = (r"cancer|tumou?r|stroke|alzheimer'?s(?: disease)?|dementia|fracture|pneumonia|multiple sclerosis|"
@@ -188,6 +221,8 @@ class ScanService:
         else:
             raise ApiError(502, "unsafe_wording", "The model's explanation kept stating conclusions, so it is not "
                                                   "shown. Try again, or choose another model.")
+        for o in reading.get("observations", []):
+            o["box"] = clean_box(o.get("box"))
         medical = bool(reading.get("is_medical_image"))
         return {"reading": reading, "tries": tries, "cost_usd": round(cost, 6), "model": model, "notice": NOTICE,
                 "message": None if medical else NOT_MEDICAL,
@@ -199,8 +234,17 @@ class ScanService:
         context = json.dumps(reading, ensure_ascii=False)[:8000]
         content: list[dict] = [self._image(image_b64)] if image_b64 else []
         content.append({"type": "text", "text": question})
-        text, cost = self._call(model, f"{ASK_SYSTEM}\n\n<reading>{context}</reading>", content, None, 1200)
+        raw, cost = self._call(model, f"{ASK_SYSTEM}\n\n<reading>{context}</reading>", content, ASK_SCHEMA, 1500)
+        try:
+            reply = json.loads(raw)
+            text = str(reply.get("answer", ""))
+            marks = [{"label": str(m.get("label", ""))[:80], "box": clean_box(m.get("box"))}
+                     for m in reply.get("marks", []) if isinstance(m, dict)]
+        except (json.JSONDecodeError, AttributeError):
+            text, marks = raw, []
+        marks = [m for m in marks if m["box"]][:6]
         if DEFINITE.search(text):
             text = ("The model's answer stated a conclusion or gave treatment advice, so it is not shown. That "
                     "question is one for your doctor.")
-        return {"answer": text, "cost_usd": round(cost, 6), "model": model}
+            marks = []
+        return {"answer": text, "marks": marks, "cost_usd": round(cost, 6), "model": model}

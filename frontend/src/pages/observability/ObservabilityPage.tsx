@@ -11,13 +11,22 @@ import './observability.css';
 
 const REFRESH_MS = 4000;
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
-const usd = (v: number) => (v === 0 ? '$0' : v < 0.01 ? `$${v.toFixed(5)}` : v < 1 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`);
+const usd = (v: number) =>
+  v === 0 ? '$0' : v < 0.01 ? `$${v.toFixed(5)}` : v < 1 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`;
 const count = (v: number) => v.toLocaleString('en-GB');
 const ms = (v: number | null) => (v === null ? '–' : v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
 const clock = (t: number) => new Date(t * 1000).toLocaleTimeString('en-GB');
 
 /** A row of totals for one area or model, with a bar for its share of the spend. */
-function GroupTable({ rows, name, label }: { rows: (CallTotals & Record<string, unknown>)[]; name: string; label: string }) {
+function GroupTable<K extends 'area' | 'model'>({
+  rows,
+  name,
+  label,
+}: {
+  rows: (CallTotals & Record<K, string>)[];
+  name: K;
+  label: string;
+}) {
   const most = Math.max(...rows.map((r) => r.cost_usd), 0);
   return (
     <div className="table-wrap">
@@ -161,8 +170,8 @@ export default function ObservabilityPage() {
       <div className="kicker">Cost and operations · Monitoring</div>
       <h1>Monitoring and traces</h1>
       <p className="lede">
-        Every model call this lab makes is recorded here: when, which model answered, how many tokens, what it cost,
-        how long it took and which page asked. Open another lab page, send something, and watch it arrive. This is the
+        Every model call this lab makes is recorded here: when, which model answered, how many tokens, what it cost, how
+        long it took and which page asked. Open another lab page, send something, and watch it arrive. This is the
         “monitor” half of evaluate and monitor: evals tell you whether the answers are right, monitoring tells you what
         the system is doing.
       </p>
@@ -322,7 +331,10 @@ export default function ObservabilityPage() {
       <div className="ob-three">
         <div className="card">
           <h3>Logs</h3>
-          <p>One record per event, with its details. Here: one line per model call. You read logs to answer “what happened at 14:02?”</p>
+          <p>
+            One record per event, with its details. Here: one line per model call. You read logs to answer “what
+            happened at 14:02?”
+          </p>
         </div>
         <div className="card">
           <h3>Metrics</h3>

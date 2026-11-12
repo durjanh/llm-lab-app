@@ -20,3 +20,16 @@ router.include_router(medassist.phone_events)  # the practice line: incoming cal
 from . import observability  # noqa: E402  (monitoring: the model calls made, summed up and as traces)
 
 router.include_router(observability.router)
+
+from . import code_graph  # noqa: E402  (the code knowledge graph)
+
+router.include_router(code_graph.router)
+
+from . import video_translate  # noqa: E402  (video translation: subtitles and speech in another language)
+
+router.include_router(video_translate.router)
+router.include_router(video_translate.media)  # the uploaded video and its spoken translation, for <video> and <audio>
+
+from . import tabular  # noqa: E402  (tabular foundation models: TabPFN against gradient boosting)
+
+router.include_router(tabular.router)

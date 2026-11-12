@@ -18,6 +18,7 @@ from backend.tests.test_whiteboard import png
 READING = {"is_medical_image": True, "modality": "MRI, T2-weighted", "body_region": "brain", "view": "axial",
            "quality": "limited", "quality_limits": "One slice only.",
            "observations": [{"what": "Widened sulci", "where": "both temporal lobes", "confidence": "low",
+                             "box": [0.1, 0.3, 0.95, 0.4],
                              "plain": "The folds at the sides may look wider than expected."}],
            "looks_normal": ["The ventricles appear symmetrical."], "cannot_tell": ["Change over time."],
            "possibilities": [{"name": "Age-related volume loss", "why": "Could be consistent with wider sulci.",
@@ -57,12 +58,14 @@ def test_a_read_through_the_api_gets_one_retry_and_code_writes_the_urgent_messag
     urgent = {**READING, "urgency": "urgent"}
     fake = ScriptedClient([[text(json.dumps(bad))], [text(json.dumps(urgent))], [text(json.dumps(bad))],
                            [text(json.dumps(bad))], [text(json.dumps({"is_medical_image": False}))],
-                           [text("It may be normal for your age.")], [text("You should take 10 mg.")]])
+                           [text(json.dumps({"answer": "It may be normal for your age.", "marks": [{"label": "here", "box": [0.2, 0.2, 0.3, 0.3]}, {"label": "bad", "box": [2, 2, 1, 1]}]}))],
+                           [text(json.dumps({"answer": "You should take 10 mg.", "marks": []}))]])
     settings = Settings(port=8000, budget_usd=2.0, generated_dir=tmp_path, frontend_dist=tmp_path / "dist",
                         models_dir=tmp_path / "no-models")
     client = TestClient(create_app(settings, client=fake), base_url="http://localhost:8000")
     r = client.post("/api/scans/read", headers=LAB, json={**HAIKU, "image": png(), "note": "Do I have dementia?"}).json()
     assert [t["attempt"] for t in r["tries"]] == [1, 2] and "you have dementia" in r["tries"][0]["problems"][0].lower()
+    assert r["reading"]["observations"][0]["box"] == [0.1, 0.3, 0.9, 0.4]  # clipped to the picture
     assert r["urgent_message"] == scans.URGENT and r["notice"] == scans.NOTICE and r["model"] == "claude-haiku-5-5"
     assert client.get("/api/scans/info", headers=LAB).json()["model"] == scans.READ_MODEL == "claude-opus-5-5"
     sent = fake.calls[0][1]
@@ -73,7 +76,9 @@ def test_a_read_through_the_api_gets_one_retry_and_code_writes_the_urgent_messag
     holiday = client.post("/api/scans/read", headers=LAB, json={**HAIKU, "image": png()}).json()
     assert holiday["message"] == scans.NOT_MEDICAL and holiday["urgent_message"] is None
     ask = {**HAIKU, "question": "Is that normal?", "reading": READING}
-    assert client.post("/api/scans/ask", headers=LAB, json=ask).json()["answer"] == "It may be normal for your age."
+    first = client.post("/api/scans/ask", headers=LAB, json=ask).json()
+    assert first["answer"] == "It may be normal for your age."
+    assert first["marks"] == [{"label": "here", "box": [0.2, 0.2, 0.3, 0.3]}]  # the impossible box is dropped
     assert "not shown" in client.post("/api/scans/ask", headers=LAB, json=ask).json()["answer"]
     not_a_picture = base64.b64encode(b"\x00" * 128 + b"DICM" + b"\x00" * 200).decode()
     assert client.post("/api/scans/read", headers=LAB, json={"image": not_a_picture}).status_code == 400

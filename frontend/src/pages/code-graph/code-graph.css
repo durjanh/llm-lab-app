@@ -1,0 +1,224 @@
+/* The code knowledge graph: the source bar, then filters, the graph and the selected node side by side, then the chat. */
+
+.lab main.page-code-graph {
+  max-width: 1560px; /* three columns need more than the usual page width */
+}
+.page-code-graph > .lede,
+.page-code-graph > .table-wrap {
+  max-width: 1120px;
+}
+.page-code-graph .cg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+.page-code-graph .cg-row h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.page-code-graph .cg-github {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 320px;
+}
+.page-code-graph .cg-github input {
+  flex: 1;
+  min-width: 0;
+}
+.page-code-graph .btn.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.page-code-graph .cg-stats {
+  margin: 10px 0 0;
+}
+.page-code-graph .cg-busy {
+  color: var(--brand);
+  margin: 8px 0 0;
+}
+.page-code-graph .cg-bad {
+  color: #b91c1c;
+}
+
+.page-code-graph .cg-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 360px;
+  gap: 14px;
+  align-items: start;
+  margin-top: 14px;
+}
+.page-code-graph .cg-layout .card + .card {
+  margin-top: 0;
+}
+@media (max-width: 1180px) {
+  .page-code-graph .cg-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.page-code-graph .cg-filters {
+  padding: 12px;
+}
+.page-code-graph .cg-filters h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+.page-code-graph .cg-filters h3:first-child {
+  margin-top: 0;
+}
+.page-code-graph .cg-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  margin: 3px 0;
+}
+.page-code-graph .cg-check .muted {
+  margin-left: auto;
+  font-size: 11px;
+}
+.page-code-graph i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.page-code-graph i.line {
+  height: 3px;
+  border-radius: 2px;
+  width: 14px;
+}
+.page-code-graph .cg-depths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.page-code-graph .cg-search {
+  width: 100%;
+}
+.page-code-graph .cg-matches {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 10px;
+}
+.page-code-graph .cg-filters > .btn {
+  margin: 4px 4px 0 0;
+}
+
+.page-code-graph .cg-graph {
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+.page-code-graph .cg-canvas {
+  display: block;
+  width: 100%;
+  height: 640px;
+  background: radial-gradient(circle at 50% 40%, #131b33, #0b1020 70%);
+  touch-action: none;
+  cursor: grab;
+}
+.page-code-graph .cg-empty {
+  height: 640px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b1020;
+}
+.page-code-graph .cg-hint {
+  position: absolute;
+  bottom: 6px;
+  left: 12px;
+  margin: 0;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.page-code-graph .cg-panel {
+  max-height: 640px;
+  overflow-y: auto;
+  padding: 14px;
+}
+.page-code-graph .cg-kind {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.page-code-graph .cg-name {
+  margin: 2px 0;
+  font-size: 16px;
+  word-break: break-word;
+}
+.page-code-graph .cg-code {
+  max-height: 260px;
+  overflow: auto;
+  font-size: 11.5px;
+  line-height: 1.45;
+  background: #0b1020;
+  color: #e2e8f0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  white-space: pre;
+}
+.page-code-graph .cg-refs h4 {
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+.page-code-graph .cg-refs ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.page-code-graph .cg-refs li {
+  margin: 2px 0;
+  font-size: 13px;
+  word-break: break-word;
+}
+.page-code-graph .cg-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  padding: 1px 0;
+  color: var(--brand);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+.page-code-graph .cg-link:hover {
+  text-decoration: underline;
+}
+
+.page-code-graph .cg-chat {
+  margin-top: 14px;
+}
+.page-code-graph .cg-turn {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface2);
+}
+.page-code-graph .cg-steps {
+  margin: 4px 0 6px;
+  padding-left: 20px;
+}
+.page-code-graph .cg-steps code {
+  font-size: 12px;
+}
+.page-code-graph .cg-answer > :first-child {
+  margin-top: 4px;
+}
+.page-code-graph .cg-samples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}

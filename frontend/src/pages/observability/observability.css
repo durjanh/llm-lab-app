@@ -1,0 +1,152 @@
+/* Monitoring and traces: tiles, tables and a timeline per request. */
+
+.page-observability .ob-notice {
+  border-left: 3px solid var(--brand);
+  padding: 6px 12px;
+  background: var(--surface2);
+  border-radius: 0 8px 8px 0;
+  max-width: 900px;
+}
+.page-observability .ob-bad,
+.page-observability .ob-flag.bad {
+  color: #b91c1c;
+}
+.page-observability .ob-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  margin: 14px 0 4px;
+}
+.page-observability .ob-toggle {
+  display: flex;
+  gap: 6px;
+}
+.page-observability .ob-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+.page-observability .ob-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.page-observability .ob-tile span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.page-observability .ob-tile b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.page-observability .ob-tile small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.page-observability .ob-empty {
+  padding: 18px;
+  border: 1px dashed var(--line2);
+  border-radius: 12px;
+  margin-top: 14px;
+}
+.page-observability .ob-table td {
+  font-variant-numeric: tabular-nums;
+}
+.page-observability .ob-share {
+  position: relative;
+  min-width: 110px;
+}
+.page-observability .ob-share i {
+  display: block;
+  height: 4px;
+  margin-top: 3px;
+  border-radius: 0 4px 4px 0;
+  background: var(--brand);
+}
+.page-observability .ob-traces {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page-observability .ob-trace {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.page-observability .ob-trace-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.page-observability .ob-trace-what {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.page-observability .ob-trace-meta {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.page-observability .ob-track {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface2);
+}
+.page-observability .ob-track i {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 4px;
+  background: var(--brand);
+  box-shadow: 0 0 0 1px var(--surface);
+}
+.page-observability .ob-track i.bad {
+  background: #dc2626;
+}
+.page-observability .ob-track i.tick {
+  width: 3px;
+  background: var(--muted);
+}
+.page-observability .ob-spans {
+  margin: 0 12px 10px;
+  width: calc(100% - 24px);
+}
+.page-observability .ob-three {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.page-observability .ob-three .card + .card {
+  margin-top: 0;
+}
+.page-observability .ob-three h3 {
+  margin-top: 0;
+}
+@media (max-width: 640px) {
+  .page-observability .ob-trace-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page-observability .ob-trace-meta {
+    white-space: normal;
+  }
+}

@@ -8,7 +8,8 @@ export interface ScanReading {
   view: string;
   quality: 'good' | 'limited' | 'poor';
   quality_limits: string;
-  observations: { what: string; where: string; confidence: 'low' | 'medium' | 'high'; plain: string }[];
+  /** box: [left, top, width, height] as fractions of the picture; empty when the feature has no single place. */
+  observations: { what: string; where: string; confidence: 'low' | 'medium' | 'high'; plain: string; box: number[] }[];
   looks_normal: string[];
   cannot_tell: string[];
   possibilities: { name: string; why: string; also_consider: string }[];
@@ -18,6 +19,12 @@ export interface ScanReading {
   summary: string;
   /** The reply to a question asked in the note; empty when the note asked nothing. */
   answer: string;
+}
+
+/** A place on the picture an answer talks about. */
+export interface ScanMark {
+  label: string;
+  box: number[];
 }
 
 export interface ScanResult {
@@ -52,7 +59,7 @@ export class ScanService {
   }
 
   ask(question: string, reading: ScanReading, image: string | null, model?: string) {
-    return this.client.post<{ answer: string; cost_usd: number }>('/api/scans/ask', {
+    return this.client.post<{ answer: string; marks: ScanMark[]; cost_usd: number }>('/api/scans/ask', {
       question,
       reading,
       image,

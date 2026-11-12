@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterator
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import DEFAULT_MODEL, text_of
+from ..shared import CLAUDE_MODEL, text_of
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
@@ -290,7 +290,7 @@ class DealsService:
     # ----- what the page shows -----
 
     def info(self) -> dict[str, Any]:
-        return {"steps": STEPS, "rules": RULES, "daily_cap": DAILY_CAP, "model": DEFAULT_MODEL, "company": COMPANY,
+        return {"steps": STEPS, "rules": RULES, "daily_cap": DAILY_CAP, "model": CLAUDE_MODEL, "company": COMPANY,
                 "product": PRODUCT, "thresholds": {"A": PRIORITY_A, "B": PRIORITY_B}}
 
     def sent_today(self) -> int:
@@ -351,7 +351,7 @@ class DealsService:
 
     def close(self, deal_id: str, model: str | None) -> Iterator[str]:
         """Marks the deal closed-won and streams the chain of steps as NDJSON, ending with drafts awaiting approval."""
-        model = model or DEFAULT_MODEL
+        model = model or CLAUDE_MODEL
         deals = self._rows("SELECT * FROM deals WHERE id = ?", (deal_id,))
         if not deals:
             raise ApiError(404, "not_found", "There is no deal with that id.")
