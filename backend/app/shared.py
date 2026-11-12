@@ -55,7 +55,9 @@ medassist_sms = _load_example("medassist_sms", ROOT / "examples" / "medassist" /
 aftercare_ward = _load_example("aftercare_ward", ROOT / "examples" / "aftercare" / "ward.py")
 # The hotel booking agent's hotel, rules and tools, shared with examples/hotel (its command line). Standard library only.
 hotel_rules = _load_example("hotel_rules", ROOT / "examples" / "hotel" / "hotel.py")
+# The diet planner's targets, checks, tools and files, shared with examples/diet (its command line).
+diet_rules = _load_example("diet_rules", ROOT / "examples" / "diet" / "diet.py")
 
 __all__ = ["ROOT", "CLAUDE_MODEL", "DEFAULT_MODEL", "GPT_MODELS", "LOCAL_MODEL", "ModelUnavailable", "NeedsClaude", "NoVision", "is_local",
            "local_status", "translator", "IMAGE_INPUT_PRICE_PER_M", "LANGUAGE_PRICE_PER_1K_RECORDS", "PRICES", "TOOL_PRICES", "HANDBOOK", "EnvSettings", "Refused", "cost_usd", "create", "describe_usage",
-           "make_client", "stream", "text_of", "harness_script", "skills_script", "sandbox_skills", "coding_script", "medassist_clinic", "medassist_sms", "aftercare_ward", "hotel_rules", "gpt_pieces", "count_gpt_tokens"]
+           "make_client", "stream", "text_of", "harness_script", "skills_script", "sandbox_skills", "coding_script", "medassist_clinic", "medassist_sms", "aftercare_ward", "hotel_rules", "diet_rules", "gpt_pieces", "count_gpt_tokens"]

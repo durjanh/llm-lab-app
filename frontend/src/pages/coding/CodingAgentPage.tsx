@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { VoiceComposer } from '@/components/voice/VoiceComposer';
 import {
   codingService as svc,
   type CodingEvent,
@@ -349,12 +350,6 @@ export default function CodingAgentPage() {
     }
   }
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    void send(draft);
-    setDraft('');
-  }
-
   /** The session for Your files is made before the first request, so files can go into it. */
   async function sessionForFiles(): Promise<string> {
     if (session.current) return session.current;
@@ -678,27 +673,21 @@ export default function CodingAgentPage() {
             })}
             {busy && <div className="small muted">Working…</div>}
           </div>
-          <form className="cg-input" onSubmit={onSubmit}>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={session.current && !sdk ? 'A follow-up, in the same session…' : 'Ask for a change…'}
-              rows={2}
-              aria-label="Request"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) onSubmit(e);
-              }}
-            />
-            {busy ? (
-              <button type="button" className="btn" onClick={() => abort.current?.abort()}>
-                Stop
-              </button>
-            ) : (
-              <button className="btn primary" disabled={!draft.trim()}>
-                Send
-              </button>
-            )}
-          </form>
+          <VoiceComposer
+            value={draft}
+            onChange={setDraft}
+            onSend={(t) => {
+              void send(t);
+              setDraft('');
+            }}
+            onError={setError}
+            busy={busy}
+            onStop={() => abort.current?.abort()}
+            label="Request"
+            placeholder={
+              session.current && !sdk ? 'A follow-up, in the same session…' : 'Ask for a change, or speak it…'
+            }
+          />
         </section>
 
         <aside className="cg-side">

@@ -9,6 +9,7 @@ from ..container import Container
 from ..core.errors import ApiError
 from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
+from ..services.diet import DietService
 from ..services.hotel import HotelService
 from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
@@ -100,6 +101,10 @@ def aftercare(c: Container = Depends(container)) -> AftercareService:
 
 def hotel(c: Container = Depends(container)) -> HotelService:
     return c.hotel
+
+
+def diet(c: Container = Depends(container)) -> DietService:
+    return c.diet
 
 
 def token_counter(c: Container = Depends(container)) -> TokenCounterService:

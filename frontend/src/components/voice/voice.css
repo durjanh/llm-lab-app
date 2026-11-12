@@ -1,0 +1,113 @@
+/* VoiceComposer: a chat page's message box, one rounded bar with a microphone and a send button, like Claude's and
+   ChatGPT's; while listening, a live waveform with cancel, done and send. Prefixed vc- so no page's styles collide. */
+.vc-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px; /* an inset, so the bar never touches the edge of the chat panel around it */
+  padding: 6px 6px 6px 18px;
+  min-height: 56px;
+  border: 1px solid var(--line2);
+  border-radius: 28px;
+  background: var(--surface);
+}
+.vc-bar textarea {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.4;
+  padding: 8px 0;
+  max-height: 140px;
+}
+.vc-bar svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.vc-icon,
+.vc-round {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--ink);
+}
+.vc-icon {
+  border: none;
+  background: transparent;
+}
+.vc-icon:hover:not(:disabled) {
+  background: var(--soft);
+}
+.vc-round {
+  border: 1px solid var(--line2);
+  background: var(--soft);
+}
+.vc-round.send {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+}
+.vc-icon:disabled,
+.vc-round:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* Listening: what has been heard on the left, the live wave, then cancel, done and send. */
+.vc-bar.listening {
+  padding-left: 20px;
+}
+.vc-heard {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink2);
+}
+.vc-heard i {
+  color: var(--muted);
+}
+.vc-wave {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+  margin: 0 8px;
+}
+.vc-wave i {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--ink2);
+  transition: height 0.07s linear;
+}
+.vc-wave i.dot {
+  height: 3px !important;
+  opacity: 0.5;
+}
+@media (max-width: 640px) {
+  .vc-wave i:nth-child(-n + 24) {
+    display: none;
+  }
+}
+.vc-bar svg .fill {
+  fill: currentColor;
+  stroke: none;
+}
+.vc-bar textarea:disabled {
+  cursor: not-allowed;
+}
