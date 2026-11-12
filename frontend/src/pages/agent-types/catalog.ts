@@ -81,7 +81,7 @@ export const AGENT_TYPES: AgentType[] = [
     bestFor: 'Personal assistants and ongoing work, where repeating yourself every session is the problem.',
     notFor: 'One-off or stateless tasks. Remembering is a privacy risk, and the notes can fill with junk.',
     shows:
-      "Claude's memory tool, with the files kept on this machine. Three separate conversations: preferences are saved, recalled in a fresh conversation, then corrected in place rather than duplicated. The user also pastes a card number and a colleague's health detail; the model usually leaves them out, and with --careless, which tells it to store everything, the storage code refuses them. The run ends by counting what was stored.",
+      "A memory tool with the files kept on this machine, on Claude (its own memory tool), GPT or the local model (the same commands as a JSON-schema tool). Three separate conversations: preferences are saved, recalled in a fresh conversation, then corrected in place rather than duplicated. The user also pastes a card number and a colleague's health detail; the model usually leaves them out, and with --careless, which tells it to store everything, the storage code refuses them. The run ends by counting what was stored and flagging any fact stored twice.",
     examples: [
       { label: 'python/22_memory_agent.py', run: 'python python/22_memory_agent.py --all', isNew: true },
       { label: 'Context engineering', href: '/context-engineering' },

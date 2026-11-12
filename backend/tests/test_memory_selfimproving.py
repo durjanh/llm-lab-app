@@ -127,3 +127,37 @@ def test_gate_caps_the_lesson_list():
     current = [f"rule {i}" for i in range(S.MAX_LESSONS)]
     kept, rejected, _ = S.gate(current, ["one more"], lambda ls: 1.0, baseline=0.5)
     assert kept == [] and "full" in rejected[0][2]
+
+
+def test_claude_gets_its_own_memory_tool_and_other_models_a_json_schema_one():
+    assert M.memory_tool("claude-haiku-5-5") is M.MEMORY_TOOL
+    assert M.memory_tool("gpt-5.4-mini") is M.MEMORY_FUNCTION
+    assert M.memory_tool("ai/qwen3.5:9b-q4_K_XL") is M.MEMORY_FUNCTION
+
+
+def test_the_json_schema_tool_offers_every_command_the_store_carries_out():
+    commands = set(M.MEMORY_FUNCTION["input_schema"]["properties"]["command"]["enum"])
+    assert commands == {name[4:] for name in dir(M.MemoryStore) if name.startswith("cmd_")}
+
+
+def test_gpt_and_the_local_model_take_the_json_schema_tool_but_refuse_claudes():
+    import gpt_model
+    import local_model
+
+    ask = {"model": "gpt-5.4-mini", "max_tokens": 100, "messages": [{"role": "user", "content": "hi"}]}
+    body = gpt_model.to_request({**ask, "tools": [M.MEMORY_FUNCTION]})
+    assert body["tools"][0]["function"]["name"] == "memory"
+    local_model._check({**ask, "tools": [M.MEMORY_FUNCTION]})  # an ordinary tool: no refusal
+    with pytest.raises(local_model.NeedsClaude):
+        local_model._check({**ask, "tools": [M.MEMORY_TOOL]})
+
+
+def test_a_command_from_the_json_schema_tool_runs_like_claudes(store):
+    store.execute({"command": "create", "path": "/memories/prefs.md", "file_text": "Diet: vegetarian\n"})
+    store.execute({"command": "str_replace", "path": "/memories/prefs.md", "old_str": "vegetarian", "new_str": "eats fish"})
+    assert "eats fish" in store.execute({"command": "view", "path": "/memories/prefs.md"})
+
+
+def test_a_fact_stored_twice_is_reported(store):
+    store.execute({"command": "create", "path": "/memories/prefs.md", "file_text": "- Eats fish.\n- Commutes.\n- Commutes.\n"})
+    assert M.duplicate_lines(store.files()) == [("prefs.md", "- Commutes.", 2)]
