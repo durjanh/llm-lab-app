@@ -109,3 +109,24 @@
   border-radius: 10px;
   background: var(--surface2);
 }
+
+/* The question box stays at the bottom of the window while the explanation and answers scroll behind it. */
+.page-scans .sc-ask {
+  position: sticky;
+  bottom: 0;
+  margin: 10px -18px -18px;
+  padding: 6px 8px 8px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 12px 12px;
+}
+.page-scans .sc-qa {
+  scroll-margin-top: 64px; /* clear of the site bar when an answer is scrolled to */
+}
+/* On a wide screen the scan stays in view beside the explanation. */
+@media (min-width: 981px) {
+  .page-scans .sc-layout > section:first-child {
+    position: sticky;
+    top: 60px;
+  }
+}

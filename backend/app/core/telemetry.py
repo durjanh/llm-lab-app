@@ -36,6 +36,8 @@ def route_shape(path: str) -> tuple[str, str]:
     if not parts or parts[0] != "api" or len(parts) < 2:
         return "background", ""
     shaped = [("{id}" if _ID.match(p) else p) for p in parts[1:]]
+    if shaped[0] in ("stream", "count_tokens"):  # the Live Claude Lab's routes sit beside /messages, not under it
+        return "messages", "/" + "/".join(shaped)
     if len(shaped) >= 3 and shaped[1] in ("memory", "history"):  # /diet/memory/<name>: the name is a person's
         shaped[2] = "{id}"
     return shaped[0], "/" + "/".join(shaped)

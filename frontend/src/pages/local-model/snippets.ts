@@ -130,3 +130,13 @@ docker model ps                    # loaded now: only the one requests have used
 # then restart the backend`,
   'shell',
 );
+
+export const embed = highlight(
+  `./tools/local-model.sh --embed     # pulls ai/nomic-embed-text-v1.5 (about 270 MB): "Numbers per text: 768"
+echo 'LLM_LAB_LOCAL_EMBED_MODEL=ai/nomic-embed-text-v1.5' >> .env   # then restart the backend
+
+# the same server, the OpenAI embeddings shape
+curl -s http://localhost:12434/engines/v1/embeddings -H 'content-type: application/json' \\
+  -d '{"model": "ai/nomic-embed-text-v1.5", "input": ["search_query: how many days of leave?"]}'`,
+  'shell',
+);
