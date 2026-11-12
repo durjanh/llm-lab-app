@@ -171,17 +171,6 @@
 .page-hotel .ho-typing {
   align-self: flex-start;
 }
-.page-hotel .ho-input {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  padding: 10px 14px;
-  border-top: 1px solid var(--line);
-}
-.page-hotel .ho-input textarea {
-  flex: 1;
-  min-width: 0;
-}
 .page-hotel .ho-samples {
   display: flex;
   flex-wrap: wrap;

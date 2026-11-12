@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
+import { VoiceComposer } from '@/components/voice/VoiceComposer';
 import {
   medassistService,
   type MedAssistInfo,
@@ -166,11 +167,6 @@ export default function MedAssistPage() {
     }
   };
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    void send(draft);
-  };
-
   const switchPatient = (pid: string) => {
     setPatientId(pid);
     void begin(pid);
@@ -300,19 +296,16 @@ export default function MedAssistPage() {
             )}
           </div>
 
-          <form className="ma-input" onSubmit={onSubmit}>
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={chatId ? 'Ask MedAssist a question…' : 'MedAssist is offline'}
-              disabled={!chatId || busy}
-              maxLength={2000}
-              aria-label="Your message"
-            />
-            <button type="submit" disabled={!chatId || busy || !draft.trim()}>
-              Send
-            </button>
-          </form>
+          <VoiceComposer
+            value={draft}
+            onChange={setDraft}
+            onSend={(t) => void send(t)}
+            onError={setError}
+            busy={busy}
+            disabled={!chatId}
+            maxLength={2000}
+            placeholder={chatId ? 'Ask MedAssist a question, or speak it…' : 'MedAssist is offline'}
+          />
         </section>
 
         <aside className="ma-systems" aria-label="The practice's systems">

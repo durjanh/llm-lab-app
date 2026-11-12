@@ -62,3 +62,16 @@
 .page-tricks .ok{background:var(--s3)}.page-tricks .fix{background:var(--s2)}.page-tricks .bonus{background:var(--s1)}
 .page-tricks .tr-dist td,.page-tricks .tr-dist th{font-size:12.5px}
 @media (prefers-reduced-motion:reduce){.page-tricks *{transition:none!important;animation:none!important}}
+/* Continuous batching */
+.page-tricks .tr-batch{width:100%;height:auto;display:block;margin:4px 0 12px}
+.page-tricks .tr-batch .idle{fill:var(--soft)}
+.page-tricks .tr-batch-row{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+/* PagedAttention */
+.page-tricks .tr-page-row{display:flex;align-items:center;gap:8px;margin:6px 0}
+.page-tricks .tr-page-bar{flex:1;height:12px;background:var(--brand-soft);border-radius:3px;overflow:hidden}
+.page-tricks .tr-page-bar i{display:block;height:100%;background:var(--brand)}
+.page-tricks .tr-blocks{flex:1;display:flex;flex-wrap:wrap;gap:2px;align-items:center}
+.page-tricks .tr-blocks i{width:8px;height:12px;border-radius:2px;background:var(--brand)}
+.page-tricks .tr-blocks i.part{background:var(--brand-soft);outline:1px solid var(--brand)}
+/* Speed-ups table */
+.page-tricks .tr-speed td{font-size:13px;vertical-align:top}

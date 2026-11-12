@@ -59,6 +59,15 @@ class AftercareMessage(BaseModel):
     message: str = Field(min_length=1, max_length=1000)
 
 
+class DietStart(ModelChoice):
+    user: str = Field(default="guest", max_length=60)
+    consent: bool = False  # may the agent remember health details (allergies, conditions, weight, height)
+
+
+class DietMessage(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
 class HotelMessage(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
 

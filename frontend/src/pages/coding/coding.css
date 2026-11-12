@@ -202,23 +202,6 @@
   color: #cbd5e1;
   font-weight: 600;
 }
-.page-coding .cg-input {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-top: 1px solid var(--line);
-}
-.page-coding .cg-input textarea {
-  flex: 1;
-  font: inherit;
-  font-size: 14px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--line2);
-  background: var(--bg);
-  color: var(--ink);
-  resize: vertical;
-}
 .page-coding .cg-side {
   display: flex;
   flex-direction: column;

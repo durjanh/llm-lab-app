@@ -267,6 +267,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./hotel/HotelPage')),
   },
   {
+    id: 'diet',
+    path: '/diet',
+    title: 'Diet Planner Agent',
+    label: 'Diet planner',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./diet/DietPage')),
+  },
+  {
     id: 'dataagent',
     path: '/data-agent',
     title: 'Data Agent with a Semantic Layer',

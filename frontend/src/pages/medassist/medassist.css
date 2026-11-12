@@ -179,38 +179,6 @@
   overflow: auto;
   color: var(--ink2);
 }
-.page-medassist .ma-input {
-  display: flex;
-  gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--line);
-  background: var(--surface2);
-}
-.page-medassist .ma-input input {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  font-size: 15px;
-  padding: 9px 12px;
-  border: 1px solid var(--line2);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--ink);
-}
-.page-medassist .ma-input button {
-  font: inherit;
-  font-weight: 600;
-  padding: 8px 16px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--brand);
-  color: #fff;
-  cursor: pointer;
-}
-.page-medassist .ma-input button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
 
 /* The practice's systems */
 .page-medassist .ma-systems h2 {

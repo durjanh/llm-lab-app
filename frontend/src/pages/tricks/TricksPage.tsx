@@ -1,9 +1,12 @@
+import Batching from './Batching';
 import Flash from './Flash';
 import KvHeads from './KvHeads';
 import Moe from './Moe';
 import Norms from './Norms';
+import Paged from './Paged';
 import Rope from './Rope';
 import SlidingWindow from './SlidingWindow';
+import Speedups from './Speedups';
 import Speculative from './Speculative';
 import './tricks.css';
 
@@ -16,7 +19,7 @@ export default function TricksPage() {
       <p className="lede">
         The 2017 transformer is still the core of every large language model, but almost every part has been improved: how
         position is encoded, how vectors are normalised, how keys and values are stored, how attention fits in memory, how the
-        feed-forward layers grow without slowing down, and how tokens are generated faster. Each trick below is computed live;
+        feed-forward layers grow without slowing down, how tokens are generated faster, and how a server fits more people on one GPU. Each trick below is computed live;
         change the numbers and watch why it works.
       </p>
       <p className="small muted">Follows lecture 2 (and parts of lecture 3) of Stanford's CME 295. Seeded random numbers, so each demo starts the same.</p>
@@ -28,6 +31,9 @@ export default function TricksPage() {
       <Flash />
       <Moe />
       <Speculative />
+      <Batching />
+      <Paged />
+      <Speedups />
 
       <section className="tr-section">
         <h2>Which models use what</h2>
@@ -63,6 +69,7 @@ export default function TricksPage() {
           <li><b>FlashAttention changes speed, not answers.</b> It is exact; the online softmax is the same maths in a better order.</li>
           <li><b>MoE trades memory for compute.</b> You pay memory for every expert but compute only for the few each token uses, and an unbalanced router wastes the rest.</li>
           <li><b>Speculative decoding is free quality-wise.</b> With the right acceptance rule the output distribution is unchanged; the gain depends on how often the draft is right.</li>
+          <li><b>Serving is a scheduling problem too.</b> Continuous batching and paged KV memory change no maths in the model, yet they decide how many people one GPU can serve: they raise throughput, not one request's speed.</li>
           <li><b>Position handling sets the context limit.</b> RoPE's frequencies can be stretched to extend a model's context after training, which is how many long-context versions are made.</li>
         </ul>
       </section>

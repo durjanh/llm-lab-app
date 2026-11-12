@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { VoiceComposer } from '@/components/voice/VoiceComposer';
 import { hotelService, type Board, type HotelInfo, type HotelStep, type PaymentLink } from '@/services/hotelService';
 import { statusService } from '@/services/statusService';
 import { isLocalModel } from '@/lib/models';
@@ -355,29 +356,14 @@ export default function HotelPage() {
               ))}
               {busy && <div className="small muted ho-typing">The agent is working…</div>}
             </div>
-            <form
-              className="ho-input"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void send(input);
-              }}
-            >
-              <textarea
-                rows={2}
-                value={input}
-                placeholder="Write as the guest…"
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void send(input);
-                  }
-                }}
-              />
-              <button className="btn primary" type="submit" disabled={busy || !input.trim()}>
-                Send
-              </button>
-            </form>
+            <VoiceComposer
+              value={input}
+              onChange={setInput}
+              onSend={(t) => void send(t)}
+              onError={setError}
+              busy={busy}
+              placeholder="Write or speak as the guest…"
+            />
             {samples.length > 0 && (
               <div className="ho-samples">
                 <span className="small muted">Samples:</span>

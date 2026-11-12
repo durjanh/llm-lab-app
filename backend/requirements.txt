@@ -14,3 +14,5 @@ azure-data-tables~=12.7  # MedAssist: appointment reminders, kept as rows for th
 azure-communication-callautomation~=1.6  # Aftercare: a real follow-up call to your phone, when configured
 tiktoken>=0.9,<1  # GPT's tokenizer, so the token counter can count GPT requests without sending them
 tokenizers>=0.20,<1  # published tokenizers (Llama, Mistral, Qwen, DeepSeek, Gemma, GPT) for the token counter
+reportlab~=4.4  # the diet planner's downloadable meal plan and shopping list, as PDFs
+openpyxl~=3.1  # the diet planner's plan as an Excel workbook
