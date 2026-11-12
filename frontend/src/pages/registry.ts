@@ -33,6 +33,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./bible/BiblePage')),
   },
   {
+    id: 'lab-architecture',
+    path: '/architecture',
+    title: 'LLM Lab Architecture',
+    label: 'Architecture',
+    group: null,
+    bodyClass: 'lab',
+    Component: lazy(() => import('./lab-architecture/LabArchitecturePage')),
+  },
+  {
     id: 'transformer',
     path: '/transformer',
     title: 'Transformer Explainer',
@@ -123,6 +132,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./agents/AgentsPage')),
   },
   {
+    id: 'building-agents',
+    path: '/building-agents',
+    title: 'Building Agents as Ordinary Software',
+    label: 'Building agents',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./building-agents/BuildingAgentsPage')),
+  },
+  {
     id: 'agent-types',
     path: '/agent-types',
     title: 'Agent Types',
@@ -211,6 +229,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./medassist/MedAssistPage')),
+  },
+  {
+    id: 'medassist-architecture',
+    path: '/medassist/architecture',
+    title: 'MedAssist Solution Architecture',
+    label: 'MedAssist architecture',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./medassist-architecture/MedAssistArchitecturePage')),
   },
   {
     id: 'reviews',
@@ -490,6 +517,15 @@ export const PAGES: PageDef[] = [
     group: 'Cost and operations',
     bodyClass: 'lab',
     Component: lazy(() => import('./context/ContextPage')),
+  },
+  {
+    id: 'local-model',
+    path: '/local-model',
+    title: 'Running a Local Model',
+    label: 'Local model',
+    group: 'Cost and operations',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./local-model/LocalModelPage')),
   },
   {
     id: 'routing',

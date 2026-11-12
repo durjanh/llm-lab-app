@@ -1,0 +1,237 @@
+/* MedAssist solution architecture: swimlanes of components, a detail panel and the use-case matrix. */
+
+.page-medassist-architecture .arch-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+.page-medassist-architecture .arch-filter button {
+  padding: 6px 14px;
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.page-medassist-architecture .arch-filter button.on {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.page-medassist-architecture .arch-path {
+  min-height: 2.8em;
+  margin: 0 0 14px;
+  color: var(--ink2);
+}
+
+.page-medassist-architecture .arch-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .page-medassist-architecture .arch-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.page-medassist-architecture .arch-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.page-medassist-architecture .arch-lane {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface2);
+}
+.page-medassist-architecture .lane-foundry,
+.page-medassist-architecture .lane-azure {
+  border-style: dashed;
+}
+@media (max-width: 640px) {
+  .page-medassist-architecture .arch-lane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-medassist-architecture .arch-lane-head {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 4px 2px;
+}
+.page-medassist-architecture .arch-lane-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.page-medassist-architecture .arch-lane-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.page-medassist-architecture .arch-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.page-medassist-architecture .arch-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.page-medassist-architecture .arch-part:hover {
+  border-color: var(--brand-line);
+}
+.page-medassist-architecture .arch-part.sel {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-soft);
+}
+.page-medassist-architecture .arch-part.core {
+  background: #162141;
+  border-color: #162141;
+  color: #fff;
+}
+.page-medassist-architecture .arch-part.core .arch-icon.line {
+  color: #1ee1d9;
+}
+.page-medassist-architecture .arch-part.dim {
+  opacity: 0.28;
+}
+.page-medassist-architecture .arch-part-name {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.page-medassist-architecture .arch-icon {
+  display: inline-block;
+  flex: none;
+}
+.page-medassist-architecture .arch-icon.line {
+  color: var(--ink2);
+}
+.page-medassist-architecture .arch-icon.line svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.page-medassist-architecture .arch-side {
+  position: sticky;
+  top: 16px;
+}
+.page-medassist-architecture .arch-detail {
+  padding: 16px;
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.page-medassist-architecture .arch-detail.core {
+  border-color: #162141;
+  border-width: 2px;
+}
+.page-medassist-architecture .arch-detail-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.page-medassist-architecture .arch-detail-head h3 {
+  margin: 0;
+}
+.page-medassist-architecture .arch-detail p {
+  margin: 0 0 10px;
+}
+.page-medassist-architecture .arch-detail dl {
+  margin: 0;
+}
+.page-medassist-architecture .arch-detail dt {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.page-medassist-architecture .arch-detail dd {
+  margin: 2px 0 0;
+}
+.page-medassist-architecture .arch-detail ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.page-medassist-architecture .arch-detail code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.page-medassist-architecture .arch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.page-medassist-architecture .arch-chips span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  font-size: 12px;
+}
+
+.page-medassist-architecture .arch-matrix td.c,
+.page-medassist-architecture .arch-matrix th.c {
+  text-align: center;
+  white-space: nowrap;
+}
+.page-medassist-architecture .arch-matrix tbody tr {
+  cursor: pointer;
+}
+.page-medassist-architecture .arch-matrix tr.sel td {
+  background: var(--brand-soft);
+}
+.page-medassist-architecture .arch-matrix tr.arch-group td {
+  background: var(--surface2);
+  font-weight: 700;
+  cursor: default;
+}
+.page-medassist-architecture .arch-row-name {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+}
+.page-medassist-architecture .arch-yes {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.page-medassist-architecture .arch-flows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.page-medassist-architecture .arch-flows h3 {
+  margin-top: 0;
+}
+
+.page-medassist-architecture .arch-caption {
+  margin: 0 0 22px;
+  color: var(--ink2);
+}

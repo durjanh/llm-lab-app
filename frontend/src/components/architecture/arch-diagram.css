@@ -1,0 +1,120 @@
+/* Architecture diagrams (components/architecture): boundaries, clickable boxes and the arrows between them. */
+
+.arch-icon {
+  display: inline-block;
+  flex: none;
+}
+.arch-icon.line {
+  color: var(--ink2);
+}
+.arch-icon.line svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.arch-diagram-wrap {
+  overflow-x: auto;
+  margin: 8px 0 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.arch-diagram-wrap .arch-svg {
+  display: block;
+  width: 100%;
+  min-width: 860px;
+  height: auto;
+  font-family: inherit;
+}
+.arch-diagram-wrap .arch-group {
+  fill: var(--surface2);
+  stroke: var(--line2);
+}
+.arch-diagram-wrap .arch-group.dashed {
+  stroke-dasharray: 6 4;
+}
+.arch-diagram-wrap .arch-group-label {
+  fill: #7e2ab8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.arch-diagram-wrap .arch-node {
+  cursor: pointer;
+  outline: none;
+  transition: opacity 0.15s;
+}
+.arch-diagram-wrap .arch-node rect {
+  fill: var(--surface);
+  stroke: var(--line2);
+  stroke-width: 1;
+}
+.arch-diagram-wrap .arch-node rect.dashed {
+  stroke-dasharray: 5 4;
+}
+.arch-diagram-wrap .arch-node:hover rect {
+  stroke: var(--brand-line);
+}
+.arch-diagram-wrap .arch-node.sel rect,
+.arch-diagram-wrap .arch-node:focus-visible rect {
+  stroke: var(--brand);
+  stroke-width: 2.5;
+}
+.arch-diagram-wrap .arch-node.dim {
+  opacity: 0.25;
+}
+.arch-diagram-wrap .arch-node text {
+  fill: var(--ink);
+  font-size: 13px;
+}
+.arch-diagram-wrap .arch-node tspan.b {
+  font-size: 14px;
+  font-weight: 700;
+}
+.arch-diagram-wrap .arch-node tspan.s {
+  fill: var(--ink2);
+}
+.arch-diagram-wrap .arch-node.core rect {
+  fill: #162141;
+  stroke: #162141;
+}
+.arch-diagram-wrap .arch-node.core text,
+.arch-diagram-wrap .arch-node.core tspan.s {
+  fill: #ffffff;
+}
+.arch-diagram-wrap .arch-node.core tspan.b {
+  fill: #1ee1d9;
+}
+.arch-diagram-wrap .arch-node.core .arch-icon.line {
+  color: #1ee1d9;
+}
+.arch-diagram-wrap .arch-node foreignObject .arch-icon {
+  display: block;
+}
+.arch-diagram-wrap .arch-svg marker path {
+  fill: #2875e9;
+}
+.arch-diagram-wrap .arch-edge {
+  fill: none;
+  stroke: #2875e9;
+  stroke-width: 2;
+  transition:
+    opacity 0.15s,
+    stroke-width 0.15s;
+}
+.arch-diagram-wrap .arch-edge.on {
+  stroke-width: 3.5;
+}
+.arch-diagram-wrap .arch-edge.off,
+.arch-diagram-wrap .arch-edge-label.off {
+  opacity: 0.15;
+}
+.arch-diagram-wrap .arch-edge-label {
+  fill: var(--ink2);
+  font-size: 12px;
+}
+.arch-diagram-wrap .arch-edge-label.on {
+  fill: var(--ink);
+  font-weight: 600;
+}
