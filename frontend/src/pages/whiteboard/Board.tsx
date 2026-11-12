@@ -49,14 +49,21 @@ function draw(ctx: CanvasRenderingContext2D, strokes: Stroke[], w: number, h: nu
   ctx.globalCompositeOperation = 'source-over';
 }
 
-export const Board = forwardRef<BoardHandle>(function Board(_, ref) {
+interface BoardProps {
+  /** Offer shape tidying (on by default). Off where the drawing itself is what is being looked at. */
+  tidy?: boolean;
+  /** The words shown on an empty board. */
+  hint?: string;
+}
+
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ tidy: canTidy = true, hint }, ref) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const strokes = useRef<Stroke[]>([]);
   const current = useRef<Stroke | null>(null);
   const [colour, setColour] = useState(COLOURS[0]);
   const [erase, setErase] = useState(false);
   const [count, setCount] = useState(0); // strokes, so the buttons know when there is something to undo
-  const [tidyOn, setTidyOn] = useState(true);
+  const [tidyOn, setTidyOn] = useState(canTidy);
   const [tidied, setTidied] = useState<string | null>(null); // what the last stroke was taken for
 
   const redraw = () => {
@@ -186,7 +193,9 @@ export const Board = forwardRef<BoardHandle>(function Board(_, ref) {
         </div>
       )}
       {count === 0 && (
-        <p className="wb-hint">Draw here: a graph, an equation such as y = x² − 3, or a shape such as a box</p>
+        <p className="wb-hint">
+          {hint ?? 'Draw here: a graph, an equation such as y = x² − 3, or a shape such as a box'}
+        </p>
       )}
       <div className="wb-tools" role="toolbar" aria-label="Drawing tools">
         {COLOURS.map((c) => (
@@ -204,13 +213,15 @@ export const Board = forwardRef<BoardHandle>(function Board(_, ref) {
         <button className={`btn small${erase ? ' primary' : ''}`} onClick={() => setErase((v) => !v)}>
           Eraser
         </button>
-        <button
-          className={`btn small${tidyOn ? ' primary' : ''}`}
-          onClick={() => setTidyOn((v) => !v)}
-          title="Redraw lines, circles and polygons exactly as you finish them"
-        >
-          {tidyOn ? '✓ Tidy shapes' : 'Tidy shapes'}
-        </button>
+        {canTidy && (
+          <button
+            className={`btn small${tidyOn ? ' primary' : ''}`}
+            onClick={() => setTidyOn((v) => !v)}
+            title="Redraw lines, circles and polygons exactly as you finish them"
+          >
+            {tidyOn ? '✓ Tidy shapes' : 'Tidy shapes'}
+          </button>
+        )}
         <button
           className="btn small"
           disabled={count === 0}

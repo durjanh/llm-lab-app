@@ -1,4 +1,5 @@
 import { Embedder } from '@/lib/embedder';
+import { LocalEmbedder } from '@/lib/localEmbedder';
 import { Reranker } from '@/lib/reranker';
 import { Site } from '@/lib/site';
 
@@ -13,6 +14,7 @@ export function mount(root, life) {
   const QUERIES = ['My puppy will not touch his food.', 'Is now a good time to buy a house?', 'How do astronauts reach the ISS?', 'We had a picnic on the river bank.', 'The bank raised its rates.'];
   const STOP = new Set('a an the to of and or in on at for from with into is are was were be been it its my our your his her their this that these those i we you he she they do does did not no will would can could how what when who why where which now up again all more if me am any by so as there s t don'.split(' '));
   let ready = false;
+  let E = Embedder; // the model that embeds: MiniLM in the browser, or the open model in Docker (see the end of mount)
   let points = TOPICS.flatMap(([topic, color, ss]) => ss.map(text => ({ text, topic, color })));
 
   // ---------- PCA ----------
@@ -40,17 +42,17 @@ export function mount(root, life) {
   async function renderMap() {
     if (!ready) return;
     const q = $('#query').value.trim();
-    const vecs = await Embedder.embed(points.map(p => p.text));
+    const vecs = await E.embed(points.map(p => p.text));
     const pca = pca2(vecs);
     const xy = vecs.map(pca.project);
     let qv = null, qxy = null;
-    if (q) { [qv] = await Embedder.embed([q]); qxy = pca.project(qv); }
+    if (q) { [qv] = await E.embed([q], 'query'); qxy = pca.project(qv); }
     const all = qxy ? xy.concat([qxy]) : xy;
     const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
     const W = 600, H = 420, pad = 34;
     const sx = x => pad + (x - x0) / (x1 - x0 || 1) * (W - 2 * pad), sy = y => H - pad - (y - y0) / (y1 - y0 || 1) * (H - 2 * pad);
-    const sims = qv ? vecs.map(v => Embedder.cosine(qv, v)) : [];
+    const sims = qv ? vecs.map(v => E.cosine(qv, v)) : [];
     const order = sims.map((s, i) => i).sort((a, b) => sims[b] - sims[a]);
     let s = '';
     if (qv) order.slice(0, 3).forEach(i => (s += `<line x1="${sx(qxy[0])}" y1="${sy(qxy[1])}" x2="${sx(xy[i][0])}" y2="${sy(xy[i][1])}" stroke="var(--faint)" stroke-dasharray="4 3"></line>`));
@@ -175,9 +177,9 @@ Each employee has a learning budget of £1,000 per year for courses, books and c
     const q = $('#ragQ').value.trim(), K = +$('#topk').value, th = +$('#thresh').value;
     const method = $('#method').value, key = METHOD[method].key;
     const cs = chunks();
-    const vecs = await Embedder.embed(cs.map(c => c.text));
-    const [qv] = await Embedder.embed([q || ' ']);
-    cs.forEach((c, i) => (c.emb = Embedder.cosine(qv, vecs[i])));
+    const vecs = await E.embed(cs.map(c => c.text));
+    const [qv] = await E.embed([q || ' '], 'query');
+    cs.forEach((c, i) => (c.emb = E.cosine(qv, vecs[i])));
     bm25(cs, q);
     cs.slice().sort((a, b) => b.emb - a.emb).forEach((c, r) => (c.eRank = r + 1));
     cs.filter(c => c.kw > 0).sort((a, b) => b.kw - a.kw).forEach((c, r) => (c.kRank = r + 1));
@@ -272,6 +274,36 @@ Each employee has a learning budget of £1,000 per year for courses, books and c
     title: 'MiniLM embedding model', sizeMB: 23, autoKey: 'minilm-loaded', isReady: Embedder.isReady,
     what: 'It turns each sentence into 384 numbers. It is a small model built only for embeddings, not for writing text.',
     loader: cb => Embedder.load(cb),
-    onReady: async () => { ready = true; $('#lab').classList.remove('locked'); await renderMap(); runRag(); }
+    onReady: async () => { if (E !== Embedder) return; ready = true; $('#lab').classList.remove('locked'); await renderMap(); runRag(); }
   });
+
+  // ---------- which model embeds ----------
+  // The open model in Docker Model Runner is offered when the backend has one (LLM_LAB_LOCAL_EMBED_MODEL). Scores from
+  // different models are on different scales, so each has its own starting minimum similarity.
+  const MIN_SIM = { browser: 0.3, local: 0.55 };
+  const showDims = () => root.querySelectorAll('[data-dims]').forEach(el => (el.textContent = E.dims || '…'));
+  async function useModel(which) {
+    E = which === 'local' ? LocalEmbedder : Embedder;
+    ready = E.isReady();
+    $('#lab').classList.toggle('locked', !ready);
+    $('#gate').hidden = which === 'local';
+    $('#thresh').value = MIN_SIM[which];
+    $('#embedNote').textContent = which === 'local'
+      ? `${LocalEmbedder.model} runs in Docker Model Runner on this machine: free, and the text never leaves it. Its scores run higher than MiniLM's, so the minimum similarity starts at ${MIN_SIM.local}.`
+      : 'MiniLM runs in this browser tab.';
+    syncLabels(); showDims();
+    if (!ready) return;
+    try { await renderMap(); showDims(); runRag(); } catch (e) { console.error(e); $('#embedNote').textContent = 'The local model did not answer: ' + (e.message || e); }
+  }
+  LocalEmbedder.info().then(info => {
+    if (!info.configured || !root.isConnected) return;
+    const local = $('#embedModel').querySelector('option[value="local"]');
+    local.textContent = `${info.model} (local Docker, free)`;
+    if (!LocalEmbedder.isReady()) {
+      local.disabled = true;
+      $('#embedNote').textContent = info.running ? `The local server does not have ${info.model}: run ./tools/local-model.sh --embed.` : 'The local model server is not running: start Docker Desktop, then reload.';
+    }
+    $('#embedChoice').hidden = false;
+  });
+  $('#embedModel').addEventListener('change', e => useModel(e.target.value));
 }

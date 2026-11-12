@@ -89,6 +89,103 @@ const GLOSSARY: [string, string, string][] = [
 ];
 
 /** How an agent is built, in the lab's own code: the API call, a tool, three ways to write the loop, rules and tests. */
+/** The ten steps of a common "build an agent from scratch" checklist: what each means, and the lab pages that show it. */
+const STEPS: [string, string, [string, string][], string?][] = [
+  [
+    '1. Role and goal',
+    'What the agent does, for whom, and what it produces',
+    [
+      ['/prompting', 'Prompting'],
+      ['/medassist', 'MedAssist'],
+    ],
+  ],
+  [
+    '2. Structured input and output',
+    'A JSON schema for what goes in and comes out, so code can check it',
+    [
+      ['/whiteboard', 'AI whiteboard'],
+      ['/scan-explainer', 'Scan explainer'],
+      ['/documents', 'Document automation'],
+    ],
+    'Section 2 above. The backend validates requests with Pydantic.',
+  ],
+  [
+    '3. Behaviour and protocol',
+    'A system prompt for the role; MCP to connect tools and data',
+    [
+      ['/prompting', 'Prompting'],
+      ['/mcp', 'MCP servers'],
+      ['/context-engineering', 'Context engineering'],
+    ],
+    'Prompt tuning and prefix tuning train extra weights, which hosted models such as Claude and GPT do not allow; the lab steers with prompts and, for open models, with the training pages.',
+  ],
+  [
+    '4. Reasoning and tools',
+    'The loop: think, call a tool, read the result, repeat',
+    [
+      ['/agents', 'Agents and tools'],
+      ['/reasoning-models', 'Reasoning models'],
+      ['/coding-agent', 'Coding agent'],
+    ],
+    'Section 3 above has the loop written three ways.',
+  ],
+  [
+    '5. More than one agent',
+    'Roles such as planner, researcher and reporter, each with its own input and output',
+    [
+      ['/workflows', 'Agent workflows'],
+      ['/agent-types', 'Agent types'],
+      ['/harness', 'Harness engineering'],
+    ],
+  ],
+  [
+    '6. Memory and retrieval',
+    'What the agent remembers between conversations, and what it looks up',
+    [
+      ['/diet', 'Diet planner (memory files)'],
+      ['/embeddings', 'Embeddings and RAG'],
+      ['/search-pipeline', 'Search pipeline'],
+    ],
+  ],
+  [
+    '7. Voice and vision',
+    'Speech in and out; reading images',
+    [
+      ['/tutor', 'Tutor'],
+      ['/translation-speech', 'Translation and speech'],
+      ['/vision', 'Images as tokens'],
+      ['/content-understanding', 'Content Understanding'],
+    ],
+    'Every chat page has the microphone bar.',
+  ],
+  [
+    '8. Deliver the output',
+    'A file a person can use: PDF, spreadsheet, slides',
+    [
+      ['/diet', 'Diet planner (PDF and Excel)'],
+      ['/decks', 'Deck builder'],
+      ['/brain-check', 'Brain health check (PDF)'],
+    ],
+  ],
+  [
+    '9. A user interface',
+    'A front end over the agent',
+    [['/architecture', 'Architecture']],
+    'This site: React pages over a FastAPI backend.',
+  ],
+  [
+    '10. Evaluate and monitor',
+    'Test cases with pass rates; logs, cost and traces in production',
+    [
+      ['/evals', 'Evals'],
+      ['/confidence', 'Confidence'],
+      ['/foundry-operations', 'Foundry operations'],
+      ['/context', 'Context and cost'],
+    ],
+    'Monitoring is the thinnest part: the lab tracks spend per call and shows one trace, but has no page of its own for logs and traces yet.',
+  ],
+];
+
 export default function BuildingAgentsPage() {
   const [loopId, setLoopId] = useState('claude');
   const loop = LOOPS.find((l) => l.id === loopId) ?? LOOPS[0];
@@ -281,6 +378,42 @@ export default function BuildingAgentsPage() {
       </p>
       <CodeBlock html={S.testCase} />
       <CodeBlock html={S.testCommands} />
+
+      <h2>6. The ten steps of building an agent, and where each is here</h2>
+      <p>
+        A common checklist for building an agent from scratch has ten steps. Each one has a page in the lab where you
+        can see it working.
+      </p>
+      <div className="table-wrap">
+        <table className="t">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>What it means</th>
+              <th>Where to see it</th>
+            </tr>
+          </thead>
+          <tbody>
+            {STEPS.map(([step, meaning, pages, note]) => (
+              <tr key={step}>
+                <td>
+                  <b>{step}</b>
+                </td>
+                <td>{meaning}</td>
+                <td>
+                  {pages.map(([to, label], i) => (
+                    <span key={to}>
+                      {i > 0 && ', '}
+                      <Link to={to}>{label}</Link>
+                    </span>
+                  ))}
+                  {note && <div className="muted small">{note}</div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <h2>The words, translated</h2>
       <div className="table-wrap">

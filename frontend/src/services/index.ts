@@ -1,6 +1,7 @@
 /* Every call to the lab backend goes through these services, which share one axios client. */
 export { ApiClient, ApiError, api } from './apiClient';
 export { StatusService, statusService, type LiveStatus } from './statusService';
+export { EmbeddingService, embeddingService, type LocalEmbedStatus } from './embeddingService';
 export {
   MessagesService,
   messagesService,
@@ -214,3 +215,5 @@ export {
 } from './codingService';
 export { DietService, dietService, type DietPlan, type DietReply, type DietState } from './dietService';
 export { WhiteboardService, whiteboardService, type BoardReading, type ReadResult } from './whiteboardService';
+export { BrainService, brainService, type BrainResult } from './brainService';
+export { ScanService, scanService, type ScanReading, type ScanResult } from './scanService';

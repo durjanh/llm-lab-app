@@ -68,6 +68,32 @@ class DietMessage(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
 
 
+class BrainClock(ModelChoice):
+    image: str = Field(min_length=100, max_length=6_000_000)  # the drawn clock as a base64 PNG
+
+
+class BrainFinish(ModelChoice):
+    user: str = Field(default="", max_length=60)
+    save: bool = False  # keep this check for comparison next time: the person's choice
+    concern: bool = False  # they, or someone close, have noticed their memory getting worse
+    today: str = Field(default="", max_length=10)  # the person's own calendar date, ISO
+    recall: list[str] = Field(default_factory=list, max_length=20)
+    orientation: dict[str, str | int] = Field(default_factory=dict)
+    fluency_text: str = Field(default="", max_length=4000)
+    risks: dict[str, Literal["yes", "no", "unsure"]] = Field(default_factory=dict)
+
+
+class ScanRead(ModelChoice):
+    image: str = Field(min_length=100, max_length=7_200_000)  # a PNG, JPEG or WebP picture of the scan, base64
+    note: str = Field(default="", max_length=1500)
+
+
+class ScanAsk(ModelChoice):
+    question: str = Field(min_length=1, max_length=1000)
+    reading: dict[str, Any]
+    image: str | None = Field(default=None, max_length=7_200_000)
+
+
 class WhiteboardRead(ModelChoice):
     image: str = Field(min_length=100, max_length=6_000_000)  # the board as a base64 PNG
     prompt: str = Field(default="", max_length=1000)

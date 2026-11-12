@@ -1,0 +1,139 @@
+/* The brain health check: one task at a time in a single card, then the results. */
+
+.page-brain-check .bc-notice {
+  border-left: 3px solid var(--brand);
+  padding: 6px 12px;
+  background: var(--surface2);
+  border-radius: 0 8px 8px 0;
+  max-width: 860px;
+}
+.page-brain-check .bc-bad {
+  color: #b91c1c;
+}
+.page-brain-check .bc-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 10px;
+  counter-reset: step;
+}
+.page-brain-check .bc-steps li {
+  counter-increment: step;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.page-brain-check .bc-steps li::before {
+  content: counter(step) '. ';
+}
+.page-brain-check .bc-steps li.on {
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+.page-brain-check .bc-steps li.done {
+  background: var(--surface2);
+  text-decoration: line-through;
+}
+.page-brain-check .bc-stage {
+  max-width: 860px;
+}
+.page-brain-check .bc-stage h2 {
+  margin-top: 0;
+}
+.page-brain-check .bc-stage > .btn {
+  margin-top: 14px;
+}
+.page-brain-check .bc-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin: 10px 0;
+}
+.page-brain-check .bc-tick {
+  display: block;
+  margin: 8px 0;
+  font-size: 14px;
+}
+.page-brain-check .bc-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+.page-brain-check .bc-words span {
+  font-size: 24px;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.page-brain-check .bc-board {
+  max-width: 560px;
+}
+.page-brain-check .bc-timer {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+.page-brain-check .bc-timer.up {
+  color: #b45309;
+}
+.page-brain-check .bc-risks {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.page-brain-check .bc-risks td {
+  padding: 7px 8px 7px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.page-brain-check .bc-risks td:last-child {
+  white-space: nowrap;
+}
+.page-brain-check .bc-risks label {
+  margin-right: 12px;
+}
+.page-brain-check .bc-outcome {
+  border-radius: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-left-width: 6px;
+}
+.page-brain-check .bc-outcome h2 {
+  margin: 0 0 4px;
+}
+.page-brain-check .bc-outcome p {
+  margin: 4px 0;
+}
+.page-brain-check .bc-outcome.ok {
+  border-left-color: #16a34a;
+}
+.page-brain-check .bc-outcome.warn {
+  border-left-color: #d97706;
+}
+.page-brain-check .bc-outcome.act {
+  border-left-color: #dc2626;
+}
+.page-brain-check .bc-advice {
+  padding-left: 18px;
+}
+.page-brain-check .bc-advice li {
+  margin: 6px 0;
+}
+.page-brain-check .bc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .page-brain-check .bc-risks td:last-child {
+    white-space: normal;
+  }
+}

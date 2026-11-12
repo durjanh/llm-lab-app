@@ -6,6 +6,7 @@ progress so an answer from the page can find its run.
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import queue
 import threading
@@ -110,7 +111,8 @@ class RunStreamer:
                 run.publish(None)
 
         self.registry.add(run)
-        threading.Thread(target=worker, daemon=True).start()
+        # The worker keeps the request's context, so the call log knows which area and trace its model calls belong to.
+        threading.Thread(target=contextvars.copy_context().run, args=(worker,), daemon=True).start()
         try:
             yield json.dumps({"type": "run", "run_id": run.id}) + "\n"
             while True:

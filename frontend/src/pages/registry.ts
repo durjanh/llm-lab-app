@@ -42,6 +42,8 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'hotel',
       'diet',
       'whiteboard',
+      'brain-check',
+      'scans',
       'storewatch',
     ],
     'Microsoft Foundry and Azure': [
@@ -329,6 +331,24 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./whiteboard/WhiteboardPage')),
+  },
+  {
+    id: 'brain-check',
+    path: '/brain-check',
+    title: 'Brain Health Check',
+    label: 'Brain health check',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./brain-check/BrainCheckPage')),
+  },
+  {
+    id: 'scans',
+    path: '/scan-explainer',
+    title: 'Scan Explainer',
+    label: 'Scan explainer',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./scans/ScanPage')),
   },
   {
     id: 'dataagent',

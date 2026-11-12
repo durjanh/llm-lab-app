@@ -20,10 +20,14 @@ from .gateways.browser import ChromeScreenshotter, Screenshotter
 from .gateways.claude import ClaudeGateway
 from .gateways.foundry_agent import AgentConversations, FoundryAgent
 from .gateways.foundry_tools import FoundryTools
+from .gateways.local_embeddings import LocalEmbedder, LocalEmbeddings
 from .services.aftercare import AftercareService
 from .services.aftercare_phone import AftercarePhone
+from .services.deals import DealsService
 from .services.diet import DietService
 from .services.hotel import HotelService
+from .services.brain import BrainCheckService
+from .services.scans import ScanService
 from .services.whiteboard import WhiteboardService
 from .services.token_counter import TokenCounterService
 from .services.medassist_phone import MedAssistPhone
@@ -46,6 +50,8 @@ from .services.medassist import MedAssistService
 from .shared import medassist_sms
 from .services.harness import HarnessService
 from .services.messages import MessagesService
+from .core.telemetry import CallLog, TimedClient
+from .services.observability import ObservabilityService
 from .services.reviews import ReviewsService
 from .services.runs import RunRegistry, RunStreamer
 from .services.sites import SiteService, SiteStore
@@ -80,8 +86,12 @@ class Container:
     aftercare_phone: AftercarePhone
     hotel: HotelService
     diet: DietService
+    deals: DealsService
     whiteboard: WhiteboardService
+    brain: BrainCheckService
+    scans: ScanService
     token_counter: TokenCounterService
+    local_embeddings: LocalEmbedder
     medassist_phone: MedAssistPhone
     guardrails: GuardrailsService
     understanding: UnderstandingService
@@ -92,6 +102,7 @@ class Container:
     dataagent: DataAgentService
     coding: CodingService
     runs: RunRegistry
+    observability: ObservabilityService
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,
@@ -100,8 +111,10 @@ class Container:
               language: TextAnalyzer | None = None, agents: FrameworkAgents | None = None,
               tools: FoundryTools | None = None, phone: PhoneLine | None = None,
               workflows: WorkflowRunner | None = None) -> "Container":
-        claude = ClaudeGateway(client)
-        spend = SpendTracker(settings.budget_usd)
+        # Every model call is timed by the client wrapper and written to the call log when it is charged.
+        calls = CallLog(settings.generated_dir / "observability" / "calls.jsonl")
+        claude = ClaudeGateway(TimedClient(client, calls))
+        spend = SpendTracker(settings.budget_usd, calls)
         registry = RunRegistry()
         streamer = RunStreamer(registry, settings.heartbeat_s)
         skills = SkillsService(claude, spend, streamer, MadeFiles())
@@ -170,11 +183,15 @@ class Container:
             reviews=ReviewsService(language, claude, spend),
             aftercare=aftercare,
             token_counter=TokenCounterService(claude, HfTokenizers(settings.generated_dir / "tokenizers")),
+            local_embeddings=LocalEmbeddings(settings.local_embed_model, settings.local_openai_url),
             hotel=HotelService(claude, spend, settings.generated_dir / "hotel" / "hotel.db", hotel_notify.from_settings(
                 settings.medassist_sms_endpoint, settings.medassist_sms_sender, settings.hotel_sms_to,
                 settings.hotel_email_sender, settings.hotel_email_to)),
             diet=DietService(claude, spend, settings.generated_dir / "diet-memory", streamer),
+            deals=DealsService(claude, spend, settings.generated_dir / "deals", streamer),
             whiteboard=WhiteboardService(claude, spend),
+            brain=BrainCheckService(claude, spend, settings.generated_dir / "brain-check"),
+            scans=ScanService(claude, spend),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),
             guardrails=GuardrailsService(tools, spend),
@@ -187,6 +204,7 @@ class Container:
             searchlab=SearchLabService(tools, search, understanding, spend, settings.generated_dir / "search"),
             imagegen=ImageGenService(tools, spend, settings.generated_dir / "images", settings.generated_dir / "understanding"),
             runs=registry,
+            observability=ObservabilityService(calls, spend),
         )
 
 

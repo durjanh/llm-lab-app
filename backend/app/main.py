@@ -22,6 +22,7 @@ from .api.aftercare import CALL_EVENTS
 from .api.medassist import LINE
 from .container import Container
 from .core.errors import ApiError, error_response
+from .core.telemetry import RequestContext
 from .services.mcp_lab import PATH as MCP_LAB_PATH
 from .services.sites import TEXT_TYPES, FileProblem
 from .settings import Settings
@@ -100,6 +101,8 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
         elif not path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-cache")
         return response
+
+    app.add_middleware(RequestContext)  # outermost: names each request's area and trace for the call log
 
     if settings.models_dir.is_dir():
         app.mount("/models", StaticFiles(directory=settings.models_dir), name="models")

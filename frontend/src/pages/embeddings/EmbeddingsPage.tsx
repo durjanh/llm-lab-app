@@ -17,13 +17,23 @@ export default function EmbeddingsPage() {
         together. That is the engine behind semantic search and retrieval-augmented generation (RAG): find the relevant
         passages first, then give only those to the LLM.
       </p>
+      <div className="row" id="embedChoice" hidden style={{ margin: '12px 0 0' }}>
+        <label>
+          Embedding model{' '}
+          <select id="embedModel" defaultValue="browser">
+            <option value="browser">MiniLM (in your browser)</option>
+            <option value="local">Local model (local Docker, free)</option>
+          </select>
+        </label>
+        <span className="small muted" id="embedNote" />
+      </div>
       <div id="gate" />
       <section className="needs-model locked" id="lab">
         <h2>A map of meaning</h2>
         <p>
-          Fifteen sentences about three topics, each turned into 384 numbers and squashed onto two dimensions so you can
-          see them. Type a query to find its nearest neighbours. Compare the meaning score with the word-overlap score
-          that keyword search would use.
+          Fifteen sentences about three topics, each turned into <span data-dims>384</span> numbers and squashed onto
+          two dimensions so you can see them. Type a query to find its nearest neighbours. Compare the meaning score
+          with the word-overlap score that keyword search would use.
         </p>
         <div className="row" style={{ marginBottom: '8px' }}>
           <input
@@ -46,8 +56,8 @@ export default function EmbeddingsPage() {
             <svg id="map" viewBox="0 0 600 420" role="img" aria-label="Sentences projected onto two dimensions" />
             <div className="legend" id="mapLegend" />
             <p className="small muted" style={{ marginTop: '6px' }}>
-              Squashing 384 dimensions onto 2 loses detail, so the map is approximate. The table uses the exact
-              similarity.
+              Squashing <span data-dims>384</span> dimensions onto 2 loses detail, so the map is approximate. The table
+              uses the exact similarity.
             </p>
           </div>
           <div className="table-wrap">
