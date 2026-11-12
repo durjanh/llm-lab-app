@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { GROUPS, PAGES } from '@/pages/registry';
+import { GROUPS, MENU_COLUMNS, PAGES } from '@/pages/registry';
 import { getTheme, setTheme, THEME_ORDER, type ThemeMode } from '@/lib/theme';
 
 /** The bar at the top of every page: grouped menus on wide screens, a drop-down list on phones. */
@@ -35,6 +35,16 @@ export function Nav() {
     setTheme(m);
     setThemeState(m);
   };
+  // A long menu's pages under their column headings, in registry order; any page not in the map joins the last column.
+  const columns = (g: (typeof GROUPS)[number], items: typeof PAGES): [string, typeof PAGES][] => {
+    const map = MENU_COLUMNS[g] ?? {};
+    const headings = Object.keys(map);
+    const placed = new Set(Object.values(map).flat());
+    return headings.map((h, i) => [
+      h,
+      items.filter((p) => map[h].includes(p.id) || (i === headings.length - 1 && !placed.has(p.id))),
+    ]);
+  };
   const link = (p: (typeof PAGES)[number]) => (
     <Link key={p.id} to={p.path} aria-current={p.path === pathname ? 'page' : undefined}>
       {p.label}
@@ -65,9 +75,20 @@ export function Nav() {
               >
                 {g}
               </summary>
-              <div className="menu" role="group" aria-label={g}>
-                {items.map(link)}
-              </div>
+              {MENU_COLUMNS[g] ? (
+                <div className="menu mega" role="group" aria-label={g}>
+                  {columns(g, items).map(([heading, pages]) => (
+                    <div key={heading} className="mega-col">
+                      <div className="mega-head">{heading}</div>
+                      {pages.map(link)}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="menu" role="group" aria-label={g}>
+                  {items.map(link)}
+                </div>
+              )}
             </details>
           );
         })}

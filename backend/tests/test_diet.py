@@ -3,6 +3,7 @@ conversation through the API with a scripted model. No network, no cost."""
 from __future__ import annotations
 
 import io
+import json
 from datetime import date
 from pathlib import Path
 
@@ -116,6 +117,21 @@ def test_health_details_are_remembered_only_with_consent(tmp_path: Path) -> None
         agreed.execute({"command": "create", "path": "/memories/card.md", "file_text": "Card 4111 1111 1111 1111"})
 
 
+def test_age_and_sex_are_kept_and_dated_measurements_reused(tmp_path: Path) -> None:
+    """Sex and a dated age are not health details, so they are kept without consent; with consent, dated weight and
+    height are kept too, and the instructions say to reuse them rather than ask again."""
+    without = rules.new_chat(tmp_path, "sam", consent=False)
+    without.memory.execute({"command": "create", "path": "/memories/profile.md",
+                            "file_text": "Sex: male\nAge: 38 (on 12 Nov 2026)\n"})
+    agreed = rules.new_chat(tmp_path, "kim", consent=True)
+    agreed.memory.execute({"command": "create", "path": "/memories/body.md",
+                           "file_text": "Height: 178 cm (on 12 Nov 2026)\nWeight: 82 kg (on 12 Nov 2026)\n"})
+    told = rules.instructions(agreed, date(2026, 11, 12))
+    assert "Never ask for something memory already holds" in told
+    assert f"last {rules.WEIGHT_FRESH_DAYS} days" in told
+    assert "Remember my health details" in rules.instructions(without, date(2026, 11, 12))
+
+
 def test_a_whole_conversation_through_the_api(tmp_path: Path) -> None:
     script = [
         [use("memory", {"command": "view", "path": "/memories"})],
@@ -154,3 +170,71 @@ def test_meat_free_products_are_not_meat() -> None:
     assert rules.forbidden_in("Quorn mince chilli; veggie sausages and mash; plant-based chicken pieces", veg) == []
     assert rules.forbidden_in("Beef mince chilli", veg) == ["mince (not vegetarian)", "beef (not vegetarian)"] or \
         set(rules.forbidden_in("Beef mince chilli", veg)) == {"mince (not vegetarian)", "beef (not vegetarian)"}
+
+
+class StreamedClient(ScriptedClient):
+    """The scripted replies, streamed: text arrives as deltas and tool input as JSON in pieces."""
+
+    def __init__(self, script: list[list[dict]]) -> None:
+        super().__init__(script)
+        from types import SimpleNamespace as NS
+        from backend.tests.test_aftercare import reply
+
+        client = self
+
+        class Stream:
+            def __init__(self, params: dict) -> None:
+                client.calls.append(("messages.stream", params))
+                blocks = client.script.pop(0)
+                self.final = reply(params["model"], *blocks,
+                                   stop="tool_use" if any(b["type"] == "tool_use" for b in blocks) else "end_turn")
+                self.events = []
+                for i, b in enumerate(blocks):
+                    if b["type"] == "text":
+                        self.events.append(NS(type="content_block_start", index=i, content_block=NS(type="text")))
+                        self.events += [NS(type="content_block_delta", index=i, delta=NS(type="text_delta", text=w + " "))
+                                        for w in b["text"].split()]
+                    else:
+                        raw = json.dumps(b["input"])
+                        self.events.append(NS(type="content_block_start", index=i,
+                                              content_block=NS(type="tool_use", name=b["name"])))
+                        self.events += [NS(type="content_block_delta", index=i,
+                                           delta=NS(type="input_json_delta", partial_json=raw[k:k + 50]))
+                                        for k in range(0, len(raw), 50)]
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def __iter__(self):
+                return iter(self.events)
+
+            def get_final_message(self):
+                return self.final
+
+        self.messages.stream = lambda **params: Stream(params)  # type: ignore[method-assign]
+
+
+def test_a_streamed_turn_shows_the_planner_working(tmp_path: Path) -> None:
+    script = [
+        [use("set_profile", dict(ALEX), 2)],
+        [use("save_week_plan", week(), 3)],
+        [text("Your week is ready to download.")],
+    ]
+    fake = StreamedClient(script)
+    settings = Settings(port=8000, budget_usd=2.0, generated_dir=tmp_path, frontend_dist=tmp_path / "dist",
+                        models_dir=tmp_path / "no-models", heartbeat_s=0.2)
+    client = TestClient(create_app(settings, client=fake), base_url="http://localhost:8000")
+    cid = client.post("/api/diet/chats", json={"user": "alex"}, headers=LAB).json()["chat_id"]
+    with client.stream("POST", f"/api/diet/chats/{cid}/stream", json={"message": "Plan my week"}, headers=LAB) as r:
+        events = [json.loads(line) for line in r.iter_lines() if line.strip()]
+    kinds = [e["type"] for e in events]
+    assert kinds[0] == "run" and kinds[-1] == "done"
+    assert {"thinking", "tool_start", "writing", "step", "text"} <= set(kinds)
+    assert [e["tool"] for e in events if e["type"] == "tool_start"] == ["set_profile", "save_week_plan"]
+    assert any(e["type"] == "writing" and e["tool"] == "save_week_plan" and e["chars"] >= 400 for e in events)
+    assert "".join(e["text"] for e in events if e["type"] == "text").strip() == "Your week is ready to download."
+    done = events[-1]
+    assert done["plan"] and done["totals"]["Monday"]["kcal"] == 1500 and done["reply"] == "Your week is ready to download."

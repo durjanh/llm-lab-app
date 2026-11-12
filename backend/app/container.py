@@ -24,6 +24,7 @@ from .services.aftercare import AftercareService
 from .services.aftercare_phone import AftercarePhone
 from .services.diet import DietService
 from .services.hotel import HotelService
+from .services.whiteboard import WhiteboardService
 from .services.token_counter import TokenCounterService
 from .services.medassist_phone import MedAssistPhone
 from .services.transcripts import TranscriptArchive
@@ -79,6 +80,7 @@ class Container:
     aftercare_phone: AftercarePhone
     hotel: HotelService
     diet: DietService
+    whiteboard: WhiteboardService
     token_counter: TokenCounterService
     medassist_phone: MedAssistPhone
     guardrails: GuardrailsService
@@ -171,7 +173,8 @@ class Container:
             hotel=HotelService(claude, spend, settings.generated_dir / "hotel" / "hotel.db", hotel_notify.from_settings(
                 settings.medassist_sms_endpoint, settings.medassist_sms_sender, settings.hotel_sms_to,
                 settings.hotel_email_sender, settings.hotel_email_to)),
-            diet=DietService(claude, spend, settings.generated_dir / "diet-memory"),
+            diet=DietService(claude, spend, settings.generated_dir / "diet-memory", streamer),
+            whiteboard=WhiteboardService(claude, spend),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),
             guardrails=GuardrailsService(tools, spend),

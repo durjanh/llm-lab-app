@@ -12,11 +12,12 @@ import uuid
 from collections import OrderedDict
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
 from ..shared import CLAUDE_MODEL, diet_rules as rules
+from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
 MAX_CHATS = 20  # the oldest is dropped when another starts
@@ -24,8 +25,9 @@ MAX_CHATS = 20  # the oldest is dropped when another starts
 
 class DietService:
     def __init__(self, claude: ClaudeGateway, spend: SpendTracker, memory_root: Path,
-                 today: Callable[[], date] = date.today):
+                 streamer: RunStreamer | None = None, today: Callable[[], date] = date.today):
         self.claude, self.spend, self.memory_root, self.today = claude, spend, memory_root, today
+        self.streamer = streamer
         self.chats: OrderedDict[str, tuple[Any, str]] = OrderedDict()  # chat id -> (rules.Chat, model)
         self._lock = threading.Lock()
 
@@ -66,6 +68,35 @@ class DietService:
         except Exception as exc:
             raise to_api_error(exc) from exc
         return {"reply": reply, "steps": steps, "cost_usd": round(cost, 6), **self.state(chat)}
+
+    def stream_message(self, chat_id: str, text: str) -> Iterator[str]:
+        """The same turn as message(), streamed as NDJSON: the planner's words as they are written, each tool call as
+        it starts and finishes, how much of the week has been written, then the reply and the plan."""
+        chat, model = self._chat(chat_id)
+        if self.streamer is None:
+            raise ApiError(503, "not_configured", "Streaming is not set up on this server.")
+        run = Run()
+
+        def work() -> None:
+            cost = 0.0
+
+            def charge(response: Any) -> None:
+                nonlocal cost
+                cost += self.spend.charge(response, model) or 0.0
+
+            try:
+                reply, steps = rules.diet_turn(self.claude.create, chat, model, text, today=self.today(),
+                                               on_response=charge, stream=self.claude.stream, emit=run.publish)
+            except ApiError as exc:
+                run.publish({"type": "error", "message": exc.message})
+                return
+            except Exception as exc:
+                err = to_api_error(exc)
+                run.publish({"type": "error", "message": err.message})
+                return
+            run.publish({"type": "done", "reply": reply, "steps": steps, "cost_usd": round(cost, 6), **self.state(chat)})
+
+        return self.streamer.lines(run, work)
 
     def state(self, chat: Any) -> dict[str, Any]:
         """What the page shows beside the chat: the profile, the targets, the checked plan and the memory folder."""

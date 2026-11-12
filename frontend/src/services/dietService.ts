@@ -69,6 +69,17 @@ export interface DietInfo {
 
 export type DietFile = 'plan' | 'shopping' | 'xlsx';
 
+/** One line of a streamed turn: progress while the planner works, then the reply and the plan. */
+export type DietEvent =
+  | { type: 'run'; run_id: string }
+  | { type: 'thinking' }
+  | { type: 'text'; text: string }
+  | { type: 'tool_start'; tool: string }
+  | { type: 'writing'; tool: string; chars: number }
+  | { type: 'step'; step: DietStep }
+  | ({ type: 'done' } & DietReply)
+  | { type: 'error'; message: string };
+
 /** The diet planner: conversations, the checked plan's files and the person's memory folder. */
 export class DietService {
   constructor(private readonly client: ApiClient) {}
@@ -86,6 +97,11 @@ export class DietService {
 
   send(chatId: string, message: string): Promise<DietReply> {
     return this.client.post(`/api/diet/chats/${chatId}/messages`, { message });
+  }
+
+  /** The same turn as send(), streamed: onEvent hears the planner working, and last the reply and the plan. */
+  stream(chatId: string, message: string, onEvent: (e: DietEvent) => void, signal?: AbortSignal): Promise<void> {
+    return this.client.stream(`/api/diet/chats/${chatId}/stream`, { message }, onEvent, signal);
   }
 
   download(chatId: string, kind: DietFile, name: string): Promise<void> {

@@ -68,6 +68,16 @@ class DietMessage(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
 
 
+class WhiteboardRead(ModelChoice):
+    image: str = Field(min_length=100, max_length=6_000_000)  # the board as a base64 PNG
+    prompt: str = Field(default="", max_length=1000)
+
+
+class WhiteboardAsk(ModelChoice):
+    question: str = Field(min_length=1, max_length=2000)
+    board: dict = Field(default_factory=dict)  # what the board shows, as the read returned it
+
+
 class HotelMessage(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
 

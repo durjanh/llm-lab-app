@@ -188,3 +188,26 @@
   padding: 8px;
   margin: 4px 0 10px;
 }
+.page-diet .dt-activity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink2);
+}
+.page-diet .dt-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: dt-pulse 1s ease-in-out infinite;
+}
+@keyframes dt-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-diet .dt-pulse {
+    animation: none;
+  }
+}

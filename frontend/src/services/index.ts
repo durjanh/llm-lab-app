@@ -213,3 +213,4 @@ export {
   type Todo as CodingTodo,
 } from './codingService';
 export { DietService, dietService, type DietPlan, type DietReply, type DietState } from './dietService';
+export { WhiteboardService, whiteboardService, type BoardReading, type ReadResult } from './whiteboardService';

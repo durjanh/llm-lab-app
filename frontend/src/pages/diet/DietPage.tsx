@@ -5,6 +5,7 @@ import {
   dietService,
   type DietFile,
   type DietInfo,
+  type DietEvent,
   type DietState,
   type DietStep,
   type MemoryFile,
@@ -16,6 +17,13 @@ import './diet.css';
 
 const usd = (v: number) => `$${v < 0.1 ? v.toFixed(4) : v.toFixed(2)}`;
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/** What the status line says while each tool is in use. */
+const ACTIVITY: Record<string, string> = {
+  memory: 'Checking your memory…',
+  set_profile: 'Working out your targets…',
+  save_week_plan: 'Writing your week…',
+};
 
 interface Line {
   from: 'you' | 'agent';
@@ -129,12 +137,22 @@ function Memory({ files, onForget }: { files: MemoryFile[]; onForget: () => void
   );
 }
 
+// The name picks the memory folder, so this browser remembers it; every model reads the same folder.
+const NAME_KEY = 'llm-lab.diet.name';
+function savedName(): string {
+  try {
+    return localStorage.getItem(NAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
 /** A diet planner agent: it asks a few questions, designs a checked week of meals, remembers, and the plan downloads. */
 export default function DietPage() {
   const [info, setInfo] = useState<DietInfo | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState('');
-  const [user, setUser] = useState('alex');
+  const [user, setUser] = useState(savedName);
   const [consent, setConsent] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -145,6 +163,7 @@ export default function DietPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [cost, setCost] = useState(0);
+  const [activity, setActivity] = useState('');
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -201,17 +220,46 @@ export default function DietPage() {
         id = started.chat_id;
         setChatId(id);
         setUser(started.user);
+        try {
+          localStorage.setItem(NAME_KEY, started.user);
+        } catch {
+          /* not remembered: they type it again next time */
+        }
       }
-      const r = await dietService.send(id, message);
-      setLines((ls) => [...ls, { from: 'agent', text: r.reply, steps: r.steps, cost: r.cost_usd }]);
-      setCost((c) => c + (r.cost_usd || 0));
-      setState(r);
-      setMemory(r.memory);
-      if (r.plan) setTab('plan');
+      // The planner's line fills in as it works: its words, each tool call, then the reply and the plan.
+      setLines((ls) => [...ls, { from: 'agent', text: '', steps: [] }]);
+      const patch = (f: (l: Line) => Line) => setLines((ls) => [...ls.slice(0, -1), f(ls[ls.length - 1])]);
+      let failed = '';
+      await dietService.stream(id, message, (e: DietEvent) => {
+        if (e.type === 'thinking') setActivity('Thinking…');
+        else if (e.type === 'text') {
+          setActivity('Writing…');
+          patch((l) => ({ ...l, text: l.text + e.text }));
+        } else if (e.type === 'tool_start') setActivity(ACTIVITY[e.tool] ?? `Using ${e.tool}…`);
+        else if (e.type === 'writing')
+          setActivity(
+            e.tool === 'save_week_plan'
+              ? `Writing your week… ${e.chars.toLocaleString('en-GB')} characters so far`
+              : `${ACTIVITY[e.tool] ?? e.tool}`,
+          );
+        else if (e.type === 'step') {
+          patch((l) => ({ ...l, steps: [...(l.steps ?? []), e.step] }));
+          if (e.step.tool === 'save_week_plan')
+            setActivity('error' in e.step.result ? 'The checks found problems; fixing them…' : 'Plan saved.');
+        } else if (e.type === 'done') {
+          patch((l) => ({ ...l, text: e.reply, steps: e.steps, cost: e.cost_usd }));
+          setCost((c) => c + (e.cost_usd || 0));
+          setState(e);
+          setMemory(e.memory);
+          if (e.plan) setTab('plan');
+        } else if (e.type === 'error') failed = e.message;
+      });
+      if (failed) setError(failed);
     } catch (err) {
       setError(errorText(err));
     } finally {
       setBusy(false);
+      setActivity('');
     }
   }
 
@@ -254,7 +302,15 @@ export default function DietPage() {
         <section className="card dt-chat" aria-label="Chat with the planner">
           <header className="dt-bar">
             <label className="small">
-              Your name <input value={user} onChange={(e) => setUser(e.target.value)} disabled={!!chatId} size={10} />
+              Your name{' '}
+              <input
+                value={user}
+                onChange={(e) => setUser(e.target.value)}
+                disabled={!!chatId}
+                size={10}
+                placeholder="e.g. Sam"
+                title="Your memory is kept under this name, whichever model you choose"
+              />
             </label>
             <label className="small">
               Model{' '}
@@ -267,7 +323,10 @@ export default function DietPage() {
                 ))}
               </select>
             </label>
-            <label className="small dt-consent">
+            <label
+              className="small dt-consent"
+              title={chatId ? 'Fixed for this conversation. Press New conversation to change it.' : undefined}
+            >
               <input
                 type="checkbox"
                 checked={consent}
@@ -275,6 +334,7 @@ export default function DietPage() {
                 disabled={!!chatId}
               />{' '}
               Remember my health details (allergies, conditions, weight, height)
+              {chatId && <span className="muted"> · fixed for this conversation; start a new one to change it</span>}
             </label>
             <button className="btn small" onClick={newConversation} disabled={busy}>
               New conversation
@@ -303,7 +363,11 @@ export default function DietPage() {
                 {line.cost !== undefined && <div className="small muted">{usd(line.cost)}</div>}
               </div>
             ))}
-            {busy && <div className="small muted">The planner is working…</div>}
+            {busy && (
+              <div className="small dt-activity" aria-live="polite">
+                <span className="dt-pulse" /> {activity || 'The planner is working…'}
+              </div>
+            )}
           </div>
           <VoiceComposer
             value={input}

@@ -13,6 +13,52 @@ export interface PageDef {
 
 export const GROUPS = ['Foundations', 'Building', 'Quality and safety', 'Cost and operations'] as const;
 
+/**
+ * Columns inside a long menu: each page's id under a heading. A menu with columns opens as a wide panel, so every
+ * page shows at once with no scrolling; a page left out of the map goes in the last column.
+ */
+export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string, string[]>>> = {
+  Building: {
+    Techniques: [
+      'prompting',
+      'embeddings',
+      'agents',
+      'building-agents',
+      'agent-types',
+      'context-engineering',
+      'harness',
+      'mcp',
+      'workflows',
+      'claude-code',
+      'claude-code-inside',
+    ],
+    'Agents to try': [
+      'coding',
+      'decks',
+      'site-builder',
+      'tutor',
+      'documents',
+      'dataagent',
+      'hotel',
+      'diet',
+      'whiteboard',
+      'storewatch',
+    ],
+    'Microsoft Foundry and Azure': [
+      'casework',
+      'medassist',
+      'medassist-architecture',
+      'reviews',
+      'aftercare',
+      'ai103',
+      'understanding',
+      'imagegen',
+      'searchlab',
+      'translate',
+    ],
+  },
+};
+
 export const PAGES: PageDef[] = [
   {
     id: 'index',
@@ -274,6 +320,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./diet/DietPage')),
+  },
+  {
+    id: 'whiteboard',
+    path: '/whiteboard',
+    title: 'AI Whiteboard',
+    label: 'AI whiteboard',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./whiteboard/WhiteboardPage')),
   },
   {
     id: 'dataagent',
