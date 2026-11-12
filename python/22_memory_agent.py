@@ -1,8 +1,13 @@
-"""A memory agent: it remembers a person across separate conversations, using Claude's memory tool.
+"""A memory agent: it remembers a person across separate conversations, on Claude, GPT or the local model.
 
 Each session is a new conversation with no shared message history. The only thing that carries over is a folder of
-memory files. The memory tool is client-side: Claude asks to view, create, edit, rename or delete a file under
+memory files. The memory tool is client-side: the model asks to view, create, edit, rename or delete a file under
 /memories, and this script does the work in generated/agent-memory/<user>/. Every command and result is printed.
+
+Claude gets its own memory tool (memory_20250818), which it is trained to use. GPT and the local model get the same
+commands as an ordinary JSON-schema tool, plus a few lines of instructions on how to use it. Either way, the same code
+below carries out the commands and runs the same privacy guard. Run the sessions on each model with its own --user
+to compare what each one chooses to keep.
 
 Two risks come with memory, and the script shows both:
 - Privacy. The person pastes a card number and a colleague's health detail. A guard in code refuses any write that
@@ -16,6 +21,8 @@ Two risks come with memory, and the script shows both:
     python 22_memory_agent.py --session 3     # a correction: the fact should be updated, not duplicated
     python 22_memory_agent.py --all           # sessions 1 to 3 in order
     python 22_memory_agent.py --session 1 --careless   # the agent tries to store everything; the guard steps in
+    python 22_memory_agent.py --all --model gpt-5.4-mini --user jordan-gpt              # the same on GPT
+    python 22_memory_agent.py --all --model ai/qwen3.5:9b-q4_K_XL --user jordan-local   # and on the local model
     python 22_memory_agent.py --show          # print the memory files
     python 22_memory_agent.py --forget        # delete them
 """
@@ -31,7 +38,52 @@ from common import create, cost_usd, describe_usage, ensure_answered, make_clien
 
 REPO = Path(__file__).resolve().parent.parent
 MEMORY_ROOT = REPO / "generated" / "agent-memory"
-MEMORY_TOOL = {"type": "memory_20250818", "name": "memory"}
+MEMORY_TOOL = {"type": "memory_20250818", "name": "memory"}  # Claude's own: it knows the commands already
+
+# The same commands for a model that has not been trained on Claude's tool: an ordinary function with a JSON schema.
+# Not strict, because which fields a command needs depends on the command; MemoryStore checks them.
+MEMORY_FUNCTION = {
+    "name": "memory",
+    "description": "Read and write your memory folder, /memories, which lasts between conversations. One command per "
+                   "call. view: list a folder or read a file (path). create: write a new file or replace one "
+                   "(path, file_text). str_replace: replace text that appears exactly once in a file (path, old_str, "
+                   "new_str). insert: add lines after a line number, 0 for the top (path, insert_line, insert_text). "
+                   "delete: remove a file or folder (path). rename: move a file (old_path, new_path). Every path "
+                   "starts with /memories.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string", "enum": ["view", "create", "str_replace", "insert", "delete", "rename"]},
+            "path": {"type": "string", "description": "a path under /memories, such as /memories/preferences.md"},
+            "view_range": {"type": "array", "items": {"type": "integer"},
+                           "description": "view only: first and last line to show; -1 for the end"},
+            "file_text": {"type": "string", "description": "create only: the whole file"},
+            "old_str": {"type": "string", "description": "str_replace only: the exact text to replace"},
+            "new_str": {"type": "string", "description": "str_replace only: the text to put in its place"},
+            "insert_line": {"type": "integer", "description": "insert only: the line to insert after"},
+            "insert_text": {"type": "string", "description": "insert only: the lines to insert"},
+            "old_path": {"type": "string", "description": "rename only: the file to move"},
+            "new_path": {"type": "string", "description": "rename only: where to move it"},
+        },
+        "required": ["command"],
+    },
+}
+
+# What Claude learns in training about its memory tool, said plainly for the other models.
+MEMORY_GUIDE = """
+Your memory is a tool called memory. Call it once per command, for example:
+{"command": "view", "path": "/memories"} to list the files, then {"command": "view", "path": "/memories/<file>"} to read
+one; {"command": "create", "path": "/memories/<topic>.md", "file_text": "..."} for a new topic; {"command":
+"str_replace", "path": "...", "old_str": "...", "new_str": "..."} to change a fact. Read before you write."""
+
+
+def memory_tool(model: str) -> dict:
+    """Claude's own memory tool for a Claude model; the same commands as a plain JSON-schema tool for any other."""
+    return MEMORY_TOOL if is_claude(model) else MEMORY_FUNCTION
+
+
+def is_claude(model: str) -> bool:
+    return isinstance(model, str) and model.startswith("claude-")
 
 SYSTEM = """You are a personal assistant for one person, Jordan Ellis, an operations analyst at Fernhill Logistics.
 Conversations do not carry over, but you have a memory folder at /memories that does.
@@ -215,9 +267,11 @@ def run_session(client, model: str, store: MemoryStore, number: int, max_steps: 
     print(f"\n=== Session {number}: a new conversation, no history ===\nUser: {question}\n")
     messages: list[dict] = [{"role": "user", "content": question}]
     total = 0.0
+    tool = memory_tool(model)
+    if tool is MEMORY_FUNCTION:
+        system += "\n" + MEMORY_GUIDE
     for step in range(1, max_steps + 1):
-        response = create(client, model=model, max_tokens=16000, system=system, tools=[MEMORY_TOOL],
-                          messages=messages)
+        response = create(client, model=model, max_tokens=16000, system=system, tools=[tool], messages=messages)
         total += cost_usd(response.usage, model) or 0
         print(f"API call {step}: stop_reason={response.stop_reason} · {describe_usage(response.usage, model)}")
         messages.append({"role": "assistant", "content": response.content})
@@ -228,10 +282,11 @@ def run_session(client, model: str, store: MemoryStore, number: int, max_steps: 
         for block in response.content:
             if block.type != "tool_use":
                 continue
-            shown = {k: v for k, v in block.input.items() if k != "command"}
-            print(f"  memory.{block.input.get('command')}({json.dumps(shown)[:300]})")
+            command = dict(block.input) if isinstance(block.input, dict) else {}
+            shown = {k: v for k, v in command.items() if k != "command"}
+            print(f"  memory.{command.get('command')}({json.dumps(shown)[:300]})")
             try:
-                output = store.execute(block.input)
+                output = store.execute(command)
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
                 print("    -> " + output.replace("\n", "\n       ")[:600])
             except (MemoryCommandError, KeyError, TypeError, ValueError) as exc:
@@ -257,12 +312,26 @@ def show(store: MemoryStore) -> None:
         print(f"--- /memories/{f.relative_to(store.root).as_posix()} ---\n{f.read_text().rstrip()}\n")
 
 
+def duplicate_lines(files: list[Path]) -> list[tuple[str, str, int]]:
+    """Lines stored more than once in the same file: a sign the model added a fact again instead of editing it."""
+    found = []
+    for f in files:
+        counts: dict[str, int] = {}
+        for line in f.read_text().splitlines():
+            if line.strip():
+                counts[line.strip()] = counts.get(line.strip(), 0) + 1
+        found += [(f.name, line, n) for line, n in counts.items() if n > 1]
+    return found
+
+
 def junk_check(store: MemoryStore) -> None:
     files = store.files()
     size = sum(f.stat().st_size for f in files)
     print(f"\nMemory now holds {len(files)} file(s), {size:,} bytes, in {store.root.relative_to(REPO)}.")
     leaks = [f.name for f in files if privacy_problem(f.read_text())]
     print("Privacy check of stored files: " + (f"FOUND sensitive data in {leaks}" if leaks else "nothing sensitive."))
+    repeats = duplicate_lines(files)
+    print("Repeated lines: " + (", ".join(f"{name}: {line!r} ×{n}" for name, line, n in repeats) if repeats else "none."))
     print("Everything stored is sent with every later conversation that reads it, so junk costs tokens for good.")
 
 
@@ -276,9 +345,11 @@ def main() -> None:
                         help="tell the agent to store everything word for word, to test the privacy guard")
     parser.add_argument("--user", default="jordan", help="memory folder name (default: jordan)")
     parser.add_argument("--max-steps", type=int, default=12)
-    model_argument(parser, claude_only=True)
+    model_argument(parser)
     args = parser.parse_args()
     store = MemoryStore(MEMORY_ROOT / args.user)
+    print(f"Model: {args.model} · memory tool: "
+          f"{'Claude’s own (memory_20250818)' if is_claude(args.model) else 'a JSON-schema function with the same commands'}")
 
     if args.forget:
         shutil.rmtree(store.root, ignore_errors=True)
