@@ -44,6 +44,9 @@ class EnvSettings:
     # LLM_LAB_LOCAL_CONTEXT: the context the local model runs with (tools/local-model.sh sets it on the server). Long
     # agent runs keep their conversation inside it by shortening older steps (sandbox_skills.fit_context).
     local_context: int = 32768
+    # LLM_LAB_LOCAL_EMBED_MODEL: an open embedding model on the same local server (tools/local-model.sh --embed pulls
+    # ai/nomic-embed-text-v1.5). When set, the embeddings page offers it beside the model that runs in the browser.
+    local_embed_model: str = ""
     # LLM_LAB_RATE_LIMIT_FALLBACK: the model that answers when a model is rate limited or overloaded (429 or 529)
     # after the SDK's own retries. auto: a GPT deployment for Claude (or the local model when there is no GPT), and
     # Claude for GPT. none: no fallback. Or a model id.
@@ -120,6 +123,7 @@ class EnvSettings:
             local_openai_url=(get("LLM_LAB_LOCAL_OPENAI_URL") or cls.local_openai_url).rstrip("/"),
             rate_limit_fallback=(get("LLM_LAB_RATE_LIMIT_FALLBACK") or cls.rate_limit_fallback).strip(),
             local_context=int(get("LLM_LAB_LOCAL_CONTEXT") or cls.local_context),
+            local_embed_model=get("LLM_LAB_LOCAL_EMBED_MODEL", "").strip(),
             port=int(get("LLM_LAB_PORT") or cls.port),
             budget_usd=float(get("LLM_LAB_BUDGET") or cls.budget_usd),
             dev_port=int(get("LLM_LAB_DEV_PORT") or cls.dev_port),

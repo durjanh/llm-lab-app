@@ -1,0 +1,236 @@
+/* Closed-deal agents: the deals on the left, the chain of steps as a graph, then the drafts to approve. */
+
+.lab main.page-deal-close {
+  max-width: 1320px;
+}
+.page-deal-close > .lede,
+.page-deal-close > p {
+  max-width: 1000px;
+}
+.page-deal-close .dc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  margin: 14px 0 8px;
+}
+.page-deal-close .dc-bad {
+  color: #b91c1c;
+}
+.page-deal-close .dc-note {
+  color: #15803d;
+}
+.page-deal-close .dc-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .page-deal-close .dc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-deal-close .dc-layout .card + .card {
+  margin-top: 0;
+}
+.page-deal-close .dc-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.page-deal-close h2.dc-h {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.page-deal-close .dc-deal {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.page-deal-close .dc-deal b {
+  display: block;
+}
+.page-deal-close .dc-deal .btn {
+  margin-top: 8px;
+}
+.page-deal-close .dc-deal details {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+/* the graph */
+.page-deal-close .dc-graph {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.page-deal-close .dc-graph li {
+  position: relative;
+  flex: 1 1 150px;
+  max-width: 220px;
+}
+.page-deal-close .dc-graph li + li::before {
+  content: '→';
+  position: absolute;
+  left: -20px;
+  top: 22px;
+  color: var(--muted);
+}
+.page-deal-close .dc-node {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  min-height: 92px;
+  padding: 8px 10px;
+  border: 2px solid var(--line2);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.page-deal-close .dc-node:hover {
+  background: var(--surface2);
+}
+.page-deal-close .dc-node.selected {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.page-deal-close .dc-node.running {
+  border-color: var(--brand);
+  animation: dc-pulse 1.1s ease-in-out infinite;
+}
+.page-deal-close .dc-node.done {
+  border-color: #16a34a;
+}
+.page-deal-close .dc-node.failed {
+  border-color: #dc2626;
+}
+@keyframes dc-pulse {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--brand) 25%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-deal-close .dc-node.running {
+    animation: none;
+  }
+}
+.page-deal-close .dc-node-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+.page-deal-close .dc-node-sum {
+  font-size: 12px;
+  color: var(--muted);
+}
+.page-deal-close .dc-who {
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line2);
+}
+.page-deal-close .dc-who.model {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.page-deal-close .dc-who.person {
+  color: #b45309;
+  border-color: #b45309;
+}
+.page-deal-close .dc-detail {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.page-deal-close .dc-detail h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.page-deal-close .dc-pri {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line2);
+}
+.page-deal-close .dc-pri.A {
+  color: #15803d;
+  border-color: #15803d;
+}
+.page-deal-close .dc-pri.B {
+  color: #b45309;
+  border-color: #b45309;
+}
+
+/* drafts */
+.page-deal-close .dc-draft {
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.page-deal-close .dc-draft.draft {
+  border-left-color: var(--brand);
+}
+.page-deal-close .dc-draft.sent {
+  border-left-color: #16a34a;
+}
+.page-deal-close .dc-draft.rejected {
+  border-left-color: var(--muted);
+}
+.page-deal-close .dc-draft.blocked {
+  border-left-color: #dc2626;
+}
+.page-deal-close .dc-draft-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.page-deal-close .dc-draft pre {
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 14px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface2);
+}
+.page-deal-close .dc-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.page-deal-close .dc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.page-deal-close .dc-rules {
+  padding-left: 18px;
+  margin: 6px 0;
+}
+.page-deal-close .dc-contacts td:last-child {
+  white-space: nowrap;
+}

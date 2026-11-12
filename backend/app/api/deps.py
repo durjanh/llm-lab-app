@@ -7,10 +7,14 @@ from fastapi import Depends, Request
 
 from ..container import Container
 from ..core.errors import ApiError
+from ..gateways.local_embeddings import LocalEmbedder
 from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
+from ..services.deals import DealsService
 from ..services.diet import DietService
 from ..services.hotel import HotelService
+from ..services.brain import BrainCheckService
+from ..services.scans import ScanService
 from ..services.whiteboard import WhiteboardService
 from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
@@ -30,6 +34,7 @@ from ..services.medassist import MedAssistService
 from ..services.casework import CaseworkService
 from ..services.harness import HarnessService
 from ..services.messages import MessagesService
+from ..services.observability import ObservabilityService
 from ..services.reviews import ReviewsService
 from ..services.sites import SiteService
 from ..services.tutor import TutorService
@@ -108,12 +113,32 @@ def diet(c: Container = Depends(container)) -> DietService:
     return c.diet
 
 
+def deals(c: Container = Depends(container)) -> DealsService:
+    return c.deals
+
+
 def whiteboard(c: Container = Depends(container)) -> WhiteboardService:
     return c.whiteboard
 
 
+def observability(c: Container = Depends(container)) -> ObservabilityService:
+    return c.observability
+
+
+def brain(c: Container = Depends(container)) -> BrainCheckService:
+    return c.brain
+
+
+def scans(c: Container = Depends(container)) -> ScanService:
+    return c.scans
+
+
 def token_counter(c: Container = Depends(container)) -> TokenCounterService:
     return c.token_counter
+
+
+def local_embeddings(c: Container = Depends(container)) -> LocalEmbedder:
+    return c.local_embeddings
 
 
 def aftercare_phone(c: Container = Depends(container)) -> AftercarePhone:

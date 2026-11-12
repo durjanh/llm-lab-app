@@ -20,3 +20,16 @@ def private_transcripts(tmp_path, monkeypatch):
     original = transcripts.TranscriptArchive.__init__
     monkeypatch.setattr(transcripts.TranscriptArchive, "__init__",
                         lambda self, root: original(self, tmp_path / "transcripts"))
+
+
+@pytest.fixture(autouse=True)
+def private_call_log(tmp_path, monkeypatch):
+    """Each test's model calls are logged in its own temporary folder, never in the lab's generated/observability."""
+    from backend.app.core import telemetry
+
+    original = telemetry.CallLog.__init__
+
+    def init(self, path=None, limit=telemetry.MAX_CALLS):
+        original(self, tmp_path / "observability" / path.name if path else None, limit)
+
+    monkeypatch.setattr(telemetry.CallLog, "__init__", init)
