@@ -243,6 +243,22 @@ export default function LocalModelPage() {
       </p>
       <CodeBlock html={S.switchModel} />
 
+      <h2>A local embedding model</h2>
+      <p>
+        Model Runner also serves open embedding models on the same port. <code>--embed</code> pulls one and checks it
+        answers; the chat model is left alone, and both can be loaded at once. With{' '}
+        <code>LLM_LAB_LOCAL_EMBED_MODEL</code> set, the <Link to="/embeddings">embeddings page</Link> offers it beside
+        the MiniLM model that runs in the browser, so the sentence map and the retrieval demo run on either. It is free,
+        and the text never leaves this machine.
+      </p>
+      <CodeBlock html={S.embed} />
+      <p className="small muted">
+        nomic-embed-text gives 768 numbers per text and expects <code>search_document: </code> or{' '}
+        <code>search_query: </code> in front of it; the backend adds them. Other embedding models in Docker Hub’s{' '}
+        <code>ai/</code> namespace: <code>ai/mxbai-embed-large</code>, <code>ai/embeddinggemma</code> and{' '}
+        <code>ai/qwen3-embedding</code>.
+      </p>
+
       <h2>Troubleshooting</h2>
       <div className="table-wrap">
         <table className="t">

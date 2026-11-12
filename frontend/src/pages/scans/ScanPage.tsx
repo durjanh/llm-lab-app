@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VoiceComposer } from '@/components/voice/VoiceComposer';
@@ -63,6 +63,12 @@ export default function ScanPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [cost, setCost] = useState(0);
+  const lastAnswer = useRef<HTMLDivElement>(null);
+
+  // A new answer is brought to the top of the view, so it reads from its first line; the question box stays in reach.
+  useEffect(() => {
+    if (answers.length) lastAnswer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [answers.length]);
 
   useEffect(() => {
     Promise.all([scanService.info(), statusService.status()])
@@ -303,21 +309,23 @@ export default function ScanPage() {
               </p>
 
               {answers.map((x, i) => (
-                <div key={i} className="sc-qa">
+                <div key={i} className="sc-qa" ref={i === answers.length - 1 ? lastAnswer : undefined}>
                   <p className="small">
                     <b>You:</b> {x.q}
                   </p>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{x.a}</ReactMarkdown>
                 </div>
               ))}
-              <VoiceComposer
-                value={question}
-                onChange={setQuestion}
-                onSend={(t) => void ask(t)}
-                onError={setError}
-                busy={busy}
-                placeholder="Ask the AI about this scan: what does that word mean?"
-              />
+              <div className="sc-ask">
+                <VoiceComposer
+                  value={question}
+                  onChange={setQuestion}
+                  onSend={(t) => void ask(t)}
+                  onError={setError}
+                  busy={busy}
+                  placeholder="Ask the AI about this scan: what does that word mean?"
+                />
+              </div>
             </>
           )}
         </section>

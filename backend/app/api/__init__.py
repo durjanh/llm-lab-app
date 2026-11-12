@@ -6,8 +6,8 @@ from . import brain, diet, hotel, scans, whiteboard, token_counter, storewatch, 
 router = APIRouter(prefix="/api")
 for module in (status, messages, agents, workflows, storewatch, decks, sites, tutor, documents, mcp_lab, casework, medassist, reviews, aftercare, hotel, diet, whiteboard, brain, scans, token_counter, guardrails, understanding, imagegen, searchlab, translate, foundryops, dataagent, coding):
     router.include_router(module.router)
-from . import deals  # noqa: E402  (on its own line so parallel edits to the list above do not collide)
-router.include_router(deals.router)
+from . import deals  # noqa: E402
+router.include_router(deals.router)  # closed-deal agents
 router.include_router(guardrails.images)  # generated sample pictures, fetched by <img> tags without the lab header
 router.include_router(understanding.media)  # sample files for <img>, <video> and <audio> tags
 router.include_router(imagegen.media)  # generated images for <img> tags

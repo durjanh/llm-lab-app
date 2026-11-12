@@ -214,6 +214,7 @@ export {
   type Todo as CodingTodo,
 } from './codingService';
 export { DietService, dietService, type DietPlan, type DietReply, type DietState } from './dietService';
+export { DealsService, dealsService, type DealsState, type DealEvent } from './dealsService';
 export { WhiteboardService, whiteboardService, type BoardReading, type ReadResult } from './whiteboardService';
 export { BrainService, brainService, type BrainResult } from './brainService';
 export { ScanService, scanService, type ScanReading, type ScanResult } from './scanService';

@@ -40,6 +40,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'documents',
       'dataagent',
       'hotel',
+      'deal-close',
       'diet',
       'whiteboard',
       'brain-check',
@@ -313,6 +314,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./hotel/HotelPage')),
+  },
+  {
+    id: 'deal-close',
+    path: '/deal-close',
+    title: 'Closed-deal Agents',
+    label: 'Closed-deal agents',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./deal-close/DealClosePage')),
   },
   {
     id: 'diet',
