@@ -10,6 +10,9 @@
 .nav-menu.current summary{color:#fff;box-shadow:inset 0 -2px 0 #8b7ff0}
 .nav-menu .menu{position:absolute;top:calc(100% + 6px);left:0;z-index:70;min-width:230px;background:#111827;border:1px solid #374151;border-radius:10px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:2px}
 .site-nav .nav-menu .menu a{border-radius:8px;padding:7px 10px}
+.nav-menu .menu.mega{display:grid;grid-template-columns:repeat(3,minmax(190px,1fr));gap:2px 14px;min-width:640px;padding:8px}
+.nav-menu .mega-col{display:flex;flex-direction:column;gap:2px}
+.nav-menu .mega-head{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;padding:6px 10px 4px}
 .site-nav .site-links a{color:#e5e7eb;text-decoration:none;padding:4px 8px;border-radius:999px;white-space:nowrap}
 .site-select{display:none;font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:8px;padding:5px 8px}
 @media (max-width:900px){.site-links{display:none}.site-select{display:block;justify-self:start;max-width:100%}}

@@ -11,6 +11,7 @@ from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
 from ..services.diet import DietService
 from ..services.hotel import HotelService
+from ..services.whiteboard import WhiteboardService
 from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
 from ..services.coding import CodingService
@@ -105,6 +106,10 @@ def hotel(c: Container = Depends(container)) -> HotelService:
 
 def diet(c: Container = Depends(container)) -> DietService:
     return c.diet
+
+
+def whiteboard(c: Container = Depends(container)) -> WhiteboardService:
+    return c.whiteboard
 
 
 def token_counter(c: Container = Depends(container)) -> TokenCounterService:

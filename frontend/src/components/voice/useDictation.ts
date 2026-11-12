@@ -42,6 +42,7 @@ export function useDictation(
 ) {
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState(''); // what has been heard so far, for the listening bar
+  const [connecting, setConnecting] = useState(false); // the microphone is opening: nothing is heard yet
   const speech = useRef<Speech | null>(null);
   const browser = useRef<BrowserRecognition | null>(null);
   const source = useRef<DictationSource | null>(null);
@@ -64,9 +65,17 @@ export function useDictation(
     onText(join(base.current, text));
   };
 
+  /** Loads the speech SDK and a token ahead of the first press, which otherwise wait a second or two for them. */
+  const prepare = () => {
+    if (azureFailed.current) return;
+    speech.current ??= new Speech();
+    speech.current.prepare();
+  };
+
   // Called once listening has stopped, however it stopped.
   const ended = () => {
     setListening(false);
+    setConnecting(false);
     setHeard('');
     const full = join(base.current, latest.current);
     if (ending.current === 'cancel') onText(base.current);
@@ -111,13 +120,19 @@ export function useDictation(
     speech.current ??= new Speech();
     source.current = 'azure';
     setListening(true);
+    setConnecting(true);
     try {
-      const result = await speech.current.listen({ language: 'en-GB', onPartial: update });
+      const result = await speech.current.listen({
+        language: 'en-GB',
+        onPartial: update,
+        onStarted: () => setConnecting(false),
+      });
       // finish() may have changed the ending while we were listening
       if ((ending.current as Ending) !== 'cancel') latest.current = result.text || latest.current;
       ended();
     } catch (err) {
       setListening(false);
+      setConnecting(false);
       azureFailed.current = true; // not set up, or refused: use the browser from now on
       if (!startBrowser()) onError(`Could not listen: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -130,5 +145,5 @@ export function useDictation(
     else browser.current?.stop();
   }
 
-  return { listening, heard, start, finish };
+  return { listening, connecting, heard, start, finish, prepare };
 }

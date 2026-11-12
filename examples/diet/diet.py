@@ -369,16 +369,29 @@ def new_chat(memory_root: Path, user: str, consent: bool) -> Chat:
     return Chat(user=user, consent=consent, memory=DietMemory(memory_root / user, consent))
 
 
+# Body measurements change: a weight older than this is checked again, not reused without a word.
+WEIGHT_FRESH_DAYS = 28
+
+
 def instructions(chat: Chat, today: date) -> str:
     consent = ("The person HAS agreed that you may remember health details (allergies, conditions, weight, height)."
                if chat.consent else
                "The person has NOT agreed that you may remember health details: do not save allergies, conditions, "
-               "weight or height to memory. Ask for them again in each conversation.")
+               "weight or height to memory. Ask for them again in each conversation, in one short question, and say "
+               "once that ticking 'Remember my health details' before starting a conversation would save them asking.")
     return f"""You are a friendly meal planner for one person. Today is {today:%A %d %B %Y}.
 You have a memory folder at /memories that lasts between conversations. {consent}
 
 How to work:
-1. Before your first reply, view /memories and read what is there. Greet returning people by name and use what you know.
+1. Before your first reply, view /memories and read every file there. Greet returning people by name and use what you
+   know. Never ask for something memory already holds; ask only for what is missing or out of date:
+   - Age: memory keeps the age with the date it was given ("Age: 34 (on 12 Nov 2026)"). Work out today's age from it
+     yourself; do not ask again.
+   - Sex and height (adults): reuse them; they do not change.
+   - Weight: memory keeps it with its date. Given within the last {WEIGHT_FRESH_DAYS} days: use it, and say which
+     figure and date you are using so they can correct it. Older: ask only "Are you still X?", nothing else about it.
+   - Goal, diet, activity, meals, cooking time, likes and dislikes: use them, and ask in one line whether anything has
+     changed, rather than asking each again.
 2. Ask what you still need, at most three questions in one message, in plain words: name, goal (lose, maintain or
    gain weight), sex (for the energy formula), age, height, weight, how active they are, diet (omnivore, pescatarian,
    vegetarian, vegan, halal, kosher), allergies and intolerances, foods they dislike, any medical condition that
@@ -390,9 +403,10 @@ How to work:
    variety across the week, leftovers used sensibly, prep times within their limit. Then call save_week_plan with the
    whole week. If it returns problems, fix every one and call it again.
 5. When it is saved, say so briefly and point them to the download buttons. Do not paste the whole plan into chat.
-6. Save to memory, in one file per topic: their name, goal, diet, dislikes, meals a day, cooking time, foods they
-   liked, and (only if they agreed) allergies, conditions, weight and height. Edit a fact when it changes; never add a
-   second version. If a memory write is refused, carry on without it.
+6. Save to memory, in one file per topic: their name, sex, age with today's date, goal, activity, diet, dislikes,
+   meals a day, cooking time, foods they liked, and (only if they agreed) allergies, conditions, and weight and height
+   in kg and cm, each with today's date ("Weight: 74 kg (on {today:%d %b %Y})"). Edit a fact when it changes, with
+   the new date; never add a second version. If a memory write is refused, carry on without it.
 You are not a doctor or dietitian. Keep replies short."""
 
 
@@ -410,13 +424,41 @@ def samples() -> list[dict]:
 
 # ------------------------------------------------------------------------------------------------------ the loop
 
+def _streamed(stream: Callable[..., Any], params: dict, emit: Callable[[dict], None]) -> Any:
+    """One model call, streamed: the reply's words and each tool call's progress go to emit as they arrive."""
+    writing: dict[int, dict] = {}  # content block index -> {"tool": name, "chars": n, "told": n}
+    with stream(**params) as s:
+        for event in s:
+            kind = getattr(event, "type", "")
+            if kind == "content_block_start" and getattr(event.content_block, "type", "") == "tool_use":
+                writing[event.index] = {"tool": event.content_block.name, "chars": 0, "told": 0}
+                emit({"type": "tool_start", "tool": event.content_block.name})
+            elif kind == "content_block_delta":
+                delta = event.delta
+                if getattr(delta, "type", "") == "text_delta":
+                    emit({"type": "text", "text": delta.text})
+                elif getattr(delta, "type", "") == "input_json_delta" and event.index in writing:
+                    w = writing[event.index]
+                    w["chars"] += len(delta.partial_json)
+                    if w["chars"] - w["told"] >= 400:  # often enough to see it move, not a message per token
+                        w["told"] = w["chars"]
+                        emit({"type": "writing", "tool": w["tool"], "chars": w["chars"]})
+        return s.get_final_message()
+
+
 def diet_turn(create: Callable[..., Any], chat: Chat, model: str, text: str, today: date | None = None,
-              max_rounds: int = 12, on_response: Callable[[Any], None] = lambda r: None) -> tuple[str, list[dict]]:
-    """One message from the person to the agent's reply. Tool calls run here, round after round."""
+              max_rounds: int = 12, on_response: Callable[[Any], None] = lambda r: None,
+              stream: Callable[..., Any] | None = None,
+              emit: Callable[[dict], None] = lambda e: None) -> tuple[str, list[dict]]:
+    """One message from the person to the agent's reply. Tool calls run here, round after round. With stream, each
+    model call is streamed and its progress, and every tool call and result, goes to emit as it happens."""
     if EATING_DISORDER.search(text):
         chat.history.append({"role": "user", "content": [{"type": "text", "text": text}]})
         chat.history.append({"role": "assistant", "content": [{"type": "text", "text": SAFETY_REPLY}]})
-        return SAFETY_REPLY, [{"tool": "safety screen", "args": {}, "result": {"stopped": "eating disorder signs"}}]
+        step = {"tool": "safety screen", "args": {}, "result": {"stopped": "eating disorder signs"}}
+        emit({"type": "step", "step": step})
+        emit({"type": "text", "text": SAFETY_REPLY})
+        return SAFETY_REPLY, [step]
     tool = memory_agent.memory_tool(model)
     system = instructions(chat, today or date.today())
     if tool is memory_agent.MEMORY_FUNCTION:
@@ -424,14 +466,24 @@ def diet_turn(create: Callable[..., Any], chat: Chat, model: str, text: str, tod
     chat.history.append({"role": "user", "content": [{"type": "text", "text": text}]})
     steps: list[dict] = []
     for _ in range(max_rounds):
-        response = create(model=model, max_tokens=16000, system=system, tools=[tool, *TOOLS], messages=chat.history)
+        params = {"model": model, "max_tokens": 16000, "system": system, "tools": [tool, *TOOLS],
+                  "messages": chat.history}
+        emit({"type": "thinking"})
+        response = _streamed(stream, params, emit) if stream else create(**params)
         on_response(response)
         chat.history.append({"role": "assistant",
                              "content": [b.model_dump(exclude_none=True) if hasattr(b, "model_dump") else b
                                          for b in response.content]})
         uses = [b for b in response.content if getattr(b, "type", None) == "tool_use"]
         if not uses:
-            return "".join(b.text for b in response.content if getattr(b, "type", None) == "text"), steps
+            reply = "".join(b.text for b in response.content if getattr(b, "type", None) == "text").strip()
+            if getattr(response, "stop_reason", "") == "max_tokens":
+                reply += "\n\n(The planner ran out of room mid-reply. Ask it to carry on.)"
+            elif not reply:
+                reply = ("(The planner stopped without saying anything. Send your message again, or say "
+                         "\"please carry on\".)")
+            emit({"type": "text", "text": ""})
+            return reply.strip(), steps
         results = []
         for b in uses:
             args = dict(b.input) if isinstance(b.input, dict) else {}
@@ -444,6 +496,7 @@ def diet_turn(create: Callable[..., Any], chat: Chat, model: str, text: str, tod
                 result = chat.call(b.name, args)
             shown = {"days": f"{len(args.get('days') or [])} days"} if b.name == "save_week_plan" else args
             steps.append({"tool": b.name, "args": shown, "result": result})
+            emit({"type": "step", "step": steps[-1]})
             results.append({"type": "tool_result", "tool_use_id": b.id, "content": json.dumps(result),
                             **({"is_error": True} if "error" in result else {})})
         chat.history.append({"role": "user", "content": results})

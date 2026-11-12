@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Response
+from fastapi.responses import StreamingResponse
 
 from ..schemas import DietMessage, DietStart
 from ..services.diet import DietService
@@ -26,6 +27,13 @@ def start(body: DietStart, service: DietService = Depends(diet)) -> dict[str, An
 @router.post("/diet/chats/{chat_id}/messages", dependencies=[Depends(require_budget)])
 def message(chat_id: str, body: DietMessage, service: DietService = Depends(diet)) -> dict[str, Any]:
     return service.message(chat_id, body.message.strip())
+
+
+@router.post("/diet/chats/{chat_id}/stream", dependencies=[Depends(require_budget)])
+def stream(chat_id: str, body: DietMessage, service: DietService = Depends(diet)) -> StreamingResponse:
+    """The same turn, streamed as NDJSON so the page shows the planner working."""
+    return StreamingResponse(service.stream_message(chat_id, body.message.strip()), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-store"})
 
 
 @router.get("/diet/chats/{chat_id}/files/{kind}")

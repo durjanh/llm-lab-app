@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Waveform } from './Waveform';
 import { useDictation } from './useDictation';
 import './voice.css';
@@ -61,13 +62,23 @@ export function VoiceComposer({
   maxLength?: number;
 }) {
   const dictation = useDictation(onChange, onSend, onError);
+
+  // Shortly after the page opens, load the speech SDK and a token, so the first press of the microphone is quick.
+  useEffect(() => {
+    const timer = window.setTimeout(dictation.prepare, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
   const blocked = busy || disabled;
 
   if (dictation.listening) {
     return (
       <div className="vc-bar listening" role="group" aria-label="Listening">
         <span className="vc-heard" aria-live="polite">
-          {dictation.heard ? dictation.heard.slice(-90) : <i>Listening…</i>}
+          {dictation.heard ? (
+            dictation.heard.slice(-90)
+          ) : (
+            <i>{dictation.connecting ? 'Connecting the microphone…' : 'Listening: speak now'}</i>
+          )}
         </span>
         <Waveform active />
         <button
@@ -128,6 +139,8 @@ export function VoiceComposer({
         type="button"
         className="vc-icon"
         disabled={blocked}
+        onPointerEnter={dictation.prepare}
+        onFocus={dictation.prepare}
         onClick={() => void dictation.start(value)}
         title="Speak"
         aria-label="Speak"

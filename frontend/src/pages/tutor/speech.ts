@@ -22,6 +22,8 @@ export interface ListenOptions {
   reference?: string;
   onPartial?: (text: string) => void;
   endOnPause?: boolean;
+  /** Called once Azure is connected and hearing the microphone; words spoken before this are lost. */
+  onStarted?: () => void;
   /** Recognition language, such as en-GB or es-ES. Pronunciation is scored only for the default, en-US. */
   language?: string;
 }
@@ -71,6 +73,14 @@ export class Speech {
       this.hasFallback = t.has_fallback;
     }
     return { sdk, config: sdk.SpeechConfig.fromAuthorizationToken(this.token.value, this.token.region) };
+  }
+
+  /**
+   * Loads the speech SDK and fetches a token ahead of the first use, so pressing the microphone does not wait for
+   * them. Failures are ignored here: listen() reports them when it is called.
+   */
+  prepare(): void {
+    void this.config().catch(() => undefined);
   }
 
   /** Runs an Azure call; if the free resource refuses it, switches to the paid one and runs it again. */
@@ -232,7 +242,13 @@ export class Speech {
         }
       };
       this.active = { recognizer, stop: finish };
-      recognizer.startContinuousRecognitionAsync(() => waitForPause(8000), (err) => reject(new Error(err)));
+      recognizer.startContinuousRecognitionAsync(
+        () => {
+          opts.onStarted?.();
+          waitForPause(8000);
+        },
+        (err) => reject(new Error(err)),
+      );
     });
   }
 

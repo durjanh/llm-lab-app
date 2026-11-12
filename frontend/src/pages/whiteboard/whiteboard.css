@@ -1,0 +1,248 @@
+/* The AI whiteboard: the history on the left, the dark board in the middle, what it made on the right. */
+
+.lab main.page-whiteboard {
+  max-width: 1560px; /* history, board and result side by side need more than the usual page width */
+}
+.page-whiteboard > .lede,
+.page-whiteboard > p,
+.page-whiteboard > .table-wrap {
+  max-width: 1120px;
+}
+.page-whiteboard .wb-shell {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1180px) {
+  .page-whiteboard .wb-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-whiteboard .wb-history {
+  position: sticky;
+  top: 70px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  padding: 12px;
+}
+.page-whiteboard .wb-history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.page-whiteboard .wb-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+@media (max-width: 1180px) {
+  .page-whiteboard .wb-history {
+    position: static;
+    max-height: none;
+  }
+  .page-whiteboard .wb-history-list {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .page-whiteboard .wb-history-list li {
+    flex: 0 0 170px;
+  }
+}
+.page-whiteboard .wb-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.page-whiteboard .wb-history-item:hover {
+  background: var(--surface2);
+}
+.page-whiteboard .wb-history-item.on {
+  border-color: var(--brand);
+  background: var(--surface2);
+}
+.page-whiteboard .wb-history-item img {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+.page-whiteboard .wb-history-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-whiteboard .wb-history-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+.page-whiteboard .wb-history-clear {
+  margin-top: 8px;
+}
+.page-whiteboard .wb-tidied {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.85);
+  color: #e5e7eb;
+}
+
+.page-whiteboard .wb-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  margin: 14px 0 8px;
+}
+.page-whiteboard .wb-bad {
+  color: #b91c1c;
+}
+.page-whiteboard .wb-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 980px) {
+  .page-whiteboard .wb-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.page-whiteboard .wb-board {
+  position: relative;
+}
+.page-whiteboard .wb-canvas {
+  display: block;
+  width: 100%;
+  height: 420px;
+  border-radius: 12px;
+  background: #1f2937;
+  touch-action: none; /* a finger or pen draws instead of scrolling the page */
+  cursor: crosshair;
+}
+.page-whiteboard .wb-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 180px;
+  text-align: center;
+  color: #6b7280;
+  pointer-events: none;
+  font-size: 14px;
+}
+.page-whiteboard .wb-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.page-whiteboard .wb-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--line2);
+  cursor: pointer;
+}
+.page-whiteboard .wb-swatch.on {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.page-whiteboard .wb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.page-whiteboard .wb-empty {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+.page-whiteboard .wb-title {
+  margin: 0 0 2px;
+  font-size: 19px;
+}
+.page-whiteboard .wb-plot {
+  display: block;
+  width: 100%;
+  height: 340px;
+  border-radius: 10px;
+}
+.page-whiteboard .wb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.page-whiteboard .wb-legend i {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.page-whiteboard .wb-slider {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) 54px;
+  gap: 10px;
+  align-items: center;
+  margin: 6px 0;
+  font-size: 14px;
+}
+.page-whiteboard .wb-3d {
+  width: 100%;
+  height: 340px;
+  border-radius: 10px;
+  background: #1f2937;
+  overflow: hidden;
+  cursor: grab;
+}
+.page-whiteboard .wb-3d canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.page-whiteboard .wb-cut {
+  margin-top: 8px;
+}
+.page-whiteboard .wb-planes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.page-whiteboard .wb-explain {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.page-whiteboard .wb-qa {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface2);
+}
