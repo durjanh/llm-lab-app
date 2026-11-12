@@ -11,8 +11,20 @@ llm-lab-app/
 ├── python/      runnable lesson scripts (01 to 18), a sample skill, and the shared prices, settings and data
 ├── tools/       rebuilds the 134 MB GPT-2 model with its internals exposed
 ├── examples/    copyable Claude Code setup: CLAUDE.md, skills, hooks, a subagent, a plugin
+├── docs/        the architecture diagram below
 └── models/      the local GPT-2 model (not in git)
 ```
+
+## Architecture
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.png">
+  <img alt="The LLM Lab's architecture: lab pages, scripts and phones on the left; this machine in the middle, with the FastAPI backend (guards, services, spend tracker, local data, gateways, coding agent), the model client, the local model in Docker Model Runner, tokenizers, headless Chrome and the sandbox; Anthropic's Claude API and Microsoft Foundry (GPT deployments, prompt agents, Agent Framework, Foundry Tools) on the right; and the Azure platform along the bottom (AI Search, Speech, Communication Services, Event Grid, Functions and Storage, Container Apps, Entra ID), with an arrow for each call." src="docs/architecture.png">
+</picture>
+
+Every page and script reaches a model through one client, `python/local_model.py`, which sends each request to Claude, to a GPT deployment in Microsoft Foundry, or to an open model on this machine, by the model's name. Foundry agents, the Azure AI services and the phone line are reached through the backend's gateways, all signed in with Entra ID. The same diagram is interactive at `/architecture`: select a component to see where it runs and its files, or choose a path to follow its requests. `/medassist/architecture` does the same for MedAssist, and `/building-agents` and `/local-model` show the code behind it.
+
+The images are screenshots of `/architecture` in the light and dark themes. After changing `frontend/src/pages/lab-architecture/diagram.ts`, take them again from the running page.
 
 ## Start
 
