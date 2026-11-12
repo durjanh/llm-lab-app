@@ -1,0 +1,152 @@
+/* The atoms film: the picture with its readout and captions, the controls, then the chart and the explanation. */
+
+.page-atoms-touch .at-film {
+  margin: 16px 0;
+}
+.page-atoms-touch .at-screen {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0b1020;
+  aspect-ratio: 16 / 9;
+  color: #e5e7eb;
+}
+.page-atoms-touch .at-picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.page-atoms-touch .at-picture canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.page-atoms-touch .at-readout {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  text-align: right;
+  text-shadow: 0 1px 3px #000;
+}
+.page-atoms-touch .at-gap {
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.page-atoms-touch .at-stage {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.75);
+}
+.page-atoms-touch .at-scalebar {
+  position: absolute;
+  left: 16px;
+  bottom: 70px;
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-shadow: 0 1px 3px #000;
+}
+.page-atoms-touch .at-scalebar span {
+  display: block;
+  height: 3px;
+  background: #e5e7eb;
+}
+.page-atoms-touch .at-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 12px 18px;
+  background: linear-gradient(transparent, rgba(2, 6, 23, 0.9) 35%);
+  font-size: 15px;
+}
+.page-atoms-touch .at-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin-top: 10px;
+}
+.page-atoms-touch .at-controls input[type='range'] {
+  flex: 1 1 220px;
+}
+.page-atoms-touch .at-chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.page-atoms-touch .at-chapters button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.page-atoms-touch .at-chapters button.on {
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+.page-atoms-touch .at-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .page-atoms-touch .at-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page-atoms-touch .at-gap {
+    font-size: 22px;
+  }
+  .page-atoms-touch .at-caption {
+    font-size: 13px;
+  }
+}
+.page-atoms-touch .at-chart {
+  margin: 0;
+}
+.page-atoms-touch .at-chart svg {
+  width: 100%;
+  height: auto;
+}
+.page-atoms-touch .at-zone.push {
+  fill: rgba(239, 68, 68, 0.08);
+}
+.page-atoms-touch .at-zone.pull {
+  fill: rgba(59, 130, 246, 0.1);
+}
+.page-atoms-touch .at-axis {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.page-atoms-touch .at-tick,
+.page-atoms-touch .at-note {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.page-atoms-touch .at-label {
+  fill: var(--ink2);
+  font-size: 12px;
+}
+.page-atoms-touch .at-curve {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2.5;
+}
+.page-atoms-touch .at-dot {
+  fill: #f59e0b;
+  stroke: #fff;
+  stroke-width: 2;
+}

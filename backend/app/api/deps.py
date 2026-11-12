@@ -10,11 +10,13 @@ from ..core.errors import ApiError
 from ..gateways.local_embeddings import LocalEmbedder
 from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
+from ..services.code_graph import CodeGraphService
 from ..services.deals import DealsService
 from ..services.diet import DietService
 from ..services.hotel import HotelService
 from ..services.brain import BrainCheckService
 from ..services.scans import ScanService
+from ..services.tabular import TabularService
 from ..services.whiteboard import WhiteboardService
 from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
@@ -43,6 +45,7 @@ from ..services.workflows import WorkflowService
 from ..services.skills import SkillsService
 from ..services.spend import money
 from ..services.status import StatusService
+from ..services.video_translate import VideoTranslateService
 
 
 def container(request: Request) -> Container:
@@ -117,6 +120,10 @@ def deals(c: Container = Depends(container)) -> DealsService:
     return c.deals
 
 
+def code_graph(c: Container = Depends(container)) -> CodeGraphService:
+    return c.code_graph
+
+
 def whiteboard(c: Container = Depends(container)) -> WhiteboardService:
     return c.whiteboard
 
@@ -131,6 +138,14 @@ def brain(c: Container = Depends(container)) -> BrainCheckService:
 
 def scans(c: Container = Depends(container)) -> ScanService:
     return c.scans
+
+
+def tabular(c: Container = Depends(container)) -> TabularService:
+    return c.tabular
+
+
+def video_translate(c: Container = Depends(container)) -> VideoTranslateService:
+    return c.video_translate
 
 
 def token_counter(c: Container = Depends(container)) -> TokenCounterService:

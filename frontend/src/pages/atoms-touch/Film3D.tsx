@@ -38,7 +38,10 @@ function hash(n: number): number {
   return x - Math.floor(x);
 }
 
-function canvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D, size: number) => void): THREE.CanvasTexture {
+function canvasTexture(
+  size: number,
+  paint: (ctx: CanvasRenderingContext2D, size: number) => void,
+): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -324,7 +327,12 @@ function build(host: HTMLDivElement) {
   scene.add(push);
 
   // The gap being measured: a thin line from one surface to the other.
-  const ruleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65, depthTest: false });
+  const ruleMaterial = new THREE.LineBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.65,
+    depthTest: false,
+  });
   const rule = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.5, 0), new THREE.Vector3(0, 0.5, 0)]),
     ruleMaterial,

@@ -157,7 +157,7 @@ export function tidy(raw: Pt[]): Tidied {
 
   const start = pts[0];
   const end = pts[pts.length - 1];
-  const closed = dist(start, end) < Math.max(25, 0.22 * box.d) && path > 1.6 * box.d;
+  const closed = dist(start, end) < Math.max(30, 0.25 * box.d) && path > 1.6 * box.d;
 
   if (!closed) {
     const worst = Math.max(...pts.map((p) => offLine(p, start, end)));
@@ -193,5 +193,13 @@ export function tidy(raw: Pt[]): Tidied {
     }
     return { points: ellipse(cx, cy, rx, ry), shape: 'ellipse' };
   }
-  return { points: smooth([...pts, pts[0]]), shape: null };
+  // Nothing clear-cut: a closed stroke is still meant as a shape, so it becomes whichever fits it better, the
+  // straight-edged polygon through its corners or the ellipse that fills its box.
+  const oval = ellipse(cx, cy, rx, ry);
+  const ovalOff = offPolygon(pts, oval.slice(0, -1)) / box.d;
+  if (ring.length >= 3 && ring.length <= 8 && off <= ovalOff) {
+    const name = ['triangle', 'quadrilateral', 'pentagon', 'hexagon', 'heptagon', 'octagon'][ring.length - 3];
+    return { points: [...ring, ring[0]], shape: name };
+  }
+  return { points: oval, shape: Math.min(rx, ry) / Math.max(rx, ry) > 0.85 ? 'circle' : 'ellipse' };
 }

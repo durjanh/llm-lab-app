@@ -31,6 +31,8 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'workflows',
       'claude-code',
       'claude-code-inside',
+      'code-graph',
+      'tabular',
     ],
     'Agents to try': [
       'coding',
@@ -45,6 +47,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'whiteboard',
       'brain-check',
       'scans',
+      'gaze-pointer',
       'storewatch',
     ],
     'Microsoft Foundry and Azure': [
@@ -58,6 +61,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'imagegen',
       'searchlab',
       'translate',
+      'video-translate',
     ],
   },
 };
@@ -143,6 +147,15 @@ export const PAGES: PageDef[] = [
     group: 'Foundations',
     bodyClass: 'lab',
     Component: lazy(() => import('./sampling/SamplingPage')),
+  },
+  {
+    id: 'atoms-touch',
+    path: '/atoms-touch',
+    title: 'Why Fingers Never Quite Touch',
+    label: 'Atoms film',
+    group: 'Foundations',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./atoms-touch/AtomsTouchPage')),
   },
   {
     id: 'ml',
@@ -343,6 +356,24 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./whiteboard/WhiteboardPage')),
   },
   {
+    id: 'tabular',
+    path: '/tabular',
+    title: 'Tabular Foundation Models',
+    label: 'Tabular foundation models',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./tabular/TabularPage')),
+  },
+  {
+    id: 'code-graph',
+    path: '/code-graph',
+    title: 'Code Knowledge Graph',
+    label: 'Code knowledge graph',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./code-graph/CodeGraphPage')),
+  },
+  {
     id: 'brain-check',
     path: '/brain-check',
     title: 'Brain Health Check',
@@ -359,6 +390,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./scans/ScanPage')),
+  },
+  {
+    id: 'gaze-pointer',
+    path: '/gaze-pointer',
+    title: 'Hands-free Pointer',
+    label: 'Hands-free pointer',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./gaze-pointer/GazePointerPage')),
   },
   {
     id: 'dataagent',
@@ -422,6 +462,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./translate/TranslatePage')),
+  },
+  {
+    id: 'video-translate',
+    path: '/video-translate',
+    title: 'Video Translation',
+    label: 'Video translation',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./video-translate/VideoTranslatePage')),
   },
   {
     id: 'foundryops',
@@ -620,6 +669,15 @@ export const PAGES: PageDef[] = [
     group: 'Cost and operations',
     bodyClass: 'lab',
     Component: lazy(() => import('./local-model/LocalModelPage')),
+  },
+  {
+    id: 'observability',
+    path: '/observability',
+    title: 'Monitoring and Traces',
+    label: 'Monitoring and traces',
+    group: 'Cost and operations',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./observability/ObservabilityPage')),
   },
   {
     id: 'routing',

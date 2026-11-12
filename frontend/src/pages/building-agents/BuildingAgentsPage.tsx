@@ -179,10 +179,11 @@ const STEPS: [string, string, [string, string][], string?][] = [
     [
       ['/evals', 'Evals'],
       ['/confidence', 'Confidence'],
+      ['/observability', 'Monitoring and traces'],
       ['/foundry-operations', 'Foundry operations'],
       ['/context', 'Context and cost'],
     ],
-    'Monitoring is the thinnest part: the lab tracks spend per call and shows one trace, but has no page of its own for logs and traces yet.',
+    'Evals check the answers; the monitoring page records every model call the lab makes, with its tokens, cost, latency and trace.',
   ],
 ];
 

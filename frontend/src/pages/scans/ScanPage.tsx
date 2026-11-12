@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VoiceComposer } from '@/components/voice/VoiceComposer';
 import { isLocalModel } from '@/lib/models';
-import { scanService, type ScanInfo, type ScanResult } from '@/services/scanService';
+import { scanService, type ScanInfo, type ScanMark, type ScanResult } from '@/services/scanService';
 import { statusService } from '@/services/statusService';
 import './scans.css';
 
@@ -48,6 +48,32 @@ async function toPicture(file: File, maxBytes: number): Promise<Picture> {
   return { data: small.split(',')[1], url: small, name: file.name, shrunk: true };
 }
 
+/** Boxes over the picture: the findings, numbered as in the table, and the places the latest answer points at. */
+function Marks({ boxes, marks, hot }: { boxes: number[][]; marks: ScanMark[]; hot: number | null }) {
+  const at = (b: number[]) => ({
+    left: `${b[0] * 100}%`,
+    top: `${b[1] * 100}%`,
+    width: `${b[2] * 100}%`,
+    height: `${b[3] * 100}%`,
+  });
+  return (
+    <>
+      {boxes.map((b, i) =>
+        b.length === 4 ? (
+          <span key={`o${i}`} className={`sc-box${hot === i ? ' hot' : ''}`} style={at(b)}>
+            <i>{i + 1}</i>
+          </span>
+        ) : null,
+      )}
+      {marks.map((m, i) => (
+        <span key={`m${i}`} className="sc-box answer" style={at(m.box)}>
+          <i>{m.label}</i>
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** A scan explainer: upload a medical image, and a model says what it can see, how sure it is and what to ask. */
 export default function ScanPage() {
   const [info, setInfo] = useState<ScanInfo | null>(null);
@@ -59,7 +85,8 @@ export default function ScanPage() {
   const [over, setOver] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [question, setQuestion] = useState('');
-  const [answers, setAnswers] = useState<{ q: string; a: string }[]>([]);
+  const [answers, setAnswers] = useState<{ q: string; a: string; marks: ScanMark[] }[]>([]);
+  const [hot, setHot] = useState<number | null>(null); // the finding row under the pointer
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [cost, setCost] = useState(0);
@@ -120,7 +147,7 @@ export default function ScanPage() {
     setError('');
     try {
       const r = await scanService.ask(text, result.reading, picture?.data ?? null, model || undefined);
-      setAnswers((a) => [...a, { q: text, a: r.answer }]);
+      setAnswers((a) => [...a, { q: text, a: r.answer, marks: r.marks }]);
       setCost((c) => c + r.cost_usd);
       setQuestion('');
     } catch (err) {
@@ -161,7 +188,16 @@ export default function ScanPage() {
           >
             <input type="file" accept={TYPES.join(',')} onChange={(e) => void choose(e.target.files?.[0])} />
             {picture ? (
-              <img src={picture.url} alt="The uploaded scan" />
+              <span className="sc-figure">
+                <img src={picture.url} alt="The uploaded scan" />
+                {result && !result.message && (
+                  <Marks
+                    boxes={result.reading.observations.map((o) => o.box)}
+                    marks={answers[answers.length - 1]?.marks ?? []}
+                    hot={hot}
+                  />
+                )}
+              </span>
             ) : (
               <>
                 <b>Drop a picture here, or click to choose one</b>
@@ -253,8 +289,10 @@ export default function ScanPage() {
                     </thead>
                     <tbody>
                       {r.observations.map((o, i) => (
-                        <tr key={i}>
-                          <td>{o.what}</td>
+                        <tr key={i} onPointerEnter={() => setHot(i)} onPointerLeave={() => setHot(null)}>
+                          <td>
+                            {o.box.length === 4 && <b className="sc-num">{i + 1}</b>} {o.what}
+                          </td>
                           <td>{o.where}</td>
                           <td>{o.plain}</td>
                           <td>

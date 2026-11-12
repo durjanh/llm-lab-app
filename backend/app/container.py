@@ -23,11 +23,13 @@ from .gateways.foundry_tools import FoundryTools
 from .gateways.local_embeddings import LocalEmbedder, LocalEmbeddings
 from .services.aftercare import AftercareService
 from .services.aftercare_phone import AftercarePhone
+from .services.code_graph import CodeGraphService
 from .services.deals import DealsService
 from .services.diet import DietService
 from .services.hotel import HotelService
 from .services.brain import BrainCheckService
 from .services.scans import ScanService
+from .services.tabular import TabularService
 from .services.whiteboard import WhiteboardService
 from .services.token_counter import TokenCounterService
 from .services.medassist_phone import MedAssistPhone
@@ -52,6 +54,8 @@ from .services.harness import HarnessService
 from .services.messages import MessagesService
 from .core.telemetry import CallLog, TimedClient
 from .services.observability import ObservabilityService
+from .gateways.azure_speech_rest import AzureSpeechRest
+from .services.video_translate import VideoTranslateService
 from .services.reviews import ReviewsService
 from .services.runs import RunRegistry, RunStreamer
 from .services.sites import SiteService, SiteStore
@@ -87,9 +91,11 @@ class Container:
     hotel: HotelService
     diet: DietService
     deals: DealsService
+    code_graph: CodeGraphService
     whiteboard: WhiteboardService
     brain: BrainCheckService
     scans: ScanService
+    tabular: TabularService
     token_counter: TokenCounterService
     local_embeddings: LocalEmbedder
     medassist_phone: MedAssistPhone
@@ -103,6 +109,7 @@ class Container:
     coding: CodingService
     runs: RunRegistry
     observability: ObservabilityService
+    video_translate: VideoTranslateService
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,
@@ -189,9 +196,11 @@ class Container:
                 settings.hotel_email_sender, settings.hotel_email_to)),
             diet=DietService(claude, spend, settings.generated_dir / "diet-memory", streamer),
             deals=DealsService(claude, spend, settings.generated_dir / "deals", streamer),
+            code_graph=CodeGraphService(claude, spend, settings.generated_dir / "code-graph"),
             whiteboard=WhiteboardService(claude, spend),
             brain=BrainCheckService(claude, spend, settings.generated_dir / "brain-check"),
             scans=ScanService(claude, spend),
+            tabular=TabularService(claude, spend, settings.generated_dir / "tabular", streamer),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),
             guardrails=GuardrailsService(tools, spend),
@@ -205,6 +214,9 @@ class Container:
             imagegen=ImageGenService(tools, spend, settings.generated_dir / "images", settings.generated_dir / "understanding"),
             runs=registry,
             observability=ObservabilityService(calls, spend),
+            video_translate=VideoTranslateService(
+                AzureSpeechRest(settings.azure_language_endpoint) if settings.azure_language_endpoint else None,
+                translate, spend, streamer, settings.generated_dir / "video-translate"),
         )
 
 

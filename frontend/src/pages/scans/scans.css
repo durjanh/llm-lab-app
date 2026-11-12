@@ -130,3 +130,54 @@
     top: 60px;
   }
 }
+
+/* Boxes drawn over the scan: where each finding is (numbered as in the table) and what an answer points at. */
+.page-scans .sc-figure {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.page-scans .sc-box {
+  position: absolute;
+  border: 2px solid #facc15;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.page-scans .sc-box i {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  transform: translateY(-100%);
+  font:
+    700 11px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-style: normal;
+  padding: 1px 6px;
+  border-radius: 6px 6px 0 0;
+  background: #facc15;
+  color: #111827;
+  white-space: nowrap;
+}
+.page-scans .sc-box.hot {
+  border-width: 3px;
+  background: rgba(250, 204, 21, 0.15);
+}
+.page-scans .sc-box.answer {
+  border-color: #38bdf8;
+  border-style: dashed;
+}
+.page-scans .sc-box.answer i {
+  background: #38bdf8;
+}
+.page-scans .sc-num {
+  display: inline-block;
+  min-width: 18px;
+  text-align: center;
+  border-radius: 4px;
+  background: #facc15;
+  color: #111827;
+  font-size: 11px;
+}

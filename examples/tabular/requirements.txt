@@ -1,0 +1,5 @@
+# TabPFN and a gradient-boosting baseline, in their own Python 3.12 environment: TabPFN needs PyTorch,
+# which the lab's main environment does not have. About 1.3 GB installed (mostly PyTorch).
+tabpfn==9.2.0
+scikit-learn==1.9.1
+pandas==3.1.1
