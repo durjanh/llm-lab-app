@@ -1,0 +1,95 @@
+/* Running a local model: the live status line, the request flow and the step list. */
+
+.page-local-model .lm-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 14px;
+}
+.page-local-model .lm-status button {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.page-local-model .lm-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d97706;
+}
+.page-local-model .lm-status.ok .lm-dot {
+  background: #16a34a;
+}
+
+.page-local-model .lm-flow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.page-local-model .lm-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.page-local-model .lm-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 14px;
+}
+.page-local-model .lm-box span {
+  color: var(--ink2);
+  font-size: 13px;
+}
+.page-local-model .lm-box.core {
+  background: #162141;
+  border-color: #162141;
+}
+.page-local-model .lm-box.core b {
+  color: #1ee1d9;
+}
+.page-local-model .lm-box.core span {
+  color: #fff;
+}
+.page-local-model .lm-box.faint {
+  opacity: 0.55;
+  border-style: dashed;
+}
+.page-local-model .lm-arrow {
+  color: #2875e9;
+  font-size: 22px;
+}
+
+.page-local-model .lm-label {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.page-local-model .lm-steps,
+.page-local-model .lm-points {
+  padding-left: 22px;
+}
+.page-local-model .lm-steps li,
+.page-local-model .lm-points li {
+  margin: 6px 0;
+}

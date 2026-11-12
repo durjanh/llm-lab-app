@@ -6,6 +6,7 @@ import {
   type PhoneLineInfo,
   type PracticeState,
 } from '@/services';
+import { Link } from 'react-router';
 import './medassist.css';
 import { HowItWorks } from './HowItWorks';
 
@@ -429,6 +430,10 @@ export default function MedAssistPage() {
       <HowItWorks />
 
       <h2>What runs where</h2>
+      <p className="small">
+        The whole solution on one diagram, with the phone line, texts, reminders, the inbox agent and the C# version, is
+        on <Link to="/medassist/architecture">MedAssist solution architecture</Link>.
+      </p>
       <div className="table-wrap">
         <table className="t">
           <thead>

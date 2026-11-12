@@ -1,0 +1,67 @@
+/* Building agents: labels over code, the loop tabs and the facts beside each loop. */
+
+.page-building-agents .ba-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.page-building-agents .ba-points {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+}
+.page-building-agents .ba-points li {
+  margin: 4px 0;
+}
+
+.page-building-agents .ba-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+.page-building-agents .ba-tabs button {
+  padding: 6px 14px;
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.page-building-agents .ba-tabs button.on {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.page-building-agents .ba-loop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+@media (max-width: 900px) {
+  .page-building-agents .ba-loop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-building-agents .ba-loop .card {
+  margin-top: 10px;
+}
+.page-building-agents .ba-facts {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.page-building-agents .ba-facts dt {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.page-building-agents .ba-facts dd {
+  margin: 2px 0 0;
+}
