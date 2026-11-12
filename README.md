@@ -2,7 +2,7 @@
 
 Hands-on pages that show how large language models and the systems around them work, each ending with the engineering decisions it should change. Every page runs real models or real arithmetic in your browser. A FastAPI backend adds live Claude calls.
 
-This is the full-stack version: a **FastAPI** backend and a **React + TypeScript** frontend, kept separate. It started as a copy of the static site in `~/Dev/Transformer`, which stays as the simple version: plain HTML files you can open from disk.
+It has a **FastAPI** backend and a **React + TypeScript** frontend, kept separate.
 
 ```
 llm-lab-app/
