@@ -75,7 +75,7 @@ Open http://localhost:5173. Vite forwards `/api` and `/models` to the backend. R
 
 ### After restarting the machine
 
-Two things run in Docker beside the backend, each from its own script:
+Two things run in Docker beside the backend, each from its own script. The first time, set each one up as its section below says: [A local open model, at no cost per token](#a-local-open-model-at-no-cost-per-token) and [Skills and decks without Claude's container](#skills-and-decks-without-claudes-container). The lab's `/local-model` page walks through the same steps and shows whether your model is configured, running and pulled.
 
 | What | Script | Where | After a restart |
 |---|---|---|---|
@@ -347,7 +347,7 @@ The deployment `gpt-5.4-mini` (Global Standard) is in the same Foundry resource 
 
 ### A local open model, at no cost per token
 
-An open model can run on this machine in Docker and be the default wherever the work allows. Docker Model Runner, which comes with Docker Desktop, runs it with llama.cpp on the host, so on a Mac it uses the GPU through Metal (an ordinary container cannot). Open Docker Desktop first, then set it up once:
+An open model can run on this machine in Docker and be the default wherever the work allows. Docker Model Runner, which comes with Docker Desktop, runs it with llama.cpp on the host, so on a Mac it uses the GPU through Metal (an ordinary container cannot). The lab's `/local-model` page covers the same ground with the code, and says whether your model is running. Open Docker Desktop first, then set it up once:
 
 ```sh
 ./tools/local-model.sh             # enables Model Runner on port 12434, pulls the model (6.9 GB), sets a 32k context
@@ -357,6 +357,13 @@ echo 'LLM_LAB_LOCAL_MODEL=ai/qwen3.5:9b-q4_K_XL' >> .env   # then restart the ba
 After restarting the machine or Docker Desktop, open Docker Desktop, run `./tools/local-model.sh` again, then start the backend and frontend as usual. Model Runner stays enabled and the model stays downloaded, so the script only sets the context again and checks the model answers ("Model says: Ready."). It is safe to run any time. To have Docker start by itself, turn on "Start Docker Desktop when you sign in" in its general settings. The model unloads after 30 minutes idle and reloads on the next request, which then takes a few seconds longer. If the server is not running, pages using the local model say so and name the script; a Claude model still works.
 
 The model is Qwen 3.5 9B (Apache 2.0): it calls tools, reads images and fits in 24 GB of memory with room to spare. On an M5 Pro it writes about 20 tokens a second, so a short answer takes a second or two and an agent run a minute or more. Claude is much faster and much better at long agent work; the local model is for practising without spending.
+
+The lab uses one local model at a time. `LLM_LAB_LOCAL_MODEL` holds one name, and the client treats a request as local only when its model matches that name exactly, so the model lists show one local model even when Docker has several downloaded. `docker model ls` lists what is downloaded; `docker model ps` lists what is loaded now, which is only what requests have used in the last 30 minutes. To use another model, such as gpt-oss (which cannot read images), change the name and run the script again:
+
+```sh
+# in .env: LLM_LAB_LOCAL_MODEL=ai/gpt-oss:20b
+./tools/local-model.sh             # pulls it if needed, sets its context, checks it answers; then restart the backend
+```
 
 With `LLM_LAB_LOCAL_MODEL` set, the model lists start with it and pages select it, and every call is charged at $0. The scripts in `python/` default to it too. `python/local_model.py` does the routing, in the client every page already uses: Model Runner serves the Anthropic Messages API at `http://localhost:12434/anthropic`, so requests keep their shape. It switches the model's thinking off unless a request asks for it, and sends a reply that must match a JSON schema to the server's OpenAI-compatible endpoint, where a grammar holds it to the schema.
 
