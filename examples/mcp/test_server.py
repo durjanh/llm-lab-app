@@ -79,6 +79,20 @@ def test_the_brief_resource_and_the_prompt() -> None:
     assert "get_engagement" in prompt and "ENG-101" in prompt
 
 
+def test_the_catalogue_resource_lists_every_engagement_without_a_search() -> None:
+    async def go():
+        async with Client(build_server()) as client:
+            listed = await client.list_resources()
+            catalogue = await client.read_resource("engagement://catalogue")
+            return [str(r.uri) for r in listed.resources], catalogue.contents[0].text
+    uris, catalogue = anyio.run(go)
+    assert "engagement://catalogue" in uris
+    assert catalogue.startswith("# Engagements (4)")
+    for engagement_id in ("ENG-090", "ENG-101", "ENG-104", "ENG-107"):  # closed ones too
+        assert f"- {engagement_id} (" in catalogue
+    assert "Northgate Builders" in catalogue and "RISK-" not in catalogue  # summaries only, not the full records
+
+
 # --- Over HTTP, as a hosted server -------------------------------------------------------------
 
 RPC = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json",

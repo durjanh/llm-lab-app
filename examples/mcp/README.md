@@ -4,7 +4,8 @@ A small Model Context Protocol server, and the three ways Claude uses one. The s
 
 | File | What it is |
 |---|---|
-| `server.py` | The MCP server: 3 tools, 1 resource, 1 prompt. stdio for local use; Streamable HTTP with bearer-token scopes when hosted |
+| `server.py` | The MCP server: 3 tools, 2 resources (a brief and a catalogue), 1 prompt. stdio for local use; Streamable HTTP with bearer-token scopes when hosted |
+| `engagement://catalogue` | An MCP resource listing every engagement with its id and a one-line summary, so an agent sees what exists before it calls any tool |
 | `test_server.py` | Tests through a real MCP client, in-process and over HTTP with auth |
 | `ask_claude.py` | Claude API + your harness: starts the server over stdio, and asks a person before any write |
 | `remote_connector.py` | Claude API, MCP connector: Anthropic's servers call your hosted server, allowlisted to read tools |
@@ -12,7 +13,7 @@ A small Model Context Protocol server, and the three ways Claude uses one. The s
 
 ```sh
 pip install -r examples/mcp/requirements.txt
-python -m pytest examples/mcp -q                      # 6 tests
+python -m pytest examples/mcp -q                      # 7 tests
 python examples/mcp/ask_claude.py                     # Claude answers from the server's data
 python examples/mcp/ask_claude.py --task "Log a high risk on Brightwater: legal is on leave until December. Priya owns it."
 ```
@@ -50,6 +51,8 @@ A plugin can carry the same `.mcp.json` at its root, so installing the plugin in
 - Annotations (`read_only_hint`, `destructive_hint`, `idempotent_hint`) let a client ask a person before a write. `ask_claude.py` does that in the harness, where the model can't skip it.
 - `log_risk` takes an idempotency key, so a call retried after a timeout returns the first risk instead of adding a second.
 - In production, have the harness supply the key rather than the model.
+
+**A resource can be a content catalogue.** `engagement://catalogue` lists every engagement with its id and one line, so an agent starts with a map of what exists and goes straight to `get_engagement`, instead of spending exploratory `search_engagements` calls to find out. Keep each entry to a line, and the catalogue small enough to attach whole; a very large set needs paging or a search tool instead.
 
 **Resources and prompts are for the person, tools for the model.** The brief (`engagement://ENG-101/brief`) is data a user attaches. `weekly_update` is a starting message they pick, which shows up as a slash command in Claude Code.
 

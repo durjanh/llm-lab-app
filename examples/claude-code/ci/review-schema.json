@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "severity": { "type": "string", "enum": ["bug", "security", "data-loss"] },
+          "issue": { "type": "string", "description": "What is wrong, in one or two sentences" },
+          "suggested_fix": { "type": "string" },
+          "detected_pattern": { "type": "string", "description": "The code construct that triggered the finding, for tracking dismissals" },
+          "status": { "type": "string", "enum": ["new", "still_open"] }
+        },
+        "required": ["file", "line", "severity", "issue", "status"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["findings"],
+  "additionalProperties": false
+}

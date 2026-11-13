@@ -1,0 +1,3 @@
+# pip install -r requirements.txt   (any Python 3.10+; these scripts are compile-checked only, they need cloud accounts)
+anthropic[bedrock,vertex]>=2.8
+azure-identity>=1.27

@@ -1,0 +1,126 @@
+/* Delivery and governance: a long reading page with one tool. Colours come from the shared variables. */
+
+.page-delivery .dl-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.page-delivery .dl-section {
+  margin-top: 36px;
+  scroll-margin-top: 70px;
+}
+.page-delivery .dl-tags {
+  margin-top: -6px;
+}
+.page-delivery .dl-bad {
+  color: var(--bad);
+}
+.page-delivery .dl-chips,
+.page-delivery .dl-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.page-delivery .dl-brief {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.page-delivery .dl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.page-delivery .dl-result .card {
+  margin-top: 12px;
+}
+.page-delivery .dl-result h3 {
+  margin: 14px 0 4px;
+  font-size: 15px;
+}
+.page-delivery .dl-result h3:first-child {
+  margin-top: 0;
+}
+.page-delivery .table-wrap {
+  overflow-x: auto;
+}
+.page-delivery .dl-adr {
+  max-width: 820px;
+}
+.page-delivery .dl-adr p {
+  margin: 6px 0;
+}
+.page-delivery .dl-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.page-delivery .dl-step {
+  border: 1px solid var(--line2);
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+}
+
+/* The MedAssist diagram */
+.page-delivery .dl-flow {
+  width: 100%;
+  height: auto;
+  max-width: 820px;
+  display: block;
+}
+.page-delivery .dl-node rect {
+  fill: var(--surface2);
+  stroke: var(--line2);
+  stroke-width: 1.2;
+}
+.page-delivery .dl-node.core rect {
+  stroke: var(--brand);
+  stroke-width: 2;
+}
+.page-delivery .dl-node.check rect {
+  stroke: var(--warn);
+}
+.page-delivery .dl-node.loop rect {
+  stroke: var(--good);
+  stroke-dasharray: 5 4;
+}
+.page-delivery .dl-t {
+  fill: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.page-delivery .dl-s {
+  fill: var(--ink2);
+  font-size: 11.5px;
+}
+.page-delivery .dl-h {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.page-delivery .dl-arrow path {
+  fill: none;
+  stroke: var(--ink2);
+  stroke-width: 1.6;
+  marker-end: url(#dl-arr);
+}
+.page-delivery .dl-head {
+  fill: var(--ink2);
+}
+@media (max-width: 700px) {
+  .page-delivery .dl-flow {
+    min-width: 560px;
+  }
+  .page-delivery .dl-diagram-scroll {
+    overflow-x: auto;
+  }
+}

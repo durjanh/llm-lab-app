@@ -1,0 +1,108 @@
+.page-claude-at-work {
+  max-width: 1100px;
+}
+.page-claude-at-work section {
+  margin-top: 28px;
+  scroll-margin-top: 70px;
+}
+.page-claude-at-work .aw-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 10px 0 0;
+}
+.page-claude-at-work .aw-list {
+  padding-left: 20px;
+  line-height: 1.55;
+}
+.page-claude-at-work .aw-live {
+  margin-top: 40px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.page-claude-at-work .table-wrap {
+  overflow-x: auto;
+}
+.page-claude-at-work .aw-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  margin: 10px 0;
+}
+.page-claude-at-work .aw-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 8px 0;
+}
+.page-claude-at-work textarea,
+.page-claude-at-work input[type='text'],
+.page-claude-at-work input:not([type]) {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 8px;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+}
+.page-claude-at-work .aw-row input:not([type]) {
+  width: auto;
+  flex: 1 1 180px;
+}
+.page-claude-at-work .aw-chip {
+  border: 1px solid var(--line2);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.page-claude-at-work .aw-template,
+.page-claude-at-work .aw-out {
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  min-width: 0;
+}
+.page-claude-at-work .aw-template p {
+  margin: 6px 0;
+  font-size: 0.9rem;
+  color: var(--ink2);
+}
+.page-claude-at-work .aw-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.page-claude-at-work .aw-bad {
+  color: var(--bad);
+}
+.page-claude-at-work .aw-verdict {
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line2);
+}
+.page-claude-at-work .aw-send,
+.page-claude-at-work .aw-appropriate,
+.page-claude-at-work .aw-supported {
+  color: var(--good);
+}
+.page-claude-at-work .aw-review_first,
+.page-claude-at-work .aw-needs_care,
+.page-claude-at-work .aw-unverifiable {
+  color: var(--warn);
+}
+.page-claude-at-work .aw-do_not_send,
+.page-claude-at-work .aw-not_appropriate,
+.page-claude-at-work .aw-contradicted {
+  color: var(--bad);
+}
+.page-claude-at-work .aw-tag {
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 8px;
+}

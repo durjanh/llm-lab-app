@@ -10,6 +10,8 @@
 | Allow and deny rules | `allowed_tools=["Bash(python -m unittest *)", ...]`, `disallowed_tools=["Bash(git push *)", ...]` |
 | Asking a person | `can_use_tool`, called for whatever the rules and the mode leave open |
 | Hooks | `PreToolUse` refuses `.env` and `.git`; `PostToolUse` compiles Python after an edit |
+| Support desk agent | `support_agent_sdk.py`: the `/support-desk` tools as an in-process MCP server (`create_sdk_mcp_server` and `@tool`); `tools=[]` turns off every built-in tool and `allowed_tools` names only `mcp__support__*`; a PreToolUse hook denies `process_refund` over $500 with a reason that says to escalate, and a PostToolUse hook normalises dates before the model reads them |
+| Sessions | `sessions_sdk.py`: the result message's `session_id`, `resume=<id>` to carry on, `resume=<id>` with `fork_session=True` to try two approaches from one baseline, `continue_conversation=True` for the latest session |
 | Project instructions | `setting_sources=["project"]` loads the copy's `CLAUDE.md`, and nothing from your own `~/.claude` |
 | Limits | `max_turns`, `max_budget_usd`; the result message reports turns and cost |
 | Auto mode | `--mode auto`: `permission_mode="bypassPermissions"` with `sandbox={"enabled": True, "allowUnsandboxedCommands": False, "network": {"allowedDomains": ["pypi.org", ...]}}`, and a shorter deny list (`git push`, `ssh`, `sudo`) |
@@ -37,3 +39,19 @@ With `--json` it prints one JSON event per line and reads permission answers fro
 ## Compared with the hand-built harness
 
 On the fix task with Haiku, the hand-built harness took 4 to 6 turns and about $0.002; the SDK took 7 to 14 turns and about $0.005. Claude Code's system prompt and tool descriptions are far longer, and it tends to read more before it edits. In exchange you get its tools, prompts, checkpoints and compaction, which have had far more use than anything written for one project.
+
+## Sessions
+
+A session is stored on disk under the folder it ran in. `resume` continues it with everything it had read; adding `fork_session=True` starts a new session from the same point and leaves the original untouched, which is how you compare two fixes from one baseline.
+
+```sh
+.venv/bin/python sessions_sdk.py   # review a small file, resume it, fork it twice, continue the latest (about ten cents)
+```
+
+## Support desk agent
+
+```sh
+.venv/bin/python support_agent_sdk.py                       # refund of $64.50, goes through
+.venv/bin/python support_agent_sdk.py --task big_refund     # over $500: the hook denies it
+.venv/bin/python support_agent_sdk.py "Hi, I'm mira.okafor@example.com. Where is order LF-2002?"
+```

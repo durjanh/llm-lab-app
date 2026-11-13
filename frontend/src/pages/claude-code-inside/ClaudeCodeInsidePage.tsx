@@ -12,9 +12,9 @@ export default function ClaudeCodeInsidePage() {
         <div className="kicker">Lab 18 · Claude Code behind the scenes</div>
         <h1>What really happens when you use Claude Code</h1>
         <p className="lede">
-          Thirteen short chapters, from <code>/init</code> to rewind. Each one plays out a real session three ways at
-          once: what you see in the terminal, the messages moving between Claude Code, the model and your tools, and
-          exactly what is in the context window that gets sent with every request.
+          Fourteen short chapters, from <code>/init</code> to running it in CI. Each one plays out a real session three
+          ways at once: what you see in the terminal, the messages moving between Claude Code, the model and your tools,
+          and exactly what is in the context window that gets sent with every request.
         </p>
         <p className="hint">
           Presenting? Press <span className="kbd">→</span> or <span className="kbd">Space</span> for the next step and{' '}

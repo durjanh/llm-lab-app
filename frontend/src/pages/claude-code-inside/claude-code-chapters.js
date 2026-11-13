@@ -909,7 +909,8 @@ with file and line, most serious first.</code></pre>
         term: [['sh', 'claude --continue'], ['sys', '(or claude --resume, or /resume inside a session)']],
         pk: [['files', 'cc', 'saved session', 'file']],
         add: [B('old', 'msg', 'The earlier conversation, restored', 36000, 'loaded from the saved session')],
-        d: `Sessions are saved on your machine as you go. <code>claude --continue</code> picks up the most recent one; <code>claude --resume</code> or <code>/resume</code> lets you choose. <code>--fork-session</code> or <code>/branch</code> copies a session, so you can try another approach without changing the original. Checkpoints survive resuming.`
+        d: `Sessions are saved on your machine as you go. <code>claude --continue</code> picks up the most recent one; <code>claude --resume</code> or <code>/resume</code> lets you choose. Name a session with <code>claude -n auth-investigation</code> or <code>/rename</code>, then come back to it with <code>claude --resume auth-investigation</code>. <code>--fork-session</code> (with <code>--resume</code> or <code>--continue</code>) or <code>/branch</code> copies a session, so you can try two approaches from the same analysis without changing the original. Checkpoints survive resuming.`,
+        why: `Resume when what Claude read is still true. If the files have changed since, either tell the resumed session exactly which files changed so it re-reads only those, or start fresh with a short summary of the findings: stale tool results are worse than none.`
       }
     ],
     after: `<div class="table-wrap"><table class="t"><thead><tr><th>Command</th><th>Conversation</th><th>Your files</th><th>Use it when</th></tr></thead><tbody>
@@ -918,7 +919,9 @@ with file and line, most serious first.</code></pre>
       <tr><td><code>/compact</code></td><td>Replaced by a summary</td><td>Kept</td><td>Same task, but the context is getting full</td></tr>
       <tr><td><code>/clear</code></td><td>Emptied; the old one is saved</td><td>Kept</td><td>You are starting a different task</td></tr>
       <tr><td><code>/resume</code>, <code>--continue</code></td><td>A saved one is loaded</td><td>Kept</td><td>You want to carry on yesterday's work</td></tr>
-    </tbody></table></div>`
+      <tr><td><code>--resume name --fork-session</code></td><td>A copy of a saved one</td><td>Kept</td><td>You want to try a second approach from the same starting point</td></tr>
+    </tbody></table></div>
+    <p class="small muted">The Agent SDK has the same controls: the <code>resume</code> option takes a session id, <code>fork_session=True</code> (<code>forkSession</code> in TypeScript) branches it, and <code>continue_conversation=True</code> picks up the most recent session.</p>`
   },
 
   // ------------------------------------------------------------------ 12
@@ -1005,8 +1008,85 @@ with file and line, most serious first.</code></pre>
 
   // ------------------------------------------------------------------ 13
   {
+    id: 'ci', short: 'Headless & CI', title: 'Claude Code in CI: no terminal, nobody to ask',
+    sub: 'claude -p on a build server, with findings a script can post',
+    nodes: ['you', 'cc', 'api', 'files'],
+    nodeSub: { you: 'the CI job', cc: 'claude -p on the runner', files: 'the checked-out repo' },
+    init: [SYS, TOOLS, ENV],
+    steps: [
+      {
+        t: 'claude -p: one run, then exit',
+        term: [['sh', 'claude -p "Review the changes on this branch" --output-format json']],
+        pk: [['you', 'cc', 'claude -p "…"', 'you']],
+        d: `<code>-p</code> (or <code>--print</code>) runs one task with no interactive interface and exits: 0 on success, non-zero on failure. Without it a pipeline would sit waiting for someone to type at a prompt that nobody can see.`
+      },
+      {
+        t: 'Nobody can approve a prompt',
+        term: [['sh', '--allowedTools "Read,Grep,Glob,Bash(git diff *)" --permission-mode dontAsk --max-turns 20']],
+        on: ['cc'],
+        tags: [['warn', 'decide permissions up front']],
+        d: `In CI there is nobody to press Yes. Allow the read-only tools the review needs, and use <code>dontAsk</code> so anything else is refused rather than waited on. <code>--max-turns</code> caps the run. Servers in a project <code>.mcp.json</code> load without the approval prompt in print mode, so review that file as carefully as the workflow.`
+      },
+      {
+        t: 'CLAUDE.md is the briefing for every run',
+        pk: [['files', 'cc', 'CLAUDE.md, rules', 'file']],
+        add: [B('cimem', 'mem', 'CLAUDE.md files', 1500, 'review criteria, test standards, fixtures')],
+        d: `A CI run reads the same CLAUDE.md and rules as you do. That is where the review criteria belong (report bugs and security problems; skip style the linter already handles), with the testing standards and the fixtures that exist, so every run applies the same rules.`
+      },
+      {
+        t: 'Reading the change',
+        term: [['tool', 'Bash(git diff origin/main...HEAD)'], ['out', '6 files changed, 214 insertions(+), 37 deletions(-)']],
+        pk: [['cc', 'api', 'request', 'req'], ['api', 'cc', 'Bash(git diff …)', 'resp'], ['cc', 'files', 'run', 'tool']],
+        call: true,
+        add: [T('cidiff', 'git diff: 6 files', 4200, 'the change under review')],
+        d: `The agent loop works exactly as it does in your terminal: Claude asks for tools, Claude Code runs the allowed ones and sends the results back.`
+      },
+      {
+        t: 'Findings in a fixed shape',
+        term: [['sh', '--json-schema "$(cat review-schema.json)"'], ['out', '{ "structured_output": { "findings": [ { "file": "src/refunds.ts", "line": 42, "severity": "bug", "status": "new", … } ] } }']],
+        pk: [['api', 'cc', 'findings', 'resp'], ['cc', 'you', 'JSON', 'you']],
+        call: true,
+        resp: [C('cires', 'findings as JSON', 600, 'checked against the schema')],
+        tags: [['good', 'machine-readable']],
+        d: `With <code>--output-format json</code> and <code>--json-schema</code>, the validated result arrives in the <code>structured_output</code> field. A script turns each finding into a pull request comment. If the run ends without valid output the field is missing, so fail the job rather than post nothing.`
+      },
+      {
+        t: 'A fresh reviewer, not the author',
+        on: ['cc', 'api'],
+        why: `The session that wrote the code keeps its own reasoning, so it tends to agree with itself. Asking it to "review carefully" or to think longer does not fix that.`,
+        d: `Review in a separate <code>claude -p</code> run, which has none of the writing session's history. Inside one session, a reviewer subagent does the same job: it starts with an empty context.`
+      },
+      {
+        t: 'Large change: one pass per file, then one across files',
+        term: [['sh', 'for f in $(git diff --name-only origin/main...HEAD); do claude -p "Review $f only" …; done'], ['sh', 'claude -p "Check how these files work together: …"']],
+        d: `Reviewing twenty files at once spreads attention thin and produces contradictory findings. Review each file for local problems, then run one integration pass for data flow between files.`
+      },
+      {
+        t: 'A new commit: report only what is new',
+        term: [['p', 'Earlier findings are in previous.json. Report only issues that are new or still not fixed, and mark each one.']],
+        pk: [['files', 'cc', 'previous.json', 'file']],
+        add: [T('ciprev', 'Earlier findings', 500, 'from the last run')],
+        d: `When the pull request is updated, give the next run the earlier findings and ask for new or still-open issues only, each marked <code>new</code> or <code>still_open</code>. Without that, every push repeats the same comments and people stop reading them.`
+      },
+      {
+        t: 'Generating tests: show it the tests you have',
+        term: [['p', 'Add tests for src/refunds.ts. The existing tests are in src/refunds.test.ts; do not repeat their scenarios.']],
+        d: `For test generation, put the existing test files in context so Claude does not suggest scenarios already covered, and list the fixtures and what makes a valuable test in CLAUDE.md.`
+      }
+    ],
+    after: `<p>The ready-made route is the official GitHub Action, <code>anthropics/claude-code-action@v1</code>, set up by running <code>/install-github-app</code> inside Claude Code. Its <code>prompt</code> input is the task, and <code>claude_args</code> passes any of the flags above. A complete workflow that runs the CLI directly and posts the findings is in <code>examples/claude-code/ci/</code>.</p>
+    <div class="takeaways"><h3>Remember</h3><ul>
+      <li><code>-p</code> so nothing waits for input; <code>--output-format json</code> with <code>--json-schema</code> for findings a script can read from <code>structured_output</code>.</li>
+      <li>Decide permissions up front: <code>--allowedTools</code> for what the job needs, <code>dontAsk</code> for everything else.</li>
+      <li>CLAUDE.md carries the review criteria and testing standards into every run.</li>
+      <li>Review with a fresh instance, per file then across files, and tell re-runs what was already reported.</li>
+    </ul></div>`
+  },
+
+  // ------------------------------------------------------------------ 14
+  {
     id: 'cheatsheet', short: 'Cheat sheet', title: 'Cheat sheet', sub: '', static: true, nodes: [], steps: [],
-    after: `<h2 style="margin-top:6px">13. Cheat sheet</h2>
+    after: `<h2 style="margin-top:6px">14. Cheat sheet</h2>
     <p>Everything from the talk on one page.</p>
     <div class="sheet">
       <div class="table-wrap"><table class="t"><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>
@@ -1017,6 +1097,10 @@ with file and line, most serious first.</code></pre>
         <tr><td><code>/clear</code></td><td>Start a new conversation</td></tr>
         <tr><td><code>/rewind</code></td><td>Go back to an earlier prompt: code, conversation or both</td></tr>
         <tr><td><code>/resume</code></td><td>Pick a saved session to continue</td></tr>
+        <tr><td><code>/rename name</code></td><td>Name this session, to resume it by name later</td></tr>
+        <tr><td><code>/plan</code></td><td>Switch to plan mode from the prompt</td></tr>
+        <tr><td><code>/agents</code></td><td>Custom subagents in <code>.claude/agents/</code></td></tr>
+        <tr><td><code>/ide</code></td><td>Connect a terminal session to VS Code or a JetBrains IDE</td></tr>
         <tr><td><code>/model</code></td><td>Switch model and effort (misses the cache once)</td></tr>
         <tr><td><code>/usage</code></td><td>Cost, plan limits and cache hit rate. <code>/cost</code> is an alias.</td></tr>
         <tr><td><code>/mcp</code></td><td>MCP server status and sign-in</td></tr>
@@ -1035,8 +1119,11 @@ with file and line, most serious first.</code></pre>
           <tr><td><code>! command</code></td><td>Run a shell command; its output joins the conversation</td></tr>
           <tr><td><code>@path</code></td><td>Point Claude at a file, with autocomplete</td></tr>
           <tr><td><code>/name</code></td><td>Run a command or skill</td></tr>
-          <tr><td><code>claude -c</code>, <code>claude -r</code></td><td>Continue the last session, or choose one</td></tr>
-          <tr><td><code>claude -p "…"</code></td><td>Run once without the interactive UI, for scripts and CI. Add <code>--output-format json</code> for parseable output.</td></tr>
+          <tr><td><code>claude -c</code>, <code>claude -r [name]</code></td><td>Continue the last session, or resume one by name or id</td></tr>
+          <tr><td><code>--fork-session</code></td><td>With <code>-r</code> or <code>-c</code>: branch a copy instead of continuing it</td></tr>
+          <tr><td><code>--permission-mode plan</code></td><td>Start in plan mode</td></tr>
+          <tr><td><code>claude -p "…"</code></td><td>Run once without the interactive UI, for scripts and ${go('ci', 'CI')}</td></tr>
+          <tr><td><code>--output-format json --json-schema '…'</code></td><td>With <code>-p</code>: output validated against a schema, in <code>structured_output</code></td></tr>
         </tbody></table></div>
         <div class="table-wrap" style="margin-top:12px"><table class="t"><thead><tr><th>You want to…</th><th>Use</th></tr></thead><tbody>
           <tr><td>Tell Claude facts it needs every time</td><td>${go('request', 'CLAUDE.md')}</td></tr>
@@ -1045,6 +1132,7 @@ with file and line, most serious first.</code></pre>
           <tr><td>Reach an outside system</td><td>${go('mcp', 'An MCP server')}</td></tr>
           <tr><td>Keep heavy reading out of your context</td><td>${go('subagents', 'A subagent')}</td></tr>
           <tr><td>Give the whole team the same setup</td><td>${go('plugins', 'A plugin')}, or commit <code>.claude/</code></td></tr>
+          <tr><td>Review every pull request</td><td>${go('ci', '<code>claude -p</code> in CI')}</td></tr>
         </tbody></table></div>
       </div>
     </div>
@@ -1058,7 +1146,7 @@ with file and line, most serious first.</code></pre>
     </ul></div>
     <h3>Further reading</h3>
     <p class="small" style="margin:0 0 4px">Start with <a href="https://code.claude.com/docs/en/how-claude-code-works.md" target="_blank" rel="noopener">How Claude Code works</a>. The pages each chapter was checked against:</p>
-    <ul class="bp small"><li><a href="https://code.claude.com/docs/en/how-claude-code-works.md" target="_blank" rel="noopener">How Claude Code works</a>: the agent loop, tools and sessions</li><li><a href="https://code.claude.com/docs/en/memory" target="_blank" rel="noopener">Memory</a>: CLAUDE.md, rules, imports and auto memory</li><li><a href="https://code.claude.com/docs/en/context-window" target="_blank" rel="noopener">Context window</a>: what loads at start-up and what survives compaction</li><li><a href="https://code.claude.com/docs/en/prompt-caching" target="_blank" rel="noopener">Prompt caching</a>: what keeps or breaks the cache</li><li><a href="https://code.claude.com/docs/en/tools-reference" target="_blank" rel="noopener">Tools reference</a>: how Read, Edit, Write and Bash behave</li><li><a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener">Skills</a></li><li><a href="https://code.claude.com/docs/en/hooks" target="_blank" rel="noopener">Hooks reference</a></li><li><a href="https://code.claude.com/docs/en/mcp" target="_blank" rel="noopener">MCP</a></li><li><a href="https://code.claude.com/docs/en/plugins/overview" target="_blank" rel="noopener">Plugins</a></li><li><a href="https://code.claude.com/docs/en/sub-agents" target="_blank" rel="noopener">Subagents</a></li><li><a href="https://code.claude.com/docs/en/checkpointing" target="_blank" rel="noopener">Checkpointing</a>: rewind and its limits</li><li><a href="https://code.claude.com/docs/en/permission-modes" target="_blank" rel="noopener">Permission modes</a></li><li><a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Permissions</a>: rule syntax and precedence</li><li><a href="https://code.claude.com/docs/en/commands" target="_blank" rel="noopener">Commands</a>: every slash command and bundled skill</li><li><a href="https://code.claude.com/docs/en/data-usage" target="_blank" rel="noopener">Data usage</a>: what is sent to Anthropic and how long it is kept</li></ul>
+    <ul class="bp small"><li><a href="https://code.claude.com/docs/en/how-claude-code-works.md" target="_blank" rel="noopener">How Claude Code works</a>: the agent loop, tools and sessions</li><li><a href="https://code.claude.com/docs/en/memory" target="_blank" rel="noopener">Memory</a>: CLAUDE.md, rules, imports and auto memory</li><li><a href="https://code.claude.com/docs/en/context-window" target="_blank" rel="noopener">Context window</a>: what loads at start-up and what survives compaction</li><li><a href="https://code.claude.com/docs/en/prompt-caching" target="_blank" rel="noopener">Prompt caching</a>: what keeps or breaks the cache</li><li><a href="https://code.claude.com/docs/en/tools-reference" target="_blank" rel="noopener">Tools reference</a>: how Read, Edit, Write and Bash behave</li><li><a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener">Skills</a></li><li><a href="https://code.claude.com/docs/en/hooks" target="_blank" rel="noopener">Hooks reference</a></li><li><a href="https://code.claude.com/docs/en/mcp" target="_blank" rel="noopener">MCP</a></li><li><a href="https://code.claude.com/docs/en/plugins/overview" target="_blank" rel="noopener">Plugins</a></li><li><a href="https://code.claude.com/docs/en/sub-agents" target="_blank" rel="noopener">Subagents</a></li><li><a href="https://code.claude.com/docs/en/checkpointing" target="_blank" rel="noopener">Checkpointing</a>: rewind and its limits</li><li><a href="https://code.claude.com/docs/en/permission-modes" target="_blank" rel="noopener">Permission modes</a></li><li><a href="https://code.claude.com/docs/en/permissions" target="_blank" rel="noopener">Permissions</a>: rule syntax and precedence</li><li><a href="https://code.claude.com/docs/en/commands" target="_blank" rel="noopener">Commands</a>: every slash command and bundled skill</li><li><a href="https://code.claude.com/docs/en/headless" target="_blank" rel="noopener">Run Claude Code programmatically</a>: <code>-p</code>, output formats and <code>--json-schema</code></li><li><a href="https://code.claude.com/docs/en/github-actions" target="_blank" rel="noopener">GitHub Actions</a></li><li><a href="https://code.claude.com/docs/en/sessions" target="_blank" rel="noopener">Sessions</a>: naming, resuming and forking</li><li><a href="https://code.claude.com/docs/en/data-usage" target="_blank" rel="noopener">Data usage</a>: what is sent to Anthropic and how long it is kept</li></ul>
     <p class="small muted" style="margin-top:12px">Facts on this page were checked against the Claude Code documentation at code.claude.com on 15 October 2026. Claude Code changes often; the terminal views are simplified and token counts are typical sizes, not measurements. For the files to copy, see the <a href="/claude-code">Claude Code setup lab</a> and <code>examples/claude-code/</code>.</p>`
   }
 ];

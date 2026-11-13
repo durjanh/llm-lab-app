@@ -16,12 +16,17 @@ export default function ClaudeCodePage() {
       <p className="lede">
         Claude Code is a harness, and you can shape it. <b>CLAUDE.md</b> gives it standing knowledge, <b>skills</b> give
         it procedures it loads when needed, <b>hooks</b> run your own code at fixed moments, <b>subagents</b> do focused
-        work in a separate context, and <b>plugins</b> package all of it for your team. Copyable versions of every
-        example are in <code>examples/claude-code/</code>.
+        work in a separate context, and <b>plugins</b> package all of it for your team. Then the ways of working:{' '}
+        <b>MCP servers</b> for outside tools, <b>plan mode</b> or straight to work, getting there in steps, running it{' '}
+        <b>in CI</b>, and using it <b>from your editor</b>. Copyable versions of every example are in{' '}
+        <code>examples/claude-code/</code>.
       </p>
       <p className="small muted">
-        Formats and behaviour were checked against the Claude Code documentation at code.claude.com on 14 October 2026.
-        Claude Code changes often, so check the docs when something does not behave as described.
+        Formats and behaviour were checked against the Claude Code documentation at code.claude.com on 14 October 2026,
+        and sections 8 to 12 on 13 November 2026. Claude Code changes often, so check the docs when something does not
+        behave as described. This page and <a href="/claude-code-inside">Claude Code behind the scenes</a> together
+        cover domain 3 of the <a href="/claude-architect">Claude Certified Architect exam</a>; the map at the end shows
+        where.
       </p>
       <h2>1. Which one do I need?</h2>
       <p>Pick what you are trying to do.</p>
@@ -132,7 +137,14 @@ export default function ClaudeCodePage() {
         </li>
         <li>CLAUDE.md files in subdirectories load when Claude reads or edits files there.</li>
         <li>
-          Import other files with <code>@path/to/file</code>. Imports load at launch, so they do not save context.
+          Import other files with <code>@path/to/file</code>. The path is relative to the file that contains it, and
+          imports can nest four deep. They load at launch, so they keep CLAUDE.md tidy but do not save context. In a
+          monorepo, each package's CLAUDE.md can import just the standards that package needs.
+        </li>
+        <li>
+          <code>CLAUDE.local.md</code> loads at launch next to the CLAUDE.md in the same folder. Rules in{' '}
+          <code>.claude/rules/</code> without a <code>paths</code> field load at launch too;{' '}
+          <code>~/.claude/rules/</code> holds your own rules for every project.
         </li>
         <li>
           <code>/init</code> drafts a CLAUDE.md from your codebase. <code>/memory</code> lists and opens the memory
@@ -162,6 +174,36 @@ export default function ClaudeCodePage() {
           <b>Use a hook for anything that must happen,</b> because CLAUDE.md is guidance, not enforcement.
         </li>
       </ul>
+      <h3 id="rules">Rules for part of the codebase</h3>
+      <p>
+        A large CLAUDE.md can be split into topic files in <code>.claude/rules/</code>, such as <code>testing.md</code>,{' '}
+        <code>api-conventions.md</code> and <code>deployment.md</code>. Give a rule a <code>paths</code> field with glob
+        patterns and it loads only when Claude reads or edits a matching file, so it costs nothing the rest of the time.
+      </p>
+      <div className="grid2">
+        <CodeBlock html={S.s9} />
+        <ul className="bp" style={{ columns: '1' }}>
+          <li>
+            <b>Rule or folder CLAUDE.md?</b> A CLAUDE.md in <code>src/billing/</code> covers one folder. Test files are
+            spread through the whole codebase, so a rule matching <code>**/*.test.tsx</code> is the only way to give
+            them one set of conventions.
+          </li>
+          <li>
+            <code>paths</code> takes a list or a comma-separated string, and braces expand:{' '}
+            <code>"src/**/*.&#123;ts,tsx&#125;"</code>.
+          </li>
+          <li>
+            Infrastructure conventions in <code>paths: ["terraform/**/*"]</code> stay out of every session that never
+            touches Terraform.
+          </li>
+        </ul>
+      </div>
+      <div className="mistake">
+        <b>Diagnose it:</b> a new teammate's sessions ignore the team's conventions. They were written in{' '}
+        <code>~/.claude/CLAUDE.md</code> on someone else's machine, which is personal and never reaches git. Move them
+        to <code>./CLAUDE.md</code> or <code>.claude/rules/</code> and commit them. <code>/memory</code> lists the
+        memory files a session found, which is the quickest way to see what is and is not loaded.
+      </div>
       <h2 id="skills">
         4. Skills <span className="tag">procedures on demand</span>
       </h2>
@@ -230,14 +272,37 @@ export default function ClaudeCodePage() {
                 <td>
                   <code>allowed-tools</code>
                 </td>
-                <td>Tools it may use without asking while it runs.</td>
+                <td>
+                  Tools it may use without asking while it runs. It approves; it does not take other tools away (
+                  <code>disallowed-tools</code> does that).
+                </td>
               </tr>
               <tr>
                 <td>
                   <code>argument-hint</code>
                 </td>
                 <td>
-                  Shown when you type the command, such as <code>[patch|minor|major]</code>.
+                  Shown when you type the command, such as <code>[patch|minor|major]</code>, so people know what to
+                  pass.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <code>context: fork</code>
+                </td>
+                <td>
+                  Runs the skill as a separate subagent with no access to the conversation. Its verbose output stays out
+                  of your session; only the result comes back.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <code>agent</code>
+                </td>
+                <td>
+                  With <code>context: fork</code>: which subagent runs it, such as <code>Explore</code>,{' '}
+                  <code>Plan</code> or one from <code>.claude/agents/</code>. The default is{' '}
+                  <code>general-purpose</code>.
                 </td>
               </tr>
             </tbody>
@@ -259,6 +324,69 @@ export default function ClaudeCodePage() {
           <CodeBlock html={S.s3} className="wrap" />
         </div>
       </div>
+      <h3 id="commands">Commands and skills: the team's or yours</h3>
+      <div className="table-wrap">
+        <table className="t">
+          <thead>
+            <tr>
+              <th />
+              <th>The team's, committed to git</th>
+              <th>Yours, on your machine only</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Skill</td>
+              <td>
+                <code>.claude/skills/&lt;name&gt;/SKILL.md</code>
+              </td>
+              <td>
+                <code>~/.claude/skills/&lt;name&gt;/SKILL.md</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Command (older single-file form)</td>
+              <td>
+                <code>.claude/commands/&lt;name&gt;.md</code>
+              </td>
+              <td>
+                <code>~/.claude/commands/&lt;name&gt;.md</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul className="bp">
+        <li>
+          A command file and a skill both create <code>/name</code>, with the same frontmatter. If both exist with one
+          name, the skill wins.
+        </li>
+        <li>
+          If a personal skill and a project skill share a name, <b>the personal one wins</b>. To try your own variant of
+          a team skill without changing anything for teammates, give yours a different name, such as{' '}
+          <code>/review-mine</code>.
+        </li>
+        <li>
+          <b>Skill or CLAUDE.md?</b> CLAUDE.md is loaded in every session, so it holds universal standards. A skill
+          loads when it is needed, so it holds task-specific workflows.
+        </li>
+      </ul>
+      <div className="grid2">
+        <div>
+          <b className="small">A team command with an argument and pre-approved tools</b>
+          <CodeBlock html={S.s10} className="wrap" />
+        </div>
+        <div>
+          <b className="small">A forked skill: the exploring happens out of your context</b>
+          <CodeBlock html={S.s11} className="wrap" />
+        </div>
+      </div>
+      <p className="facts-note">
+        Exam note: the Claude Certified Architect exam guide describes <code>allowed-tools</code> as restricting which
+        tools a skill may use. The current Claude Code documentation describes it as pre-approving those tools, with{' '}
+        <code>disallowed-tools</code> to remove others. Expect the exam's wording in questions; use the docs' behaviour
+        in practice.
+      </p>
       <h3>Best practices</h3>
       <ul className="bp">
         <li>
@@ -515,6 +643,369 @@ export default function ClaudeCodePage() {
           machine.
         </li>
       </ul>
+      <h2 id="mcp">
+        8. MCP servers <span className="tag">outside tools and data</span>
+      </h2>
+      <p>
+        An MCP server gives Claude Code tools and data from another system: an issue tracker, a database, a design tool.
+        Every configured server's tools are found when Claude Code connects and are all available at once. Where the
+        configuration lives decides who gets it.
+      </p>
+      <div className="table-wrap">
+        <table className="t">
+          <thead>
+            <tr>
+              <th>Scope</th>
+              <th>Stored in</th>
+              <th>Use for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>project</code>
+              </td>
+              <td>
+                <code>.mcp.json</code> at the project root, committed
+              </td>
+              <td>Servers the whole team uses</td>
+            </tr>
+            <tr>
+              <td>
+                <code>user</code>
+              </td>
+              <td>
+                <code>~/.claude.json</code>
+              </td>
+              <td>Your own and experimental servers, in every project</td>
+            </tr>
+            <tr>
+              <td>
+                <code>local</code> (the default)
+              </td>
+              <td>
+                <code>~/.claude.json</code>, under this project's path
+              </td>
+              <td>A server for you, in this project only</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div className="grid2">
+        <CodeBlock html={S.s12} />
+        <CodeBlock html={S.s13} />
+      </div>
+      <ul className="bp">
+        <li>
+          <b>Keep secrets out of git</b> with <code>$&#123;VAR&#125;</code> in <code>.mcp.json</code>, or{' '}
+          <code>$&#123;VAR:-default&#125;</code> for a fallback. Expansion works in the command, arguments, environment,
+          URL and headers. Each person sets the variable on their own machine.
+        </li>
+        <li>
+          Interactive sessions ask before using a project's servers for the first time;{' '}
+          <code>claude mcp reset-project-choices</code> asks again. Print mode and the Agent SDK load them without
+          asking.
+        </li>
+        <li>
+          <b>Resources</b> expose a catalogue, such as open issues, a schema or a document tree. Attach one with{' '}
+          <code>@server:protocol://path</code> so Claude sees what exists without exploratory tool calls. <b>Prompts</b>{' '}
+          appear as <code>/server:prompt</code> commands.
+        </li>
+        <li>
+          <b>Describe the tools well.</b> If an MCP tool's description is thin, Claude falls back on Grep and Bash. Say
+          what it returns and when it beats the built-in tools.
+        </li>
+        <li>
+          <b>Use an existing server for standard systems</b> such as GitHub or Jira, and build your own only for your
+          team's own workflows. <a href="/mcp">The MCP servers lab</a> builds one.
+        </li>
+      </ul>
+
+      <h2 id="plan">
+        9. Plan mode or straight to work <span className="tag">match the mode to the task</span>
+      </h2>
+      <p>
+        In plan mode Claude reads, searches and writes a plan, but changes nothing until you approve it. Enter it with{' '}
+        <span className="kbd">Shift+Tab</span>, with <code>/plan</code>, or start with{' '}
+        <code>claude --permission-mode plan</code>. Correcting a plan costs a sentence; undoing a wrong implementation
+        across 40 files costs much more.
+      </p>
+      <div className="table-wrap">
+        <table className="t">
+          <thead>
+            <tr>
+              <th>The task</th>
+              <th>Use</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>A single-file fix with a clear stack trace; adding one date check</td>
+              <td>Direct execution</td>
+              <td>The scope is known; a plan adds a step and nothing else</td>
+            </tr>
+            <tr>
+              <td>Migrating a library used in 45 files</td>
+              <td>Plan mode, then execute</td>
+              <td>Agree the approach once, then let it work through the files</td>
+            </tr>
+            <tr>
+              <td>Restructuring a service into several</td>
+              <td>Plan mode</td>
+              <td>Architectural choices are cheap to change on paper</td>
+            </tr>
+            <tr>
+              <td>A feature with two valid designs and different infrastructure needs</td>
+              <td>Plan mode</td>
+              <td>You choose between approaches before any code exists</td>
+            </tr>
+            <tr>
+              <td>Finding your way round an unfamiliar codebase first</td>
+              <td>The Explore subagent</td>
+              <td>It reads many files in its own context and returns a summary, so your context stays small</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The common pattern combines them: investigate and plan in plan mode, approve, and let Claude implement the plan
+        directly. The built-in Explore and Plan subagents are read-only, which is why plan mode can use them freely.{' '}
+        <a href="/coding-agent">The coding agent lab</a> runs a real plan mode, where edits are refused until the plan
+        is approved.
+      </p>
+
+      <h2 id="iterate">
+        10. Getting there in steps <span className="tag">iterative refinement</span>
+      </h2>
+      <div className="grid2">
+        <ul className="bp" style={{ columns: '1' }}>
+          <li>
+            <b>Show, do not describe.</b> When prose gives inconsistent results, two or three concrete input and output
+            examples fix it: <i>"2026-11-03T09:00Z" becomes "3 Nov 2026, 09:00"; "" becomes null</i>.
+          </li>
+          <li>
+            <b>Tests first.</b> Write tests for the expected behaviour, the edge cases and any speed limits, then let
+            Claude iterate by sharing the failures. A Stop hook that runs the tests makes this automatic.
+          </li>
+          <li>
+            <b>Fix an edge case with a test case.</b> "Null amounts break the migration" is vague; a test with that
+            input and the expected output is not.
+          </li>
+        </ul>
+        <ul className="bp" style={{ columns: '1' }}>
+          <li>
+            <b>Interview first, in unfamiliar ground.</b> Ask Claude to question you before it builds:{' '}
+            <i>"Before writing the cache, ask me what you need to know about invalidation and failure modes."</i> It
+            surfaces decisions you had not thought of.
+          </li>
+          <li>
+            <b>Interacting problems: one message.</b> If fixing one issue changes another, describe them all together so
+            the fixes fit.
+          </li>
+          <li>
+            <b>Independent problems: one at a time.</b> Each fix can be checked on its own, and a failure does not hide
+            the others.
+          </li>
+        </ul>
+      </div>
+
+      <h2 id="ci">
+        11. Claude Code in CI <span className="tag">no terminal, nobody to ask</span>
+      </h2>
+      <p>
+        <code>claude -p</code> runs one task without the interactive interface and exits, so a pipeline never hangs
+        waiting for input. Add <code>--output-format json</code> with <code>--json-schema</code> and the validated
+        result appears in <code>structured_output</code>, ready for a script to post as review comments. A complete
+        workflow is in <code>examples/claude-code/ci/</code>;{' '}
+        <a href="/claude-code-inside#ci">Claude Code behind the scenes</a> plays it step by step.
+      </p>
+      <div className="grid2">
+        <CodeBlock html={S.s14} className="wrap" />
+        <CodeBlock html={S.s15} />
+      </div>
+      <ul className="bp">
+        <li>
+          <b>Decide permissions up front.</b> Nobody can approve a prompt in CI: allow the tools the job needs with{' '}
+          <code>--allowedTools</code>, and <code>--permission-mode dontAsk</code> refuses the rest.
+        </li>
+        <li>
+          <b>CLAUDE.md briefs every run:</b> the review criteria, testing standards and available fixtures. Vague
+          criteria such as "be conservative" do not cut false positives; naming what to report and what to skip does.
+        </li>
+        <li>
+          <b>Review with a fresh instance.</b> The session that wrote the code is less likely to question it. A separate{' '}
+          <code>claude -p</code> run starts without that reasoning.
+        </li>
+        <li>
+          <b>On a new commit, pass the earlier findings</b> and ask only for new or still-open issues, so the same
+          comment is not posted on every push.
+        </li>
+        <li>
+          <b>For test generation, include the existing tests</b> so it does not suggest scenarios already covered.
+        </li>
+        <li>
+          The ready-made route is the GitHub Action <code>anthropics/claude-code-action@v1</code>, installed by running{' '}
+          <code>/install-github-app</code> in Claude Code. Its <code>prompt</code> input is the task and{' '}
+          <code>claude_args</code> passes any of the flags above.
+        </li>
+      </ul>
+
+      <h2 id="ide">
+        12. In your editor <span className="tag">VS Code and JetBrains</span>
+      </h2>
+      <p>
+        The same Claude Code runs in the editor, with the same CLAUDE.md, skills, hooks and MCP servers. The editor adds
+        what a terminal cannot see.
+      </p>
+      <div className="table-wrap">
+        <table className="t">
+          <thead>
+            <tr>
+              <th />
+              <th>VS Code (and Cursor)</th>
+              <th>JetBrains IDEs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Install</td>
+              <td>The Claude Code extension</td>
+              <td>The plugin from the JetBrains Marketplace, plus the CLI</td>
+            </tr>
+            <tr>
+              <td>What it adds</td>
+              <td colSpan={2}>
+                Proposed changes as diffs to accept or reject, your selection and open file as context, and the editor's
+                errors and warnings through a diagnostics tool
+              </td>
+            </tr>
+            <tr>
+              <td>Insert a file reference</td>
+              <td>
+                <span className="kbd">Option+K</span> on a Mac, <span className="kbd">Alt+K</span> elsewhere
+              </td>
+              <td>
+                <span className="kbd">Cmd+Option+K</span> on a Mac, <span className="kbd">Alt+Ctrl+K</span> elsewhere
+              </td>
+            </tr>
+            <tr>
+              <td>From a separate terminal</td>
+              <td colSpan={2}>
+                Run <code>/ide</code> to connect that session to the open editor
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="exam">Claude Certified Architect, domain 3: where each part is covered</h2>
+      <p>
+        Domain 3, Claude Code Configuration &amp; Workflows, is 20% of the exam. Every task statement in it, with the
+        sections here and the chapters in <a href="/claude-code-inside">Claude Code behind the scenes</a>. Hooks and MCP
+        are tested under domains 1 and 2 but configured here.
+      </p>
+      <div className="table-wrap">
+        <table className="t">
+          <thead>
+            <tr>
+              <th>Task statement</th>
+              <th>This page</th>
+              <th>Behind the scenes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>3.1 CLAUDE.md hierarchy, scoping and modular organisation</td>
+              <td>
+                <a href="#claudemd">3. CLAUDE.md</a>, <a href="#rules">Rules</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#request">Every request and CLAUDE.md</a>
+              </td>
+            </tr>
+            <tr>
+              <td>3.2 Custom slash commands and skills</td>
+              <td>
+                <a href="#skills">4. Skills</a>, <a href="#commands">The team's or yours</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#skills">Skills</a>
+              </td>
+            </tr>
+            <tr>
+              <td>3.3 Path-specific rules</td>
+              <td>
+                <a href="#rules">Rules for part of the codebase</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#request">Every request and CLAUDE.md</a>
+              </td>
+            </tr>
+            <tr>
+              <td>3.4 Plan mode or direct execution; the Explore subagent</td>
+              <td>
+                <a href="#plan">9. Plan mode</a>, <a href="#subagents">6. Subagents</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#permissions">Permissions and modes</a>,{' '}
+                <a href="/claude-code-inside#subagents">Subagents</a>
+              </td>
+            </tr>
+            <tr>
+              <td>3.5 Iterative refinement</td>
+              <td>
+                <a href="#iterate">10. Getting there in steps</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#cheatsheet">Cheat sheet: a workflow that works</a>
+              </td>
+            </tr>
+            <tr>
+              <td>3.6 Claude Code in CI/CD</td>
+              <td>
+                <a href="#ci">11. Claude Code in CI</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#ci">Headless and CI</a>
+              </td>
+            </tr>
+            <tr>
+              <td>Hooks (tested in 1.5)</td>
+              <td>
+                <a href="#hooks">5. Hooks</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#hooks">Hooks</a>
+              </td>
+            </tr>
+            <tr>
+              <td>MCP servers (tested in 2.4)</td>
+              <td>
+                <a href="#mcp">8. MCP servers</a>
+              </td>
+              <td>
+                <a href="/claude-code-inside#mcp">MCP</a>
+              </td>
+            </tr>
+            <tr>
+              <td>Sessions, resume and fork (tested in 1.7)</td>
+              <td>—</td>
+              <td>
+                <a href="/claude-code-inside#rewind">/clear, rewind and resume</a>
+              </td>
+            </tr>
+            <tr>
+              <td>IDE integration</td>
+              <td>
+                <a href="#ide">12. In your editor</a>
+              </td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div className="takeaways">
         <h3>The short version</h3>
         <ul>
@@ -536,6 +1027,15 @@ export default function ClaudeCodePage() {
           </li>
           <li>
             <b>Plugins</b> to share a setup across a team and many repositories.
+          </li>
+          <li>
+            <b>Plan mode</b> for changes with real choices in them; <b>direct execution</b> for a clear, small fix.
+          </li>
+          <li>
+            <b>
+              <code>claude -p</code>
+            </b>{' '}
+            with <code>--output-format json</code> and <code>--json-schema</code> to run it in CI.
           </li>
         </ul>
         <p className="small" style={{ marginTop: '8px' }}>
