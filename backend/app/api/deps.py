@@ -11,6 +11,7 @@ from ..gateways.local_embeddings import LocalEmbedder
 from ..services.vectordb import VectorDbService
 from ..services.semantic_cache import SemanticCacheService
 from ..services.songbird import SongbirdService
+from ..services.fitness import FitnessService
 from ..services.graphrag import GraphRagService
 from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
@@ -190,6 +191,10 @@ def semantic_cache(c: Container = Depends(container)) -> SemanticCacheService:
 
 def songbird(c: Container = Depends(container)) -> SongbirdService:
     return c.songbird
+
+
+def fitness(c: Container = Depends(container)) -> FitnessService:
+    return c.fitness
 
 
 def graphrag(c: Container = Depends(container)) -> GraphRagService:

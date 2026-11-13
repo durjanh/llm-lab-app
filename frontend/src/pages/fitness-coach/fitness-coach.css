@@ -1,0 +1,259 @@
+/* The fitness coach: the video with the stick figure on the left, a small "screen" panel on the right, the coach below. */
+
+.page-fitness-coach .fc-notice {
+  border-left: 3px solid var(--brand);
+  padding: 4px 14px;
+  background: var(--surface2);
+  border-radius: 0 8px 8px 0;
+  max-width: 900px;
+}
+.page-fitness-coach .fc-bad {
+  color: #b91c1c;
+}
+.page-fitness-coach .fc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 14px 0 6px;
+}
+.page-fitness-coach .fc-setup {
+  margin: 0 0 12px;
+}
+.page-fitness-coach .fc-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.page-fitness-coach .fc-row input {
+  min-width: 200px;
+}
+.page-fitness-coach .fc-teach {
+  margin-bottom: 12px;
+  max-width: 900px;
+}
+.page-fitness-coach .fc-poses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.page-fitness-coach .fc-pose {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 4px 2px 10px;
+}
+.page-fitness-coach .fc-pose.on {
+  border-color: var(--brand);
+  background: var(--surface2);
+}
+.page-fitness-coach .fc-link,
+.page-fitness-coach .fc-x {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0 4px;
+}
+.page-fitness-coach .fc-x {
+  opacity: 0.6;
+}
+
+.page-fitness-coach .fc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .page-fitness-coach .fc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.page-fitness-coach .fc-stage {
+  position: relative;
+  border-radius: 14px;
+  background: #111827;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  min-height: 240px;
+}
+.page-fitness-coach .fc-stage.off {
+  aspect-ratio: 4 / 3;
+  opacity: 0.75;
+}
+.page-fitness-coach .fc-stage video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.page-fitness-coach .fc-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.page-fitness-coach .fc-overlay {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 45%;
+  margin: 0;
+  text-align: center;
+  color: #e5e7eb;
+  font-size: 15px;
+  pointer-events: none;
+}
+.page-fitness-coach .fc-overlay.bottom {
+  top: auto;
+  bottom: 10px;
+  background: rgba(17, 24, 39, 0.75);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.page-fitness-coach .fc-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.page-fitness-coach .fc-slider input {
+  flex: 1;
+  max-width: 320px;
+}
+
+.page-fitness-coach .fc-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+}
+.page-fitness-coach .fc-view {
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  background: var(--surface2);
+}
+.page-fitness-coach .fc-view.front {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.page-fitness-coach .fc-timer {
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 6px 0 4px;
+}
+.page-fitness-coach .fc-timer .muted {
+  font-size: 18px;
+  font-weight: 400;
+}
+.page-fitness-coach .fc-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.page-fitness-coach .fc-progress > div {
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.2s linear;
+}
+.page-fitness-coach .fc-progress.sim > div {
+  background: #f59e0b;
+}
+.page-fitness-coach .fc-progress.sim > div.ok {
+  background: #16a34a;
+}
+.page-fitness-coach .fc-good {
+  margin: 6px 0 10px;
+}
+.page-fitness-coach .fc-sim {
+  margin-bottom: 10px;
+}
+.page-fitness-coach .fc-checks {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+}
+.page-fitness-coach .fc-checks li {
+  display: flex;
+  gap: 8px;
+  padding: 3px 0;
+}
+.page-fitness-coach .fc-mark {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #16a34a;
+}
+.page-fitness-coach .fc-checks li.bad .fc-mark {
+  background: #dc2626;
+}
+.page-fitness-coach .fc-measures {
+  width: 100%;
+  border-collapse: collapse;
+}
+.page-fitness-coach .fc-measures td {
+  padding: 3px 4px;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+.page-fitness-coach .fc-measures td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page-fitness-coach .fc-measures tr.bad td.num {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.page-fitness-coach .fc-coach {
+  margin-top: 16px;
+}
+.page-fitness-coach .fc-heard {
+  font-style: italic;
+}
+.page-fitness-coach .fc-reply {
+  font-size: 19px;
+  line-height: 1.45;
+  margin: 12px 0 4px;
+}
+.page-fitness-coach .fc-sent-body {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-top: 6px;
+}
+.page-fitness-coach .fc-sent-body img {
+  width: 200px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.page-fitness-coach .fc-sent-body pre {
+  flex: 1;
+  min-width: 240px;
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 12.5px;
+  background: var(--surface2);
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.page-fitness-coach .fc-earlier {
+  padding-left: 18px;
+}
