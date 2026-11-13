@@ -483,9 +483,10 @@ Live features otherwise use Claude Haiku 5.5 by default, where each action costs
 
 ## What has been tested
 
-- All 20 pages in headless Chrome, on the production build served by FastAPI and on the Vite dev server, with no JavaScript or React errors. That includes moving through every page inside the app without a reload, then pressing the keys pages listen for, to check nothing from a previous page keeps running.
-- The backend, with 181 tests against fake Claude, Azure, Foundry and browser clients, so they need no network, key or credit: routing to the fallback endpoint, streaming, the spending cap, request validation, the protections against other websites and serving the frontend, plus the harness and skills runs, the deck builder, the site builder, the tutor, document automation, the MCP lab, case handling, MedAssist, review analysis, Aftercare, the six AI-103 labs, the data agent and the coding agent.
-- Live features against a local mock of the Claude API. No real API calls were made while building this version.
+- The original 20 pages in headless Chrome, on the production build served by FastAPI and on the Vite dev server, with no JavaScript or React errors. That includes moving through every page inside the app without a reload, then pressing the keys pages listen for, to check nothing from a previous page keeps running.
+- The backend, now with 649 tests (181 when this section was first written) against fake Claude, Azure, Foundry and browser clients, so they need no network, key or credit: routing to the fallback endpoint, streaming, the spending cap, request validation, the protections against other websites and serving the frontend, plus the harness and skills runs, the deck builder, the site builder, the tutor, document automation, the MCP lab, case handling, MedAssist, review analysis, Aftercare, the six AI-103 labs, the data agent and the coding agent.
+- Live features against a local mock of the Claude API. No real API calls were made while building that version.
+- On 13 November 2026, the labs added for the Claude certification exams (`/support-desk`, `/research-team`, `/extraction`, `/review-passes`, `/claude-at-work`, `/delivery`) were each run live on `claude-haiku-5-5`, including a real Message Batch with a resubmission, and every page and exam-map link was checked in headless Chrome at desktop and phone width. The live runs found three bugs the fake-model tests could not (a structured-output schema too large to compile, batch custom ids the API refuses, and a resume that redid finished work), and a code review found ten more around concurrent requests, refusals and errors part-way through a turn; all are fixed, each with a test.
 
 ## Sharing
 

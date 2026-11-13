@@ -701,10 +701,32 @@ class SupportDeskService:
 
     # ----- the loop -----
 
+    @staticmethod
+    def _close_failed_turn(case: Case, start: int, asked_before: list[str]) -> None:
+        """Leaves a valid, truthful history after an error mid-turn. If no tool was called, the turn is undone. If
+        tools ran, what they did stands (a refund cannot be unsent), so the history is kept and closed: any unanswered
+        tool call gets an error result, and a note says the turn was cut off. The model then sees what happened."""
+        turn = case.messages[start:]
+        tried = any(isinstance(m["content"], list) and any(c.get("type") == "tool_use" for c in m["content"])
+                    for m in turn if m["role"] == "assistant")
+        if not tried:
+            del case.messages[start:]
+            case.facts["customer_asked"] = asked_before
+            return
+        last = case.messages[-1]
+        if last["role"] == "assistant":
+            pending = [c["id"] for c in last["content"] if c.get("type") == "tool_use"]
+            case.messages.append({"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": i, "is_error": True,
+                 "content": "Not run: the turn was interrupted by an error."} for i in pending]})
+        case.messages.append({"role": "assistant", "content": [
+            {"type": "text", "text": "(This reply was cut off by an error. The tool results above stand.)"}]})
+
     def run_turn(self, case: Case, message: str, model: str, opts: Opts) -> dict[str, Any]:
         """The agent loop for one customer message. Continues on stop_reason "tool_use", stops on "end_turn"."""
         if len(case.messages) >= MAX_MESSAGES:
             raise ApiError(400, "invalid_request", "This case has run long. Start a new case.")
+        asked_before = case.facts["customer_asked"]
         case.facts["customer_asked"] = [*case.facts["customer_asked"], message[:200]][-6:]
         tools = tool_set(opts.vague_tools, opts.dangerous_tool)
         offered = {t["name"] for t in tools}
@@ -719,9 +741,11 @@ class SupportDeskService:
                 cost += c
                 last_stop = response.stop_reason
                 blocks = [b for b in response.content if getattr(b, "type", None) in ("text", "tool_use")]
-                case.messages.append({"role": "assistant", "content": [
-                    {"type": "text", "text": b.text} if b.type == "text"
-                    else {"type": "tool_use", "id": b.id, "name": b.name, "input": dict(b.input)} for b in blocks]})
+                content = [{"type": "text", "text": b.text} if b.type == "text"
+                           else {"type": "tool_use", "id": b.id, "name": b.name, "input": dict(b.input)} for b in blocks]
+                if not content:  # a refusal or an empty reply: the API refuses an empty assistant turn next time
+                    content = [{"type": "text", "text": f"(No reply: stop_reason {response.stop_reason}.)"}]
+                case.messages.append({"role": "assistant", "content": content})
                 uses = [b for b in blocks if b.type == "tool_use"]
                 decision = ("continue: stop_reason is tool_use" if response.stop_reason == "tool_use"
                             else "stop: stop_reason is end_turn" if response.stop_reason == "end_turn"
@@ -733,7 +757,8 @@ class SupportDeskService:
                               "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
                               "cost_usd": round(c, 6)})
                 if response.stop_reason != "tool_use" or not uses:
-                    reply = text_of(response)
+                    reply = text_of(response) or ("The assistant declined to answer that message."
+                                                  if response.stop_reason == "refusal" else "")
                     break
                 results = []
                 for b in uses:
@@ -746,7 +771,7 @@ class SupportDeskService:
                 stopped = f"Safety stop: {MAX_ITERATIONS} model turns without an end_turn."
                 trace.append({"kind": "safety_stop", "message": stopped})
         except Exception:
-            del case.messages[start:]  # leave the history valid for the next message
+            self._close_failed_turn(case, start, asked_before)
             raise
         case.cost += cost
         tools_trace = [t for t in trace if t["kind"] == "tool"]

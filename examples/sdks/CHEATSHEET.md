@@ -1,6 +1,6 @@
 # Agent SDK cheatsheet
 
-Nine Python SDKs doing the same five tasks with the same tools, data and prompts (see [TASKS.md](TASKS.md)): structured output, function tools, the same tools over MCP, an autonomous agent with human approval before a write, and the SDK's own multi-agent pattern. Every example ran for real on 30 October 2026, on Azure OpenAI `gpt-5.4-mini` with Entra sign-in (no keys), except the Claude SDK, which used `claude-opus-5-5`. Exact versions are in each folder's `requirements.txt`; detail and gotchas in each `NOTES.md`.
+Eleven Python SDKs doing the same five tasks with the same tools, data and prompts (see [TASKS.md](TASKS.md)): structured output, function tools, the same tools over MCP, an autonomous agent with human approval before a write, and the SDK's own multi-agent pattern. Every example ran for real on 30 October 2026, on Azure OpenAI `gpt-5.4-mini` with Entra sign-in (no keys), except the Claude SDK, which used `claude-opus-5-5`. Strands Agents and PydanticAI were added on 13 November 2026 and ran on `claude-haiku-5-5` through their Anthropic providers. Exact versions are in each folder's `requirements.txt`; detail and gotchas in each `NOTES.md`.
 
 ## At a glance
 
@@ -101,9 +101,9 @@ Agent Framework: middleware + OpenTelemetry + DevUI. Semantic Kernel and AutoGen
 - **Claude SDK**: tool results must be text or content blocks, not dicts; set `effort` explicitly on Opus 5.5.
 - **Multi-agent hand-offs lose facts**: in several SDKs the writer dropped the client's name until the writer's prompt asked for it, and one researcher added "on track" with no data behind it.
 
-## Results (all five tasks, all nine SDKs)
+## Results (all five tasks, all eleven SDKs)
 
-44 of 45 passed in the full run ([RESULTS.md](RESULTS.md)).
+54 of 55 passed ([RESULTS.md](RESULTS.md)): the first nine SDKs in the run of 30 October 2026, Strands and PydanticAI on 13 November 2026.
 
 | SDK | 01 structured | 02 tools | 03 MCP | 04 agent | 05 multi-agent |
 |---|---|---|---|---|---|
@@ -116,6 +116,8 @@ Agent Framework: middleware + OpenTelemetry + DevUI. Semantic Kernel and AutoGen
 | LangChain | PASS | PASS | PASS | FAIL* | PASS |
 | LangGraph | PASS | PASS | PASS | PASS | PASS |
 | CrewAI | PASS | PASS | PASS | PASS | PASS |
+| Strands | PASS | PASS | PASS | PASS | PASS |
+| PydanticAI | PASS | PASS | PASS | PASS | PASS |
 
 \* Not a LangChain fault: in about 1 run in 7, `gpt-5.4-mini` also logged a risk on ENG-101, which its own report said did not qualify. With `--auto-approve` the approval gate let it through; a person at the prompt would have seen "ENG-101" and refused. It can happen with any SDK on this model, and it is the clearest argument here for human approval on writes and for checking agents' actions in code.
 

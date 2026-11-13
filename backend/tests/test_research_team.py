@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+
+from backend.app.core.errors import ApiError
 from fastapi.testclient import TestClient
 
 from backend.app.gateways.claude import ClaudeGateway
@@ -438,3 +440,45 @@ def test_the_routes_stream_a_run_and_list_it(tmp_path: Path) -> None:
     assert api.get("/api/research-team/runs", headers=LAB).json()["runs"][0]["unfinished"] == 0
     assert api.post("/api/research-team/run", json={"question": "x y z"}).status_code in (400, 403)
     assert api.post("/api/research-team/resume", headers=LAB, json={"run_id": "zz"}).status_code == 400
+
+
+# ---------- found by code review: resuming safely ----------
+
+def crashed_run(tmp_path: Path, model: str) -> str:
+    """A run that crashed after its first search, started on `model`."""
+    first = ScriptedClient([
+        [use("set_subquestions", SQ)],
+        [use("delegate", {"agent": "search", "task": "Find 2024 installation counts"})],
+        [use("search_corpus", {"query": "installations 2024"})],
+        [use("fetch_source", {"source_id": "S01"})],
+        [use("submit_findings", {"findings": [{"claim": "98,000 installed in 2024", "evidence": EVIDENCE_1,
+                                               "source_id": "S01", "sub_question": "q1"}], "summary": "one"})],
+        [use("delegate", {"agent": "synthesis", "task": "Combine", "include_results": ["a1"]})],
+    ])
+    events = events_of(make(tmp_path, first), "How many installs?", model, 1.0, stop_after=1)
+    return events[-1]["run_id"]
+
+
+def test_a_run_that_is_still_going_cannot_be_resumed_and_its_manifest_is_left_alone(tmp_path: Path) -> None:
+    run_id = crashed_run(tmp_path, HAIKU)
+    service = make(tmp_path, ScriptedClient([]))
+    manifest = tmp_path / "research-team" / run_id / "manifest.json"
+    before = manifest.read_text()
+    service._active.add(run_id)  # as if another request were resuming it right now
+    with pytest.raises(ApiError) as caught:
+        service.run("", HAIKU, 1.0, resume_id=run_id)
+    assert caught.value.status == 409 and manifest.read_text() == before
+
+
+def test_a_resumed_run_keeps_the_model_it_started_with(tmp_path: Path) -> None:
+    run_id = crashed_run(tmp_path, "claude-sonnet-5-5")
+    second = ScriptedClient([
+        [use("submit_synthesis", {"claims": [{"sub_question_id": "q1", "claim": "98,000 in 2024",
+                                              "source_ids": ["S01"], "status": "single_source"}]})],
+        [use("finish", {"answer": "Done."})],
+    ])
+    service = make(tmp_path, second)
+    events = events_of(service, "", None, 1.0, resume_id=run_id)
+    assert events[-1]["status"] == "done" and events[-1]["model"] == "claude-sonnet-5-5"
+    assert {c[1]["model"] for c in second.calls} == {"claude-sonnet-5-5"}
+    assert run_id not in service._active  # free to resume again later

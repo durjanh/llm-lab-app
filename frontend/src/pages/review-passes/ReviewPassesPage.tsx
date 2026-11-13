@@ -167,7 +167,7 @@ export function ReviewPassesPage() {
       .status()
       .then((s) => {
         setModels(s.models || []);
-        setModel(s.default_model || s.models?.[0] || '');
+        setModel(s.claude_model || s.default_model || s.models?.[0] || ''); // scores against the answer key assume Claude
       })
       .catch(() => undefined);
   }, []);

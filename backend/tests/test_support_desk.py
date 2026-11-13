@@ -455,3 +455,66 @@ def test_the_evaluate_route_streams_cases_and_a_summary(tmp_path: Path) -> None:
     assert [e["type"] for e in events if e["type"] in ("start", "case", "done")] == ["start", "case", "case", "done"]
     done = events[-1]
     assert done["summary"]["total"] == 2 and done["summary"]["passed"] == 0 and done["cost_usd"] > 0
+
+
+# ---------- found by code review: refusals and errors mid-turn ----------
+
+def test_a_refusal_leaves_a_history_the_next_turn_can_send() -> None:
+    svc, client = service([[], [text("Happy to help. What is your order number?")]])
+    client.script[0] = []  # no blocks at all, as a refusal or an empty reply has
+
+    def refuse(**params: Any) -> Any:
+        from backend.tests.test_aftercare import reply
+        client.calls.append(("messages.create", params))
+        client.script.pop(0)
+        return reply(params["model"], stop="refusal")
+
+    first_create = client.messages.create
+    client.messages.create = lambda **p: refuse(**p) if len(client.calls) == 0 else first_create(**p)  # type: ignore[method-assign]
+    out = svc.chat({"message": "Help me with something odd.", "model": HAIKU})
+    assert out["stop_reason"] == "refusal" and out["reply"] == "The assistant declined to answer that message."
+    again = svc.chat({"case_id": out["case_id"], "message": "Sorry, I mean my order.", "model": HAIKU})
+    sent = client.calls[-1][1]["messages"]
+    assert all(m["content"] for m in sent if m["role"] == "assistant")  # no empty assistant turn reaches the API
+    assert again["reply"].startswith("Happy to help")
+
+
+class FailsAfter(ScriptedClient):
+    """Answers the scripted replies, then raises: the API failing part-way through a turn."""
+
+    def __init__(self, script: list[list[dict]], fail_on: int) -> None:
+        super().__init__(script)
+        scripted, self.n = self.messages.create, 0
+
+        def create(**params: Any) -> Any:
+            self.n += 1
+            if self.n == fail_on:
+                raise RuntimeError("overloaded")
+            return scripted(**params)
+
+        self.messages.create = create  # type: ignore[method-assign]
+
+
+def test_an_error_after_a_refund_keeps_the_refund_and_the_history_in_step() -> None:
+    client = FailsAfter([
+        [use("get_customer", {"email": "mira.okafor@example.com"}, 1)],
+        [use("process_refund", {"order_id": "LF-2001", "amount_usd": 20, "reason": "chipped"}, 2)],
+        [text("Done.")],  # never reached: the third call fails
+    ], fail_on=3)
+    svc = sd.SupportDeskService(ClaudeGateway(client), SpendTracker(1.0))
+    case = svc._case(None)
+    with pytest.raises(Exception):
+        svc.run_turn(case, "Refund $20 on LF-2001 please, mira.okafor@example.com", HAIKU, sd.Opts())
+    assert case.refunded.get("LF-2001") == 20  # the refund happened and is not forgotten
+    history = json.dumps(case.messages)
+    assert "process_refund" in history and "cut off by an error" in history  # the model will see it next time
+    assert case.messages[-1]["role"] == "assistant"  # roles still alternate for the next message
+
+
+def test_an_error_before_any_tool_undoes_the_turn() -> None:
+    client = FailsAfter([], fail_on=1)
+    svc = sd.SupportDeskService(ClaudeGateway(client), SpendTracker(1.0))
+    case = svc._case(None)
+    with pytest.raises(Exception):
+        svc.run_turn(case, "Hello?", HAIKU, sd.Opts())
+    assert case.messages == [] and case.facts["customer_asked"] == []
