@@ -1,6 +1,7 @@
 import Bandwidth from './Bandwidth';
 import CpuGpuBench from './CpuGpuBench';
 import DpuOffload from './DpuOffload';
+import Kernels from './Kernels';
 import Quantize from './Quantize';
 import Systolic from './Systolic';
 import './hardware.css';
@@ -49,6 +50,7 @@ export default function HardwarePage() {
       <CpuGpuBench />
       <Systolic />
       <Bandwidth />
+      <Kernels />
       <Quantize />
       <DpuOffload />
 

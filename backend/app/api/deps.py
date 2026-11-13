@@ -8,6 +8,10 @@ from fastapi import Depends, Request
 from ..container import Container
 from ..core.errors import ApiError
 from ..gateways.local_embeddings import LocalEmbedder
+from ..services.vectordb import VectorDbService
+from ..services.semantic_cache import SemanticCacheService
+from ..services.songbird import SongbirdService
+from ..services.graphrag import GraphRagService
 from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
 from ..services.code_graph import CodeGraphService
@@ -17,6 +21,7 @@ from ..services.hotel import HotelService
 from ..services.brain import BrainCheckService
 from ..services.scans import ScanService
 from ..services.tabular import TabularService
+from ..services.lora import LoraService
 from ..services.whiteboard import WhiteboardService
 from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
@@ -40,12 +45,15 @@ from ..services.observability import ObservabilityService
 from ..services.reviews import ReviewsService
 from ..services.sites import SiteService
 from ..services.tutor import TutorService
+from ..services.tutor_people import TutorPeopleService
 from ..services.storewatch import StoreWatchService
 from ..services.workflows import WorkflowService
 from ..services.skills import SkillsService
 from ..services.spend import money
 from ..services.status import StatusService
 from ..services.video_translate import VideoTranslateService
+from ..services.planning_patterns import PlanningPatternsService
+from ..services.red_team import RedTeamService
 
 
 def container(request: Request) -> Container:
@@ -54,6 +62,14 @@ def container(request: Request) -> Container:
 
 def status_service(c: Container = Depends(container)) -> StatusService:
     return c.status
+
+
+def planning_patterns(c: Container = Depends(container)) -> PlanningPatternsService:
+    return c.planning_patterns
+
+
+def red_team(c: Container = Depends(container)) -> RedTeamService:
+    return c.red_team
 
 
 def messages_service(c: Container = Depends(container)) -> MessagesService:
@@ -78,6 +94,10 @@ def site_service(c: Container = Depends(container)) -> SiteService:
 
 def tutor_service(c: Container = Depends(container)) -> TutorService:
     return c.tutor
+
+
+def tutor_people(c: Container = Depends(container)) -> TutorPeopleService:
+    return c.tutor_people
 
 
 def document_service(c: Container = Depends(container)) -> DocumentService:
@@ -144,6 +164,10 @@ def tabular(c: Container = Depends(container)) -> TabularService:
     return c.tabular
 
 
+def lora(c: Container = Depends(container)) -> LoraService:
+    return c.lora
+
+
 def video_translate(c: Container = Depends(container)) -> VideoTranslateService:
     return c.video_translate
 
@@ -154,6 +178,22 @@ def token_counter(c: Container = Depends(container)) -> TokenCounterService:
 
 def local_embeddings(c: Container = Depends(container)) -> LocalEmbedder:
     return c.local_embeddings
+
+
+def vectordb(c: Container = Depends(container)) -> VectorDbService:
+    return c.vectordb
+
+
+def semantic_cache(c: Container = Depends(container)) -> SemanticCacheService:
+    return c.semantic_cache
+
+
+def songbird(c: Container = Depends(container)) -> SongbirdService:
+    return c.songbird
+
+
+def graphrag(c: Container = Depends(container)) -> GraphRagService:
+    return c.graphrag
 
 
 def aftercare_phone(c: Container = Depends(container)) -> AftercarePhone:

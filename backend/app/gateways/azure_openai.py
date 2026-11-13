@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from types import SimpleNamespace
 from typing import Any, Protocol
 
@@ -28,10 +29,11 @@ class StructuredModel(Protocol):
 class AzureOpenAI:
     """Structured answers from a GPT deployment. The deployment name is the model name, e.g. gpt-5.4-mini."""
 
-    def __init__(self, endpoint: str, deployments: list[str], embedding_deployment: str = ""):
+    def __init__(self, endpoint: str, deployments: list[str], embedding_deployment: str = "", calls: Any = None):
         self.endpoint = endpoint.rstrip("/")
         self.models = [d for d in deployments if d]
         self.embedding_deployment = embedding_deployment
+        self.calls = calls  # the call log, so GPT calls are timed like Claude's
         self._client: Any = None
 
     def client(self) -> Any:
@@ -54,22 +56,20 @@ class AzureOpenAI:
              max_tokens: int = 4000) -> tuple[Any, Any]:
         """One Chat Completions turn: the assistant message (with any tool calls) and its usage. With a
         schema, the final answer must match it (strict structured outputs); tools may be offered alongside."""
-        import openai
-
         params: dict[str, Any] = {"model": model, "max_completion_tokens": max_tokens, "messages": messages}
         if tools:
             params["tools"] = tools
         if schema:
             params["response_format"] = {"type": "json_schema", "json_schema": {"name": "answer", "schema": schema, "strict": True}}
+        started, clock = time.time(), time.perf_counter()
         try:
             r = self.client().chat.completions.create(**params)
-        except openai.RateLimitError as exc:
-            raise ApiError(429, "rate_limited", "Azure OpenAI is busy (rate limited). Wait a moment and try again.") from exc
-        except (openai.AuthenticationError, openai.PermissionDeniedError) as exc:
-            raise ApiError(502, "azure_auth", "Azure refused the sign-in. Run az login, and check your account has the "
-                                              "Cognitive Services OpenAI User role on the Foundry resource.") from exc
-        except openai.APIError as exc:
-            raise ApiError(502, "azure_error", f"Azure OpenAI failed: {exc}") from exc
+        except BaseException as exc:
+            if self.calls is not None:
+                self.calls.failed("gpt", model, started, time.perf_counter() - clock, exc)
+            raise self._mapped(exc) from exc
+        if self.calls is not None:
+            self.calls.finished("gpt", started, time.perf_counter() - clock)
         choice = r.choices[0]
         if choice.message.refusal:
             raise ApiError(422, "refused", f"{model} declined: {choice.message.refusal}")
@@ -79,6 +79,20 @@ class AzureOpenAI:
         usage = SimpleNamespace(input_tokens=r.usage.prompt_tokens - cached, cache_read_input_tokens=cached,
                                 cache_creation_input_tokens=0, output_tokens=r.usage.completion_tokens)
         return choice.message, usage
+
+    @staticmethod
+    def _mapped(exc: BaseException) -> BaseException:
+        """The ApiError a page can show for an SDK failure; anything else passes through unchanged."""
+        import openai
+
+        if isinstance(exc, openai.RateLimitError):
+            return ApiError(429, "rate_limited", "Azure OpenAI is busy (rate limited). Wait a moment and try again.")
+        if isinstance(exc, (openai.AuthenticationError, openai.PermissionDeniedError)):
+            return ApiError(502, "azure_auth", "Azure refused the sign-in. Run az login, and check your account has the "
+                                               "Cognitive Services OpenAI User role on the Foundry resource.")
+        if isinstance(exc, openai.APIError):
+            return ApiError(502, "azure_error", f"Azure OpenAI failed: {exc}")
+        return exc
 
     def embed(self, texts: list[str]) -> tuple[list[list[float]], Any]:
         """Embedding vectors for the texts, in order, and the usage for the spend tracker."""

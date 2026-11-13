@@ -1,0 +1,247 @@
+/* GraphRAG: build a graph from a collection, draw it, and compare three ways of answering. */
+
+.page-graphrag .gr-step {
+  margin-top: 14px;
+}
+.page-graphrag .gr-step h2 {
+  margin-top: 0;
+}
+.page-graphrag .gr-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin: 8px 0;
+}
+.page-graphrag .gr-bad {
+  color: #b91c1c;
+}
+.page-graphrag .gr-setup {
+  border: 1px solid #d97706;
+  border-left-width: 6px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  background: var(--surface2);
+}
+.page-graphrag .gr-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: gr-pulse 1s ease-in-out infinite;
+}
+@keyframes gr-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.page-graphrag .gr-log p {
+  margin: 4px 0;
+}
+.page-graphrag .gr-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface2);
+  overflow: hidden;
+  margin: 8px 0;
+}
+.page-graphrag .gr-progress i {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.3s;
+}
+
+.page-graphrag .gr-graph-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .page-graphrag .gr-graph-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-graphrag .gr-svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+}
+.page-graphrag .gr-edge {
+  stroke: var(--muted);
+}
+.page-graphrag .gr-node {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.page-graphrag .gr-node circle {
+  stroke: var(--surface2);
+  stroke-width: 1.5;
+}
+.page-graphrag .gr-node circle.seed {
+  stroke: var(--brand);
+  stroke-width: 3;
+}
+.page-graphrag .gr-node circle.selected {
+  stroke: currentColor;
+  stroke-width: 3;
+}
+.page-graphrag .gr-node text {
+  font-size: 11px;
+  fill: currentColor;
+  paint-order: stroke;
+  stroke: var(--surface2);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+.page-graphrag .gr-side {
+  max-height: 600px;
+  overflow: auto;
+}
+.page-graphrag .gr-side h3 {
+  margin: 0 0 6px;
+}
+.page-graphrag .gr-side details {
+  margin: 6px 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.page-graphrag .gr-side details.gr-used {
+  background: var(--brand-soft);
+}
+.page-graphrag .gr-side summary {
+  cursor: pointer;
+}
+.page-graphrag .gr-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.page-graphrag .gr-links {
+  padding-left: 18px;
+}
+
+.page-graphrag .gr-question {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.page-graphrag .gr-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  margin: 6px 0 10px;
+}
+.page-graphrag .gr-chip {
+  border: 1px solid var(--line);
+  background: var(--surface2);
+  color: inherit;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.page-graphrag .gr-chip:hover {
+  border-color: var(--brand);
+}
+.page-graphrag .gr-answers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 10px 0;
+}
+@media (max-width: 980px) {
+  .page-graphrag .gr-answers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-graphrag .gr-col {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.page-graphrag .gr-col.on {
+  border-color: var(--brand);
+}
+.page-graphrag .gr-col-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.page-graphrag .gr-col > p.muted {
+  min-height: 3em;
+}
+.page-graphrag .gr-answer {
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.page-graphrag .gr-cite {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 5px;
+  margin: 0 2px;
+  border-radius: 6px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+.page-graphrag .gr-cite.bad {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.page-graphrag .gr-evidence summary {
+  cursor: pointer;
+}
+.page-graphrag .gr-evidence ol {
+  padding-left: 22px;
+  display: grid;
+  gap: 6px;
+}
+.page-graphrag .gr-evidence li.cited::marker {
+  color: var(--brand);
+  font-weight: 700;
+}
+.page-graphrag .gr-evidence pre {
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface2);
+  font-size: 11px;
+}
+.page-graphrag .gr-kind {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--surface2);
+}
+.page-graphrag .gr-kind.entity {
+  color: #6366f1;
+}
+.page-graphrag .gr-kind.relation {
+  color: #d97706;
+}
+.page-graphrag .gr-kind.community {
+  color: #059669;
+}
+.page-graphrag .gr-text {
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  max-height: 8em;
+  overflow: auto;
+}
+.page-graphrag .gr-facts li {
+  margin: 6px 0;
+}

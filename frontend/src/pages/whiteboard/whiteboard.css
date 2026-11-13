@@ -152,10 +152,15 @@
 }
 .page-whiteboard .wb-tools {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 8px;
+}
+.page-whiteboard .wb-tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 .page-whiteboard .wb-swatch {
   width: 24px;
@@ -245,4 +250,222 @@
   padding: 8px 12px;
   border-radius: 10px;
   background: var(--surface2);
+}
+
+/* Drawing tools. */
+.page-whiteboard .wb-sizes {
+  display: inline-flex;
+  gap: 4px;
+  margin: 0 4px;
+}
+.page-whiteboard .wb-size {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.page-whiteboard .wb-size i {
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+}
+.page-whiteboard .wb-size.on {
+  border-color: var(--brand);
+  background: var(--surface2);
+}
+.page-whiteboard .wb-board.grid .wb-canvas {
+  background-color: #1f2937;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.page-whiteboard .wb-board.covered .wb-canvas {
+  opacity: 0.35;
+  cursor: default;
+}
+.page-whiteboard .wb-physics {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 12px;
+  touch-action: none;
+  cursor: grab;
+}
+
+/* Mode tabs. */
+.page-whiteboard .wb-modes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+@media (max-width: 860px) {
+  .page-whiteboard .wb-modes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.page-whiteboard .wb-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.page-whiteboard .wb-mode span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.page-whiteboard .wb-mode.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.page-whiteboard .wb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.page-whiteboard .wb-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--brand);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* Guess my drawing. */
+.page-whiteboard .wb-word {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+}
+.page-whiteboard .wb-word b {
+  font-size: 26px;
+  letter-spacing: 0.02em;
+}
+.page-whiteboard .wb-word.live {
+  border-color: var(--brand);
+}
+.page-whiteboard .wb-clock {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-whiteboard .wb-clock i {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--brand);
+  transition: width 0.2s linear;
+}
+.page-whiteboard .wb-clock i.low {
+  background: #dc2626;
+}
+.page-whiteboard .wb-result {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+}
+.page-whiteboard .wb-result.won {
+  color: #16a34a;
+}
+.page-whiteboard .wb-result.lost {
+  color: #b45309;
+}
+.page-whiteboard .wb-comment {
+  font-style: italic;
+}
+.page-whiteboard .wb-guesses {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.page-whiteboard .wb-guesses li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 44px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.page-whiteboard .wb-guesses li.hit {
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, 0.12);
+  font-weight: 600;
+}
+.page-whiteboard .wb-conf {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.page-whiteboard .wb-conf i {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+}
+.page-whiteboard .wb-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface2);
+}
+
+/* Bring it to life, and sketch to picture. */
+.page-whiteboard .wb-life-prompt,
+.page-whiteboard .wb-picture input {
+  flex: 1 1 220px;
+  min-width: 0;
+  width: 100%;
+}
+.page-whiteboard .wb-json {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 11px;
+  background: var(--surface2);
+  padding: 8px;
+  border-radius: 8px;
+}
+.page-whiteboard .wb-made {
+  margin: 10px 0 0;
+}
+.page-whiteboard .wb-made img {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+.page-whiteboard .wb-life-prompt,
+.page-whiteboard .wb-picture input,
+.page-whiteboard .wb-picture select {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface2);
+  color: inherit;
+  font: inherit;
 }

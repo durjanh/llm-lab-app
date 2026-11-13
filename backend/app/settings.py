@@ -44,6 +44,7 @@ class Settings:
     azure_openai_embedding_deployment: str = ""
     # An open embedding model on the local server (Docker Model Runner), offered on the embeddings page. Empty: off.
     local_embed_model: str = ""
+    pgvector_url: str = ""
     local_openai_url: str = "http://localhost:12434/engines/v1"
     # Azure AI Search, for the case-handling lab's policy retrieval. Signed in with your Azure login.
     azure_search_endpoint: str = ""
@@ -77,6 +78,8 @@ class Settings:
     azure_media_endpoint: str = ""
     azure_ai_resource_id: str = ""
     azure_media_resource_id: str = ""
+    azure_personal_voice_resource_id: str = ""
+    azure_personal_voice_region: str = "swedencentral"
 
     @classmethod
     def from_env(cls, env: EnvSettings | None = None) -> "Settings":
@@ -95,6 +98,7 @@ class Settings:
             azure_openai_deployments=env.azure_openai_deployments,
             azure_openai_embedding_deployment=env.azure_openai_embedding_deployment,
             local_embed_model=env.local_embed_model,
+            pgvector_url=env.pgvector_url,
             local_openai_url=env.local_openai_url,
             azure_search_endpoint=env.azure_search_endpoint,
             foundry_project_endpoint=env.foundry_project_endpoint,
@@ -117,6 +121,8 @@ class Settings:
             azure_media_endpoint=env.azure_media_endpoint,
             azure_ai_resource_id=env.azure_ai_resource_id,
             azure_media_resource_id=env.azure_media_resource_id,
+            azure_personal_voice_resource_id=env.azure_personal_voice_resource_id,
+            azure_personal_voice_region=env.azure_personal_voice_region,
         )
 
     @property

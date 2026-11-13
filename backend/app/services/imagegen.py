@@ -181,6 +181,14 @@ class ImageGenService:
         return self._result(r, {"kind": "inpainted" if mask else "edited", "prompt": prompt, "from": refs,
                                 "size": size, "quality": quality}, started, waited)
 
+    def from_sketch(self, png: bytes, prompt: str, size: str = "1024x1024", quality: str = "low") -> dict[str, Any]:
+        """A picture made from a sketch (the whiteboard's), given as the one reference image."""
+        tools = self._tools()
+        started = time.perf_counter()
+        r, waited = self._call(lambda: tools.edit_image(prompt, [png], None, size=size, quality=quality,
+                                                        output_format="png"))
+        return self._result(r, {"kind": "from sketch", "prompt": prompt, "size": size, "quality": quality}, started, waited)
+
     # ----- after generation -----
     def watermark(self, ref: str, text: str) -> dict[str, Any]:
         """A visible label in the corner. It does not replace Content Credentials: it survives a screenshot, they do not."""

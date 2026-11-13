@@ -1,5 +1,6 @@
 import type * as SDK from 'microsoft-cognitiveservices-speech-sdk';
 import { tutorService, type PronunciationScores } from '@/services';
+import { tutorPeopleService } from '@/services/tutorPeopleService';
 
 /**
  * Azure Speech in the browser: the tutor's voice with the timing of every mouth shape, and the
@@ -45,8 +46,15 @@ export const VOICES = [
   { id: 'en-GB-RyanNeural', name: 'Ryan', label: 'Ryan (British)', avatar: 'ryan' },
 ] as const;
 
-/** The tutor who speaks with this voice; the first one for a voice that is no longer offered. */
-export const tutorFor = (voice: string) => VOICES.find((v) => v.id === voice) ?? VOICES[0];
+/**
+ * A voice to speak with: one of Azure's neural voices, or a person's own voice made with Azure personal voice (a
+ * speaker profile id, spoken through a base model on the personal voice resource). A plain string is a neural voice.
+ */
+export interface VoiceSpec {
+  voice: string;
+  speakerProfileId?: string | null;
+  baseModel?: string;
+}
 
 let sdkLoad: Promise<typeof SDK> | null = null;
 const loadSdk = () => (sdkLoad ??= import('microsoft-cognitiveservices-speech-sdk'));
@@ -59,6 +67,7 @@ const REFUSED = /quota|429|too many|throttl|exceed|limit/i;
 
 export class Speech {
   private token: { value: string; region: string; at: number; fallback: boolean } | null = null;
+  private personalToken: { value: string; region: string; at: number } | null = null;
   private active: { recognizer: SDK.SpeechRecognizer; stop: (send: boolean) => void } | null = null;
   private fallback = false; // switched on for the rest of the session once the free resource refuses
   private hasFallback = false;
@@ -73,6 +82,16 @@ export class Speech {
       this.hasFallback = t.has_fallback;
     }
     return { sdk, config: sdk.SpeechConfig.fromAuthorizationToken(this.token.value, this.token.region) };
+  }
+
+  /** A config for the personal voice resource, which is in another region and has no fallback. */
+  private async personalConfig(): Promise<{ sdk: typeof SDK; config: SDK.SpeechConfig }> {
+    const sdk = await loadSdk();
+    if (!this.personalToken || Date.now() - this.personalToken.at > TOKEN_REUSE_MS) {
+      const t = await tutorPeopleService.personalToken();
+      this.personalToken = { value: t.token, region: t.region, at: Date.now() };
+    }
+    return { sdk, config: sdk.SpeechConfig.fromAuthorizationToken(this.personalToken.value, this.personalToken.region) };
   }
 
   /**
@@ -96,12 +115,15 @@ export class Speech {
   }
 
   /** Synthesises one sentence without playing it: the avatar plays the audio and moves its lips in time. */
-  synthesize(text: string, voice: string, rate: number): Promise<Spoken> {
-    return this.withFallback(() => this.synthesizeOnce(text, voice, rate));
+  synthesize(text: string, voice: string | VoiceSpec, rate: number): Promise<Spoken> {
+    const spec = typeof voice === 'string' ? { voice } : voice;
+    if (spec.speakerProfileId) return this.synthesizeOnce(text, spec, rate);
+    return this.withFallback(() => this.synthesizeOnce(text, spec, rate));
   }
 
-  private async synthesizeOnce(text: string, voice: string, rate: number): Promise<Spoken> {
-    const { sdk, config } = await this.config();
+  private async synthesizeOnce(text: string, spec: VoiceSpec, rate: number): Promise<Spoken> {
+    const own = !!spec.speakerProfileId;
+    const { sdk, config } = own ? await this.personalConfig() : await this.config();
     config.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm;
     const synthesizer = new sdk.SpeechSynthesizer(config, null as unknown as SDK.AudioConfig); // null: keep the audio, don't play it
     const out: Spoken = { audio: new ArrayBuffer(0), words: [], wtimes: [], wdurations: [], visemes: [], vtimes: [], vdurations: [] };
@@ -116,9 +138,15 @@ export class Speech {
       out.wdurations.push(e.duration / TICKS_PER_MS);
     };
     const percent = Math.round((rate - 1) * 100);
-    const ssml =
-      `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${voice.split('-').slice(0, 2).join('-')}"><voice name="${voice}">` +
-      `<prosody rate="${percent >= 0 ? '+' : ''}${percent}%">${escapeXml(text)}</prosody></voice></speak>`;
+    const voice = spec.voice;
+    const prosody = `<prosody rate="${percent >= 0 ? '+' : ''}${percent}%">${escapeXml(text)}</prosody>`;
+    // A person's own voice: a base model (Phoenix sends word timings and mouth shapes) given their speaker profile.
+    const ssml = own
+      ? `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="en-US">` +
+        `<voice name="${escapeXml(spec.baseModel || 'PhoenixLatestNeural')}"><mstts:ttsembedding speakerProfileId="${escapeXml(spec.speakerProfileId!)}">` +
+        `${prosody}</mstts:ttsembedding></voice></speak>`
+      : `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${voice.split('-').slice(0, 2).join('-')}"><voice name="${voice}">` +
+        `${prosody}</voice></speak>`;
     try {
       const result = await new Promise<SDK.SpeechSynthesisResult>((resolve, reject) =>
         synthesizer.speakSsmlAsync(ssml, resolve, (err) => reject(new Error(err))),

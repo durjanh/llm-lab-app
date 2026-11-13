@@ -150,16 +150,17 @@ export default function GazePointerPage() {
   }, [method]);
   useEffect(() => session.current.filter.tune(STEADY[steady - 1], 0.02), [steady]);
 
-  // The camera and the model are let go when the page closes.
-  useEffect(
-    () => () => {
+  // The camera and the model are let go when the page closes. Marked open again on every mount: React's development
+  // mode runs this cleanup once at the start, and a camera that finished starting would otherwise be shut at once.
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
       mounted.current = false;
       const s = session.current;
       s.stream?.getTracks().forEach((t) => t.stop());
       s.tracker?.close();
-    },
-    [],
-  );
+    };
+  }, []);
 
   // The mouse demo: the space bar (or holding the mouse button) stands in for the face movement.
   useEffect(() => {

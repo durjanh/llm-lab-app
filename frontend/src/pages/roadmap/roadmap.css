@@ -1,0 +1,68 @@
+/* The roadmap: three levels, each a pair of topic groups linking to lab pages. */
+
+.page-roadmap .rm-level {
+  margin: 18px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left-width: 6px;
+  border-radius: 12px;
+  background: var(--surface2);
+}
+.page-roadmap .rm-0 {
+  border-left-color: #16a34a;
+}
+.page-roadmap .rm-1 {
+  border-left-color: #c026d3;
+}
+.page-roadmap .rm-2 {
+  border-left-color: #b45309;
+}
+.page-roadmap .rm-level h2 {
+  margin: 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.page-roadmap .rm-level h2 span {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 15px;
+}
+.page-roadmap .rm-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 820px) {
+  .page-roadmap .rm-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-roadmap .rm-group h3 {
+  margin: 6px 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.page-roadmap .rm-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.page-roadmap .rm-group li {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(0, 1.4fr);
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.page-roadmap .rm-group li b {
+  font-weight: 600;
+}

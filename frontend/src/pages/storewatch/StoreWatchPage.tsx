@@ -1,80 +1,105 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { storeWatchService as desk, type Alert, type DeskState } from '@/services/storewatchService';
-import { CameraDesk } from './CameraDesk';
+import { LiveDesk, type LiveStats } from './LiveDesk';
 import './storewatch.css';
 
-/** A person's label: camera test participants are named as such, and simulated ones as invented. */
+/** A person's label: camera people are numbered, and scripted ones are invented. */
 const who = (person: string) => (person.startsWith('Camera') ? person : `Invented person ${person}`);
+const time = (iso: string) => iso.slice(11, 19);
 
 function AlertCard({
   alert,
-  high,
+  state,
   name,
   run,
 }: {
   alert: Alert;
-  high: boolean;
+  state: DeskState;
   name: string;
   run: (p: Promise<DeskState>) => void;
 }) {
   const [note, setNote] = useState('');
-  const [watched, setWatched] = useState(false);
+  const clip = useRef<HTMLVideoElement>(null);
+  const high = alert.score >= state.high_score;
   return (
-    <div className={`sw-item ${high ? 'high' : ''}`}>
-      <div className="sw-row">
-        <b>Alert {alert.id}</b>
-        <span className={`sw-score ${high ? 'high' : ''}`}>Score {alert.score}</span>
-        {high && <span className="sw-tag">Face held, admin alerted</span>}
+    <div className={`sw-alert ${high ? 'high' : ''}`}>
+      <div className="sw-alert-media">
+        {alert.clip ? (
+          <video
+            ref={clip}
+            src={alert.clip}
+            controls
+            muted
+            playsInline
+            onLoadedMetadata={() => {
+              if (clip.current) clip.current.currentTime = alert.clip_start ?? 0;
+            }}
+          />
+        ) : alert.frames ? (
+          <div className="sw-frames">
+            {alert.frames.map((f, i) => (
+              <img key={i} src={f} alt={`Frame ${i + 1} sent to the behaviour model`} />
+            ))}
+          </div>
+        ) : (
+          <div className="sw-noclip small muted">Scripted alert: no footage. In a shop, the clip plays here.</div>
+        )}
       </div>
-      <p>{alert.frames ? alert.what : `${alert.what.split('.')[0]}.`}</p>
-      {alert.frames ? (
-        <div className="sw-frames">
-          {alert.frames.map((f, i) => (
-            <img key={i} src={f} alt={`Frame ${i + 1} from the camera, with faces blurred`} />
-          ))}
+      <div className="sw-alert-body">
+        <div className="sw-row">
+          {alert.thumbnail && <img className="sw-thumb" src={alert.thumbnail} alt="Face captured with this alert" />}
+          <b>
+            Alert {alert.id} · {who(alert.person)}
+          </b>
+          <span className={`sw-score ${high ? 'high' : ''}`}>Score {alert.score}</span>
+          <span className="small muted">{time(alert.at)}</span>
         </div>
-      ) : (
-        <p className="small muted">
-          The footage for this invented person is described above. In a real shop you would watch the clip here.
-        </p>
-      )}
-      {alert.has_face === false && (
-        <p className="small sw-error">No face was captured, so this alert can't add anyone.</p>
-      )}
-      <label className="sw-check">
-        <input type="checkbox" checked={watched} onChange={(e) => setWatched(e.target.checked)} /> I watched the footage
-      </label>
-      <textarea
-        rows={2}
-        placeholder="What you saw: this is the evidence"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-      />
-      <div className="sw-row">
-        <button
-          className="btn primary"
-          onClick={() => run(desk.review(alert.id, { reviewer: name, theft: true, note, watched_footage: watched }))}
-        >
-          Confirm theft and add to watchlist
-        </button>
-        <button
-          className="btn"
-          onClick={() => run(desk.review(alert.id, { reviewer: name, theft: false, note, watched_footage: watched }))}
-        >
-          Not theft
-        </button>
+        <div className="sw-row">
+          {alert.rules.map((rule) => (
+            <span key={rule} className="sw-tag rule">
+              {state.rule_words[rule] ?? rule}
+            </span>
+          ))}
+          {alert.source && (
+            <span className="sw-tag">{alert.source === 'model' ? 'Checked by the behaviour model' : 'Rules only'}</span>
+          )}
+          {high && <span className="sw-tag bad">Face held, admin alerted</span>}
+        </div>
+        <p>{alert.frames || alert.clip ? alert.what : `${alert.what.split('.')[0]}.`}</p>
+        {alert.has_face === false && (
+          <p className="small sw-error">No face was captured with this alert, so confirming cannot add anyone.</p>
+        )}
+        <input
+          className="sw-note-input"
+          placeholder="Note (optional): what you saw"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        <div className="sw-row">
+          <button
+            className="btn primary"
+            onClick={() => run(desk.review(alert.id, { reviewer: name, theft: true, note }))}
+          >
+            Confirm theft · add to watchlist
+          </button>
+          <button className="btn" onClick={() => run(desk.review(alert.id, { reviewer: name, theft: false, note }))}>
+            Not theft
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-/** The alert desk: what is automated, and the one step that is always a person's. */
+/** The loss-prevention desk: a live camera with rules and a behaviour model, and the one step that is always a person's. */
 export default function StoreWatchPage() {
   const [state, setState] = useState<DeskState | null>(null);
   const [error, setError] = useState('');
   const [name, setName] = useState('Sam Patel');
   const [threshold, setThreshold] = useState(80);
-  const [form, setForm] = useState({ controller: '', lawful_basis: '', dpia_reference: '', signage: false });
+  const [stats, setStats] = useState<LiveStats>({ people: 0, visits: 0 });
+  const [doorFaces, setDoorFaces] = useState<Record<number, string>>({});
+  const [form, setForm] = useState({ controller: '', lawful_basis: '', dpia_reference: '', signage: true });
 
   const run = (call: Promise<DeskState>) => {
     setError('');
@@ -88,15 +113,10 @@ export default function StoreWatchPage() {
       .catch((err: Error) => setError(err.message));
   }, []);
 
-  const save = (e: FormEvent) => {
-    e.preventDefault();
-    run(desk.compliance(form));
-  };
-
   if (!state)
     return (
       <main className="page-storewatch">
-        <h1>Shoplifting alert desk</h1>
+        <h1>Loss-prevention desk</h1>
         <p className={error ? 'sw-error' : 'muted'}>
           {error ? `${error} This page needs the backend running.` : 'Loading…'}
         </p>
@@ -105,39 +125,246 @@ export default function StoreWatchPage() {
 
   const pending = state.alerts.filter((a) => a.status === 'pending');
   const decided = state.alerts.filter((a) => a.status !== 'pending');
+  const confirmed = state.alerts.filter((a) => a.status === 'confirmed').length;
   const open = state.matches.filter((m) => m.status === 'open');
   const closed = state.matches.filter((m) => m.status !== 'open');
   const wrong = closed.filter((m) => m.correct === 0).length;
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    run(desk.compliance(form));
+  };
 
   return (
     <main className="page-storewatch">
-      <div className="kicker">Lab 49 · Human in the loop</div>
-      <h1>Shoplifting alert desk</h1>
+      <div className="kicker">Building · Loss prevention</div>
+      <h1>Loss-prevention desk</h1>
       <p className="lede">
-        A camera system raises an alert, a person decides, and a confirmed thief is flagged next time they enter. The
-        system alerts people automatically. Only a person can put someone on the list, or decide that a face at the door
-        is really them.
+        A camera watches the shop floor. Your browser finds each person, their pose and the items in their hands; rules
+        in code follow them past the shelf, the till and the exit; and a behaviour model looks at a short burst of
+        frames only when the rules raise suspicion. Alerts arrive with a clip. A person decides who goes on the
+        watchlist, and the door camera flags them next time.
       </p>
-      <div className="sw-banner">
-        <b>Two ways to try it.</b> The scripted alerts use invented people. Step 2 uses your real webcam, a real
-        behaviour model and real face templates, for you and adults who have agreed. It does not connect to shop CCTV.
-        The backend enforces the rules in both.
-      </div>
       {error && <p className="sw-error">{error}</p>}
 
+      <div className="sw-stats">
+        <div>
+          <b>{stats.people}</b>
+          <span>in view</span>
+        </div>
+        <div>
+          <b>{stats.visits}</b>
+          <span>visits this session</span>
+        </div>
+        <div className={pending.length ? 'hot' : ''}>
+          <b>{pending.length}</b>
+          <span>alerts waiting</span>
+        </div>
+        <div>
+          <b>{confirmed}</b>
+          <span>confirmed</span>
+        </div>
+        <div className={open.length ? 'hot' : ''}>
+          <b>{state.matches.length}</b>
+          <span>door matches</span>
+        </div>
+        <div>
+          <b>{state.watchlist.filter((e) => e.status === 'active').length}</b>
+          <span>on the watchlist</span>
+        </div>
+      </div>
+
+      <div className="sw-layout">
+        <LiveDesk
+          state={state}
+          threshold={threshold}
+          onState={setState}
+          onError={setError}
+          onStats={setStats}
+          onDoorFace={(id, face) => setDoorFaces((m) => ({ ...m, [id]: face }))}
+        />
+
+        <aside className="sw-side">
+          <section className="card">
+            <div className="sw-row sw-head">
+              <h2>Alerts</h2>
+              <label className="sw-name">
+                Reviewer <input value={name} onChange={(e) => setName(e.target.value)} />
+              </label>
+            </div>
+            {pending.length === 0 && (
+              <p className="small muted">
+                No alerts waiting. A score of {state.high_score} or more alerts the admin and holds the face; it is
+                deleted after {state.hold_hours} hours if nobody reviews it.
+              </p>
+            )}
+            {pending.map((a) => (
+              <AlertCard key={a.id} alert={a} state={state} name={name} run={run} />
+            ))}
+          </section>
+
+          <section className="card">
+            <h2>At the door</h2>
+            <div className="sw-row">
+              <label className="sw-name">
+                Match threshold{' '}
+                <input
+                  type="range"
+                  min={60}
+                  max={95}
+                  value={threshold}
+                  onChange={(e) => setThreshold(+e.target.value)}
+                />{' '}
+                {threshold}
+              </label>
+              <span className="small muted">Compared and forgotten: {state.visitors_discarded}</span>
+            </div>
+            {open.length === 0 && (
+              <p className="small muted">
+                Turn on the door camera under the video. A face that matches nobody on the live watchlist is forgotten
+                at once.
+              </p>
+            )}
+            {open.map((m) => (
+              <div key={m.id} className={`sw-match ${m.high ? 'high' : ''}`}>
+                <div className="sw-faces">
+                  <figure>
+                    {doorFaces[m.id] ? (
+                      <img src={doorFaces[m.id]} alt="The face at the door" />
+                    ) : (
+                      <div className="sw-blank" />
+                    )}
+                    <figcaption>At the door</figcaption>
+                  </figure>
+                  <span className={`sw-score ${m.high ? 'high' : ''}`}>{m.score}</span>
+                  <figure>
+                    {m.thumbnail ? (
+                      <img src={m.thumbnail} alt="The face on the watchlist" />
+                    ) : (
+                      <div className="sw-blank" />
+                    )}
+                    <figcaption>{who(m.person)}</figcaption>
+                  </figure>
+                </div>
+                <p className="small muted">A possible match. Look before anyone speaks to this person.</p>
+                <div className="sw-row">
+                  <button className="btn" onClick={() => run(desk.decide(m.id, name, true))}>
+                    Same person
+                  </button>
+                  <button className="btn" onClick={() => run(desk.decide(m.id, name, false))}>
+                    Not the same person
+                  </button>
+                </div>
+              </div>
+            ))}
+            {wrong > 0 && (
+              <p className="sw-lesson">
+                <b>
+                  The camera matched {wrong} innocent look-alike{wrong > 1 ? 's' : ''}.
+                </b>{' '}
+                That is why a match is only ever a prompt for a person to look.
+              </p>
+            )}
+          </section>
+        </aside>
+      </div>
+
       <section className="card sw-step">
-        <h2>1. Before anything runs</h2>
+        <h2>Watchlist</h2>
+        {state.watchlist.length === 0 && <p className="muted small">Empty. Confirming an alert adds its face here.</p>}
+        <div className="sw-gallery">
+          {state.watchlist.map((e) => (
+            <div key={e.id} className={`sw-card ${e.status}`}>
+              {e.thumbnail ? <img src={e.thumbnail} alt="The face on this entry" /> : <div className="sw-blank big" />}
+              <b>{who(e.person)}</b>
+              <span className={`sw-tag ${e.status}`}>{e.status === 'active' ? 'Live' : 'Held: cannot match'}</span>
+              <span className="small muted">
+                Until {e.expires.slice(0, 10)}
+                {e.added_by ? ` · by ${e.added_by}` : ''}
+              </span>
+              <p className="small" title={e.reason}>
+                {e.reason}
+              </p>
+              <button className="btn small" onClick={() => run(desk.remove(e.id, name, 'Erasure request or mistake'))}>
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {decided.length > 0 && (
+        <section className="card sw-step">
+          <h2>Decided alerts</h2>
+          <table className="t">
+            <thead>
+              <tr>
+                <th>Alert</th>
+                <th>Score</th>
+                <th>Rules</th>
+                <th>Decision</th>
+                <th>By</th>
+                <th>Truth (scripted only)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {decided.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.id}</td>
+                  <td>{a.score}</td>
+                  <td>{a.rules.map((r) => state.rule_words[r] ?? r).join(', ') || '–'}</td>
+                  <td>{a.status}</td>
+                  <td>{a.reviewer ?? 'nobody'}</td>
+                  <td>{a.truth === 'unknown' ? '–' : a.truth}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {state.high_score_rejected > 0 && (
+            <p className="sw-lesson">
+              <b>
+                A person rejected {state.high_score_rejected} high-score alert{state.high_score_rejected > 1 ? 's' : ''}
+                .
+              </b>{' '}
+              With automatic adding, that person would now be flagged at every visit.
+            </p>
+          )}
+        </section>
+      )}
+
+      <section className="card sw-step">
+        <h2>No camera? Run the scripted day</h2>
+        <p className="small muted">
+          Invented shoppers and invented visitors, with the truth revealed once a person has decided, so you can see a
+          wrong call.
+        </p>
+        <div className="sw-row">
+          <button className="btn" disabled={!state.more_alerts} onClick={() => run(desk.nextAlert())}>
+            {state.more_alerts ? 'Next scripted alert' : 'No more scripted alerts'}
+          </button>
+          <button className="btn" disabled={!state.more_visitors} onClick={() => run(desk.nextVisitor(threshold))}>
+            {state.more_visitors ? 'Next scripted visitor at the door' : 'No more scripted visitors'}
+          </button>
+        </div>
+      </section>
+
+      <details className="card sw-step sw-governance">
+        <summary>
+          <h2>Governance, retention and the audit log</h2>
+        </summary>
+        <p className="small">
+          This desk runs in demo mode, on your own machine, for people who know they are being filmed. A real shop needs
+          a lawful basis and an Article 9 condition for biometric data under UK GDPR, a DPIA, and signs before people
+          enter; take legal advice first. What the backend enforces anyway: only a named person can put someone on the
+          watchlist, held faces are deleted after {state.hold_hours} hours, live entries after {state.retention_days}{' '}
+          days, a face that matches nobody is forgotten, and every action is logged.
+        </p>
         {state.compliance ? (
-          <p>
+          <p className="small">
             Recorded for <b>{state.compliance.controller}</b>: DPIA {state.compliance.dpia_reference}. Basis:{' '}
             {state.compliance.lawful_basis}
           </p>
         ) : (
           <form className="sw-form" onSubmit={save}>
-            <p className="small muted">
-              Biometric data needs a lawful basis and an Article 9 condition under UK GDPR, and a DPIA first. This form
-              only records your answers: filling it in does not make anything lawful. Take legal advice for a real shop.
-            </p>
             <input
               required
               placeholder="Shop or company (the controller)"
@@ -156,75 +383,19 @@ export default function StoreWatchPage() {
               value={form.dpia_reference}
               onChange={(e) => setForm({ ...form, dpia_reference: e.target.value })}
             />
-            <label className="sw-check">
-              <input
-                type="checkbox"
-                checked={form.signage}
-                onChange={(e) => setForm({ ...form, signage: e.target.checked })}
-              />{' '}
-              Signs tell customers before they enter
-            </label>
-            <button className="btn primary">Record</button>
+            <button className="btn">Record (optional in demo mode)</button>
           </form>
         )}
-      </section>
-
-      <CameraDesk state={state} name={name} threshold={threshold} onState={setState} onError={setError} />
-
-      <section className="card sw-step">
-        <h2>3. Behaviour alerts</h2>
-        <p className="muted">
-          A score of {state.high_score} or more alerts the admin at once and holds the face at the top of the queue. A
-          held face cannot match at the door, and it is deleted after {state.hold_hours} hours if nobody reviews it.
-        </p>
         <div className="sw-row">
-          <button className="btn primary" disabled={!state.more_alerts} onClick={() => run(desk.nextAlert())}>
-            {state.more_alerts ? 'Next scripted alert' : 'No more scripted alerts'}
+          <button className="btn small" onClick={() => run(desk.advance(4))}>
+            Move the clock 4 days
           </button>
-          <label className="sw-name">
-            Reviewer <input value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
+          <button className="btn small" onClick={() => run(desk.advance(30))}>
+            Move the clock 30 days
+          </button>
+          <span className="small muted">Clock: +{state.days_ahead} days.</span>
         </div>
-        {pending.map((a) => (
-          <AlertCard key={a.id} alert={a} high={a.score >= state.high_score} name={name} run={run} />
-        ))}
-        {decided.length > 0 && (
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Alert</th>
-                <th>Score</th>
-                <th>Decision</th>
-                <th>By</th>
-                <th>In this simulation</th>
-              </tr>
-            </thead>
-            <tbody>
-              {decided.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.id}</td>
-                  <td>{a.score}</td>
-                  <td>{a.status}</td>
-                  <td>{a.reviewer ?? 'nobody'}</td>
-                  <td>{a.truth}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {state.high_score_rejected > 0 && (
-          <p className="sw-lesson">
-            <b>
-              A person rejected {state.high_score_rejected} high-score alert{state.high_score_rejected > 1 ? 's' : ''}.
-            </b>{' '}
-            With automatic adding, that innocent person would now be flagged at every visit.
-          </p>
-        )}
-      </section>
-
-      <section className="card sw-step">
-        <h2>Alerts to the admin and system</h2>
-        {state.notices.length === 0 && <p className="muted">Nothing yet.</p>}
+        <h3>Alerts to the admin</h3>
         <ul className="sw-notices">
           {state.notices.map((n) => (
             <li key={n.id} className={n.level}>
@@ -232,121 +403,7 @@ export default function StoreWatchPage() {
             </li>
           ))}
         </ul>
-      </section>
-
-      <section className="card sw-step">
-        <h2>4. Watchlist</h2>
-        {state.watchlist.length === 0 && <p className="muted">Empty.</p>}
-        {state.watchlist.map((e) => (
-          <div key={e.id} className="sw-item">
-            <div className="sw-row">
-              {e.thumbnail && <img className="sw-thumb" src={e.thumbnail} alt="The face on this entry" />}
-              <b>{who(e.person)}</b>
-              <span className={`sw-tag ${e.status}`}>{e.status === 'active' ? 'Live' : 'Held: cannot match'}</span>
-              <span className="small muted">
-                Deleted on {e.expires.slice(0, 10)}
-                {e.added_by ? ` · added by ${e.added_by}` : ''}
-              </span>
-              <button className="btn small" onClick={() => run(desk.remove(e.id, name, 'Erasure request or mistake'))}>
-                Remove
-              </button>
-            </div>
-            <p className="small">{e.reason}</p>
-          </div>
-        ))}
-        <div className="sw-row">
-          <button className="btn" onClick={() => run(desk.advance(4))}>
-            Move the clock 4 days
-          </button>
-          <button className="btn" onClick={() => run(desk.advance(30))}>
-            Move the clock 30 days
-          </button>
-          <span className="small muted">
-            Live entries last {state.retention_days} days in this example. The real period comes from your DPIA. Clock:
-            +{state.days_ahead} days.
-          </span>
-        </div>
-      </section>
-
-      <section className="card sw-step">
-        <h2>5. At the door</h2>
-        <p className="muted">
-          Each visitor is compared with live entries only. Someone who matches nobody is forgotten at once. Above{' '}
-          {state.high_score} also alerts the admin, but it is still a possible match.
-        </p>
-        <div className="sw-row">
-          <button
-            className="btn primary"
-            disabled={!state.more_visitors}
-            onClick={() => run(desk.nextVisitor(threshold))}
-          >
-            {state.more_visitors ? 'Next scripted visitor' : 'No more scripted visitors'}
-          </button>
-          <label className="sw-name">
-            Match threshold{' '}
-            <input type="range" min={60} max={95} value={threshold} onChange={(e) => setThreshold(+e.target.value)} />{' '}
-            {threshold}
-          </label>
-          <span className="small muted">Forgotten so far: {state.visitors_discarded}</span>
-        </div>
-        {open.map((m) => (
-          <div key={m.id} className={`sw-item ${m.high ? 'high' : ''}`}>
-            <div className="sw-row">
-              {m.thumbnail && <img className="sw-thumb" src={m.thumbnail} alt="The face on the watchlist" />}
-              <b>Possible match with {who(m.person)}</b>
-              <span className={`sw-score ${m.high ? 'high' : ''}`}>Similarity {m.score}</span>
-            </div>
-            <p className="small muted">Compare the live view with the record before anyone speaks to this person.</p>
-            <div className="sw-row">
-              <button className="btn" onClick={() => run(desk.decide(m.id, name, true))}>
-                Same person
-              </button>
-              <button className="btn" onClick={() => run(desk.decide(m.id, name, false))}>
-                Not the same person
-              </button>
-            </div>
-          </div>
-        ))}
-        {closed.length > 0 && (
-          <table className="t">
-            <thead>
-              <tr>
-                <th>Similarity</th>
-                <th>Staff said</th>
-                <th>Really was</th>
-                <th>Right?</th>
-              </tr>
-            </thead>
-            <tbody>
-              {closed.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.score}</td>
-                  <td>{m.status === 'same' ? 'same person' : 'not the same'}</td>
-                  <td>{m.visitor ?? 'Not known'}</td>
-                  <td>
-                    {m.correct == null
-                      ? 'Not known'
-                      : (m.status === 'same') === (m.correct === 1)
-                        ? 'Yes'
-                        : 'No: wrong call'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {wrong > 0 && (
-          <p className="sw-lesson">
-            <b>
-              The camera matched {wrong} innocent look-alike{wrong > 1 ? 's' : ''}.
-            </b>{' '}
-            That is why the match is only ever a prompt for a person to look.
-          </p>
-        )}
-      </section>
-
-      <section className="card sw-step">
-        <h2>Audit log</h2>
+        <h3>Audit log</h3>
         <ul className="sw-audit">
           {state.audit.map((a) => (
             <li key={a.id}>
@@ -355,9 +412,9 @@ export default function StoreWatchPage() {
           ))}
         </ul>
         <button className="btn" onClick={() => run(desk.reset())}>
-          Start again
+          Start again (deletes every alert, clip and entry)
         </button>
-      </section>
+      </details>
     </main>
   );
 }

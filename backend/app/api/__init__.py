@@ -33,3 +33,38 @@ router.include_router(video_translate.media)  # the uploaded video and its spoke
 from . import tabular  # noqa: E402  (tabular foundation models: TabPFN against gradient boosting)
 
 router.include_router(tabular.router)
+
+from . import vectordb  # noqa: E402  (PostgreSQL with pgvector, searched by meaning, by words and both)
+
+router.include_router(vectordb.router)
+
+from . import semantic_cache  # noqa: E402  (a semantic cache in front of a model, on pgvector)
+
+router.include_router(semantic_cache.router)
+
+from . import planning_patterns  # noqa: E402  (ReAct, plan-and-execute and reflexion, side by side)
+
+router.include_router(planning_patterns.router)
+
+from . import graphrag  # noqa: E402  (GraphRAG: a knowledge graph from a collection, local and global search)
+
+router.include_router(graphrag.router)
+
+from . import red_team  # noqa: E402  (adversarial testing: an automated red team against an invented agent)
+
+router.include_router(red_team.router)
+
+from . import lora  # noqa: E402  (fine-tuning with LoRA on this machine, before and after)
+
+router.include_router(lora.router)
+
+from . import songbird  # noqa: E402  (a two-voice syrinx synth; a model composes, code checks)
+
+router.include_router(songbird.router)
+
+router.include_router(storewatch.media)  # evidence clips for <video> tags, which cannot send the lab header
+
+from . import tutor_people  # noqa: E402  (the tutor's people: faces and voices, including their own)
+
+router.include_router(tutor_people.router)
+router.include_router(tutor_people.media)  # uploaded avatars, for TalkingHead's loader

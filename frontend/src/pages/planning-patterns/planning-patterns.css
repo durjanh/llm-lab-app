@@ -1,0 +1,215 @@
+/* ReAct and planning patterns: the task, then one live column per pattern, then the comparison. */
+
+.lab main.page-planning-patterns {
+  max-width: 1560px;
+}
+.page-planning-patterns .pp-section {
+  margin-top: 14px;
+}
+.page-planning-patterns .pp-section h2 {
+  margin-top: 0;
+}
+.page-planning-patterns .pp-bad {
+  color: #b91c1c;
+}
+.page-planning-patterns .pp-ok {
+  color: #15803d;
+}
+
+.page-planning-patterns .pp-tasks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+.page-planning-patterns .pp-task {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.page-planning-patterns .pp-task.on {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+.page-planning-patterns .pp-task:disabled {
+  cursor: default;
+}
+.page-planning-patterns .pp-level {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.page-planning-patterns .pp-level.medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+.page-planning-patterns .pp-level.hard {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.page-planning-patterns .pp-checks {
+  margin: 10px 0 0;
+}
+.page-planning-patterns .pp-checks summary {
+  cursor: pointer;
+}
+.page-planning-patterns .pp-controls {
+  margin-top: 12px;
+}
+.page-planning-patterns .pp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin: 8px 0;
+}
+.page-planning-patterns .pp-check {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.page-planning-patterns .pp-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+.page-planning-patterns .pp-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+}
+.page-planning-patterns .pp-col-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.page-planning-patterns .pp-about {
+  margin: 4px 0 8px;
+  min-height: 2.8em;
+}
+.page-planning-patterns .pp-trace {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 520px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.page-planning-patterns .pp-trace > li {
+  padding: 4px 8px;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.page-planning-patterns .pp-call {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 8px !important;
+}
+.page-planning-patterns .pp-thought {
+  font-style: italic;
+  background: var(--brand-soft);
+}
+.page-planning-patterns .pp-note {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+}
+.page-planning-patterns .pp-action {
+  border-left: 3px solid var(--brand);
+}
+.page-planning-patterns .pp-obs {
+  border-left: 3px solid #16a34a;
+  background: var(--surface2);
+}
+.page-planning-patterns .pp-obs.bad,
+.page-planning-patterns .pp-stepdone.bad,
+.page-planning-patterns .pp-critique.bad {
+  border-left: 3px solid #dc2626;
+}
+.page-planning-patterns .pp-plan,
+.page-planning-patterns .pp-critique,
+.page-planning-patterns .pp-attempt {
+  background: var(--surface2);
+}
+.page-planning-patterns .pp-plan ol,
+.page-planning-patterns .pp-critique ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+.page-planning-patterns .pp-stephead {
+  margin-top: 4px;
+  border-top: 1px dashed var(--line);
+  border-radius: 0 !important;
+}
+.page-planning-patterns .pp-stepdone {
+  border-left: 3px solid #16a34a;
+}
+.page-planning-patterns .pp-result {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+.page-planning-patterns .pp-result.ok {
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+}
+.page-planning-patterns .pp-result.bad {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+.page-planning-patterns .pp-answer {
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+.page-planning-patterns .pp-pulse {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: pp-pulse 1s ease-in-out infinite;
+}
+@keyframes pp-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.page-planning-patterns .pp-explain {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 6px 22px;
+}
+.page-planning-patterns .pp-explain h3 {
+  margin: 10px 0 4px;
+}
+.page-planning-patterns .pp-world {
+  margin: 16px 0;
+}
+.page-planning-patterns .pp-world summary {
+  cursor: pointer;
+  font-weight: 600;
+}

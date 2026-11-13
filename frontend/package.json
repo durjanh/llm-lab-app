@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@met4citizen/talkinghead": "^1.8.2",
+    "@types/matter-js": "^0.20.2",
     "axios": "^1.13.2",
     "katex": "^0.19.1",
+    "matter-js": "^0.20.0",
     "microsoft-cognitiveservices-speech-sdk": "^1.53.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
