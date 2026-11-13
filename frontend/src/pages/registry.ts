@@ -19,10 +19,10 @@ export const GROUPS = ['Foundations', 'Building', 'Quality and safety', 'Cost an
  */
 export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string, string[]>>> = {
   Building: {
-    Techniques: [
+    'Agents and context': [
       'prompting',
-      'embeddings',
       'agents',
+      'planning-patterns',
       'building-agents',
       'agent-types',
       'context-engineering',
@@ -31,8 +31,15 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'workflows',
       'claude-code',
       'claude-code-inside',
+    ],
+    'Retrieval, data and models': [
+      'embeddings',
+      'vector-db',
+      'graphrag',
+      'semantic-cache',
       'code-graph',
       'tabular',
+      'lora',
     ],
     'Agents to try': [
       'coding',
@@ -45,6 +52,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'deal-close',
       'diet',
       'whiteboard',
+      'songbird',
       'brain-check',
       'scans',
       'gaze-pointer',
@@ -93,6 +101,15 @@ export const PAGES: PageDef[] = [
     group: null,
     bodyClass: 'lab',
     Component: lazy(() => import('./lab-architecture/LabArchitecturePage')),
+  },
+  {
+    id: 'roadmap',
+    path: '/roadmap',
+    title: 'GenAI Roadmap',
+    label: 'GenAI engineering roadmap',
+    group: 'Foundations',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./roadmap/RoadmapPage')),
   },
   {
     id: 'transformer',
@@ -192,6 +209,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./agents/AgentsPage')),
+  },
+  {
+    id: 'planning-patterns',
+    path: '/planning-patterns',
+    title: 'ReAct and Planning Patterns',
+    label: 'ReAct and planning patterns',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./planning-patterns/PlanningPatternsPage')),
   },
   {
     id: 'building-agents',
@@ -356,6 +382,42 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./whiteboard/WhiteboardPage')),
   },
   {
+    id: 'songbird',
+    path: '/songbird',
+    title: 'Songbird',
+    label: 'Songbird syrinx',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./songbird/SongbirdPage')),
+  },
+  {
+    id: 'vector-db',
+    path: '/vector-db',
+    title: 'Vector Database',
+    label: 'Vector database (pgvector)',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./vector-db/VectorDbPage')),
+  },
+  {
+    id: 'graphrag',
+    path: '/graphrag',
+    title: 'GraphRAG',
+    label: 'GraphRAG',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./graphrag/GraphRagPage')),
+  },
+  {
+    id: 'semantic-cache',
+    path: '/semantic-cache',
+    title: 'Semantic Cache',
+    label: 'Semantic cache',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./semantic-cache/SemanticCachePage')),
+  },
+  {
     id: 'tabular',
     path: '/tabular',
     title: 'Tabular Foundation Models',
@@ -363,6 +425,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./tabular/TabularPage')),
+  },
+  {
+    id: 'lora',
+    path: '/lora',
+    title: 'Fine-tuning with LoRA',
+    label: 'Fine-tuning with LoRA',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./lora/LoraPage')),
   },
   {
     id: 'code-graph',
@@ -651,6 +722,15 @@ export const PAGES: PageDef[] = [
     group: 'Quality and safety',
     bodyClass: 'lab',
     Component: lazy(() => import('./injection/InjectionPage')),
+  },
+  {
+    id: 'red-team',
+    path: '/red-team',
+    title: 'Adversarial Testing',
+    label: 'Adversarial testing',
+    group: 'Quality and safety',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./red-team/RedTeamPage')),
   },
   {
     id: 'context',

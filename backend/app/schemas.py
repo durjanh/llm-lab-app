@@ -99,6 +99,25 @@ class WhiteboardRead(ModelChoice):
     prompt: str = Field(default="", max_length=1000)
 
 
+class WhiteboardGuess(ModelChoice):
+    image: str = Field(min_length=100, max_length=6_000_000)
+    word: str | None = Field(default=None, max_length=40)  # the word being drawn; none for "what is this?"
+
+
+class WhiteboardScene(ModelChoice):
+    image: str = Field(min_length=100, max_length=6_000_000)
+    hints: list[dict] = Field(default_factory=list, max_length=200)  # shapes the page already recognised
+    width: float = Field(ge=100, le=4000)  # the board's size, in the units the hints use
+    height: float = Field(ge=100, le=4000)
+    prompt: str = Field(default="", max_length=600)
+
+
+class WhiteboardPicture(BaseModel):
+    image: str = Field(min_length=100, max_length=6_000_000)
+    style: str = Field(min_length=3, max_length=120)
+    subject: str = Field(default="", max_length=200)  # what the sketch shows, if the person says
+
+
 class WhiteboardAsk(ModelChoice):
     question: str = Field(min_length=1, max_length=2000)
     board: dict = Field(default_factory=dict)  # what the board shows, as the read returned it
@@ -407,10 +426,15 @@ class CameraConsent(BaseModel):
 
 
 class CameraAnalyse(BaseModel):
-    frames: list[Annotated[str, StringConstraints(pattern=JPEG_DATA, max_length=300_000)]] = Field(min_length=1, max_length=4)
+    frames: list[Annotated[str, StringConstraints(pattern=JPEG_DATA, max_length=300_000)]] = Field(min_length=1, max_length=6)
     descriptor: list[float] | None = Field(default=None, min_length=128, max_length=128)
     thumbnail: Annotated[str, StringConstraints(pattern=JPEG_DATA, max_length=40_000)] | None = None
     layout: str | None = Field(default=None, max_length=300)
+    # What the browser's tracker saw: recent events as text, the rules that fired, and its id for the person.
+    events: list[Annotated[str, StringConstraints(max_length=200)]] = Field(default_factory=list, max_length=30)
+    rules: list[Annotated[str, StringConstraints(max_length=40)]] = Field(default_factory=list, max_length=6)
+    track: int | None = Field(default=None, ge=0, le=100_000)
+    use_model: bool = True  # off: the rules alone give the score, and nothing is sent to the behaviour model
 
 
 class CameraDoor(BaseModel):

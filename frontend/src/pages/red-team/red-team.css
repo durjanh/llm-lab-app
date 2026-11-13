@@ -1,0 +1,216 @@
+/* Adversarial testing: the target, the run's set-up, the results and the suites. */
+
+.page-red-team .rt-step {
+  margin-top: 14px;
+}
+.page-red-team .rt-step h2 {
+  margin-top: 0;
+}
+.page-red-team .rt-step h3 {
+  margin: 14px 0 6px;
+  font-size: 15px;
+}
+.page-red-team .rt-notice {
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--brand);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  margin: 10px 0;
+}
+.page-red-team .rt-bad {
+  color: #b91c1c;
+}
+.page-red-team .rt-good {
+  color: #15803d;
+}
+.page-red-team .rt-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 10px 0;
+}
+.page-red-team .rt-inline {
+  display: block;
+  margin-bottom: 6px;
+}
+.page-red-team .rt-checks {
+  display: grid;
+  gap: 4px;
+}
+.page-red-team .rt-checks label {
+  line-height: 1.45;
+}
+.page-red-team .rt-num {
+  width: 70px;
+}
+.page-red-team .rt-details {
+  margin-top: 10px;
+}
+.page-red-team .rt-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.page-red-team .rt-details pre,
+.page-red-team .rt-raw {
+  white-space: pre-wrap;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface2);
+  font-size: 12px;
+}
+.page-red-team .rt-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: rt-pulse 1s ease-in-out infinite;
+}
+@keyframes rt-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.page-red-team .rt-log {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.page-red-team .rt-headline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  align-items: center;
+  margin: 10px 0;
+}
+.page-red-team .rt-big {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--brand);
+  line-height: 1;
+}
+.page-red-team .rt-rates {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 14px;
+  max-width: 640px;
+}
+.page-red-team .rt-rate-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 110px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .page-red-team .rt-rate-row {
+    grid-template-columns: 1fr 70px;
+  }
+  .page-red-team .rt-rate-row .rt-bar {
+    display: none;
+  }
+}
+.page-red-team .rt-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface2);
+  overflow: hidden;
+}
+.page-red-team .rt-bar i {
+  display: block;
+  height: 100%;
+  background: #dc2626;
+}
+.page-red-team .rt-diff {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 10px 0;
+}
+.page-red-team .rt-click {
+  cursor: pointer;
+}
+.page-red-team .rt-click:hover {
+  background: var(--surface2);
+}
+.page-red-team .rt-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.page-red-team .rt-pill.breach {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.page-red-team .rt-pill.held {
+  background: #dcfce7;
+  color: #15803d;
+}
+.page-red-team .rt-pill.error {
+  background: var(--surface2);
+  color: var(--muted);
+}
+.page-red-team .rt-transcript {
+  display: grid;
+  gap: 8px;
+  padding: 6px 0;
+}
+.page-red-team .rt-turn {
+  display: grid;
+  gap: 4px;
+}
+.page-red-team .rt-user,
+.page-red-team .rt-reply {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.page-red-team .rt-user {
+  background: var(--surface2);
+}
+.page-red-team .rt-reply {
+  border: 1px solid var(--line);
+}
+.page-red-team .rt-who {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.page-red-team .rt-tool {
+  padding: 3px 10px;
+  border-left: 3px solid var(--brand);
+  overflow-wrap: anywhere;
+}
+.page-red-team .rt-tool.blocked {
+  border-left-color: #15803d;
+}
+.page-red-team .rt-flag {
+  color: #15803d;
+}
+.page-red-team .rt-note {
+  border-left: 3px solid #d97706;
+  padding-left: 8px;
+}
+.page-red-team .rt-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--brand);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.page-red-team .rt-link:disabled {
+  color: var(--muted);
+}
+.page-red-team .rt-facts li {
+  margin: 6px 0;
+}

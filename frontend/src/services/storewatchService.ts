@@ -8,6 +8,13 @@ export interface Alert {
   truth?: string;
   frames?: string[];
   has_face?: boolean;
+  thumbnail?: string | null;
+  clip?: string | null;
+  clip_start?: number;
+  rules: string[];
+  reasoning?: string | null;
+  source?: 'model' | 'rules' | null;
+  at: string;
   status: 'pending' | 'confirmed' | 'rejected' | 'expired';
   reviewer: string | null;
   note: string | null;
@@ -36,10 +43,34 @@ export interface Match {
   thumbnail: string | null;
 }
 
+export interface LastCamera {
+  score: number;
+  what: string;
+  alerted: boolean;
+  left_unpaid: boolean;
+  carrying: boolean;
+  alert_id: number | null;
+  modelled: boolean;
+  cost_usd: number;
+}
+
+export interface AnalyseRequest {
+  frames: string[];
+  descriptor: number[] | null;
+  thumbnail: string | null;
+  layout: string;
+  events: string[];
+  rules: string[];
+  track: number | null;
+  use_model: boolean;
+}
+
 export interface DeskState {
   compliance: { controller: string; lawful_basis: string; dpia_reference: string } | null;
-  camera_consent: { by: string } | null;
   camera_available: boolean;
+  camera_calls: number;
+  camera_spent_usd: number;
+  rule_words: Record<string, string>;
   camera_visit: { log: string[]; carrying: boolean } | null;
   default_layout: string;
   alerts: Alert[];
@@ -69,16 +100,18 @@ export class StoreWatchService {
   state = () => this.client.get<DeskState>('/api/storewatch/state');
   compliance = (body: { controller: string; lawful_basis: string; dpia_reference: string; signage: boolean }) =>
     this.act('compliance', body);
-  cameraConsent = (by: string) => this.act('camera/consent', { by, agreed: true });
-  cameraAnalyse = (frames: string[], descriptor: number[] | null, thumbnail: string | null, layout: string) =>
-    this.client.post<
-      DeskState & {
-        last_camera: { score: number; what: string; alerted: boolean; left_unpaid: boolean; carrying: boolean };
-      }
-    >('/api/storewatch/camera/analyse', { frames, descriptor, thumbnail, layout });
+  cameraAnalyse = (body: AnalyseRequest) =>
+    this.client.post<DeskState & { last_camera: LastCamera }>('/api/storewatch/camera/analyse', body);
+  /** The evidence clip recorded around an alert, and where in it the event happens. */
+  attachClip = (id: number, clip: Blob, startS: number) => {
+    const form = new FormData();
+    form.append('file', clip, clip.type.includes('mp4') ? 'clip.mp4' : 'clip.webm');
+    form.append('start_s', String(startS));
+    return this.client.post<DeskState>(`/api/storewatch/alerts/${id}/clip`, form);
+  };
   cameraDoor = (descriptor: number[], threshold: number) => this.act('camera/door', { descriptor, threshold });
   nextAlert = () => this.act('alerts/next');
-  review = (id: number, body: { reviewer: string; theft: boolean; note: string; watched_footage: boolean }) =>
+  review = (id: number, body: { reviewer: string; theft: boolean; note: string; watched_footage?: boolean }) =>
     this.act(`alerts/${id}/review`, body);
   nextVisitor = (threshold: number) => this.act('door/next', { threshold });
   decide = (id: number, staff: string, same_person: boolean) =>

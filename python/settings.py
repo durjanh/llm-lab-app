@@ -47,6 +47,9 @@ class EnvSettings:
     # LLM_LAB_LOCAL_EMBED_MODEL: an open embedding model on the same local server (tools/local-model.sh --embed pulls
     # ai/nomic-embed-text-v1.5). When set, the embeddings page offers it beside the model that runs in the browser.
     local_embed_model: str = ""
+    # LLM_LAB_PGVECTOR_URL: PostgreSQL with pgvector, for the vector database page. The default is the one
+    # tools/vector-db.sh starts in Docker on this machine. Azure Database for PostgreSQL works too.
+    pgvector_url: str = "postgresql://lab:lab@127.0.0.1:5433/vectors"
     # LLM_LAB_RATE_LIMIT_FALLBACK: the model that answers when a model is rate limited or overloaded (429 or 529)
     # after the SDK's own retries. auto: a GPT deployment for Claude (or the local model when there is no GPT), and
     # Claude for GPT. none: no fallback. Or a model id.
@@ -112,6 +115,11 @@ class EnvSettings:
     medassist_phone_language: str = ""
     azure_ai_resource_id: str = ""  # ARM ids, for reading deployments, quotas, metrics and security settings
     azure_media_resource_id: str = ""
+    # AZURE_PERSONAL_VOICE_RESOURCE_ID and AZURE_PERSONAL_VOICE_REGION: a Speech or AI Services resource in a region that
+    # offers Azure personal voice (not uksouth), for the tutor's people who speak in their own cloned voice. Personal
+    # voice is limited access: Microsoft must approve the resource first (https://aka.ms/customneural).
+    azure_personal_voice_resource_id: str = ""
+    azure_personal_voice_region: str = "swedencentral"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
@@ -124,6 +132,7 @@ class EnvSettings:
             rate_limit_fallback=(get("LLM_LAB_RATE_LIMIT_FALLBACK") or cls.rate_limit_fallback).strip(),
             local_context=int(get("LLM_LAB_LOCAL_CONTEXT") or cls.local_context),
             local_embed_model=get("LLM_LAB_LOCAL_EMBED_MODEL", "").strip(),
+            pgvector_url=(get("LLM_LAB_PGVECTOR_URL") or cls.pgvector_url).strip(),
             port=int(get("LLM_LAB_PORT") or cls.port),
             budget_usd=float(get("LLM_LAB_BUDGET") or cls.budget_usd),
             dev_port=int(get("LLM_LAB_DEV_PORT") or cls.dev_port),
@@ -160,6 +169,8 @@ class EnvSettings:
             aftercare_speech_endpoint=(get("AFTERCARE_SPEECH_ENDPOINT") or get("AZURE_LANGUAGE_ENDPOINT", "")).rstrip("/"),
             azure_ai_resource_id=get("AZURE_AI_RESOURCE_ID", ""),
             azure_media_resource_id=get("AZURE_MEDIA_RESOURCE_ID", ""),
+            azure_personal_voice_resource_id=get("AZURE_PERSONAL_VOICE_RESOURCE_ID", "").strip(),
+            azure_personal_voice_region=(get("AZURE_PERSONAL_VOICE_REGION") or cls.azure_personal_voice_region).strip().lower(),
         )
 
 

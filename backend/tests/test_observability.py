@@ -148,3 +148,43 @@ def test_two_calls_in_one_request_share_a_trace(tmp_path: Path) -> None:
     seen = client.get("/api/observability", headers=LAB).json()
     assert len(seen["traces"]) == 1 and len(seen["traces"][0]["spans"]) == 2 and seen["traces"][0]["area"] == "whiteboard"
     assert (tmp_path / "observability" / "calls.jsonl").read_text().count("\n") == 2
+
+
+def test_a_gpt_call_is_timed_like_a_claude_call(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    from backend.app.gateways.azure_openai import AzureOpenAI
+
+    reply = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content="{}", refusal=None), finish_reason="stop")],
+        usage=SimpleNamespace(prompt_tokens=120, completion_tokens=30, prompt_tokens_details=None))
+    calls = CallLog(tmp_path / "calls.jsonl")
+    gpt = AzureOpenAI("https://example", ["gpt-5.4-mini"], calls=calls)
+    gpt._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **_: reply)))
+    _, usage = gpt.structured("gpt-5.4-mini", "system", {"type": "object"}, "hello", 100)
+    SpendTracker(1.0, calls).charge(SimpleNamespace(usage=usage), "gpt-5.4-mini")
+    [call] = calls.calls()
+    assert call["kind"] == "gpt" and call["latency_ms"] is not None and call["input_tokens"] == 120
+
+
+def test_a_failed_gpt_call_is_logged_and_shown_as_an_api_error(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    import httpx
+    import openai
+
+    from backend.app.core.errors import ApiError
+    from backend.app.gateways.azure_openai import AzureOpenAI
+
+    def busy(**_: Any) -> Any:
+        request = httpx.Request("POST", "https://example")
+        raise openai.RateLimitError("busy", response=httpx.Response(429, request=request), body=None)
+
+    calls = CallLog(tmp_path / "calls.jsonl")
+    gpt = AzureOpenAI("https://example", ["gpt-5.4-mini"], calls=calls)
+    gpt._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=busy)))
+    with pytest.raises(ApiError) as caught:
+        gpt.chat("gpt-5.4-mini", [{"role": "user", "content": "hi"}])
+    assert caught.value.status == 429
+    [call] = calls.calls()
+    assert call["status"] == "error" and call["error"] == "RateLimitError" and call["model"] == "gpt-5.4-mini"

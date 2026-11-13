@@ -1,0 +1,7 @@
+# LoRA fine-tuning of a small open model, in its own Python 3.12 environment: it needs PyTorch, which the lab's main
+# environment does not have. About 1 GB installed (mostly PyTorch). Runs on Apple silicon (MPS), NVIDIA (CUDA) or CPU.
+torch==2.15.0
+transformers==5.22.2
+peft==0.21.2
+accelerate==1.15.0
+safetensors==0.8.0

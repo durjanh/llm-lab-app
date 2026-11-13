@@ -3,10 +3,17 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VoiceComposer } from '@/components/voice/VoiceComposer';
 import { statusService } from '@/services/statusService';
-import { whiteboardService, type BoardReading, type ReadResult } from '@/services/whiteboardService';
+import {
+  whiteboardService,
+  type BoardReading,
+  type ReadResult,
+  type WhiteboardInfo,
+} from '@/services/whiteboardService';
 import { isLocalModel } from '@/lib/models';
 import { Board, type BoardHandle, type Stroke } from './Board';
 import { Graph } from './Graph';
+import { GuessGame, LifePanel, PicturePanel, type GuessRecord, type PictureRecord, type SceneRecord } from './Modes';
+import { Physics } from './Physics';
 import { reach, section as cut, sectionName, type Vec } from './geometry';
 import { Solid3D } from './Solid3D';
 import './whiteboard.css';
@@ -22,16 +29,36 @@ const SAMPLES = [
   'Make it a square pyramid and cut it halfway up',
 ];
 
-/** One reading in the history: the board as drawn, what the model made of it, and the questions asked about it. */
+type Mode = 'maths' | 'guess' | 'life' | 'picture';
+const MODES: { id: Mode; label: string; blurb: string }[] = [
+  { id: 'maths', label: '∑ Maths', blurb: 'Sketch a graph or a solid; the board makes it real' },
+  { id: 'guess', label: '🎲 Guess my drawing', blurb: 'Draw the word before the clock runs out' },
+  { id: 'life', label: '⚽ Bring it to life', blurb: 'Draw balls, boxes and ramps, then press play' },
+  { id: 'picture', label: '🎨 Sketch to picture', blurb: 'Your sketch, redrawn as a picture' },
+];
+
+/** One board in the history: as drawn, and what came of it in its mode. Entries saved before modes are maths. */
 interface Entry {
   id: string;
   at: number;
+  mode?: Mode;
   prompt: string;
   thumb: string;
   strokes: Stroke[];
-  result: ReadResult;
+  result?: ReadResult;
   answers: { q: string; a: string }[];
+  game?: GuessRecord;
+  scene?: SceneRecord;
+  picture?: PictureRecord;
 }
+
+const titleOf = (e: Entry) => {
+  if (e.game)
+    return e.game.word ? `${e.game.won ? '✓' : '✗'} ${e.game.word}` : `A guess: ${e.game.guesses[0]?.label ?? '?'}`;
+  if (e.scene) return `Scene: ${e.scene.bodies.length} bodies`;
+  if (e.picture) return `Picture: ${e.picture.style}`;
+  return e.result?.board.title || e.result?.board.read_as || 'Board';
+};
 
 const HISTORY_KEY = 'llm-lab.whiteboard.history';
 const HISTORY_MAX = 20;
@@ -162,10 +189,49 @@ export default function WhiteboardPage() {
   const [cost, setCost] = useState(0);
   const [history, setHistory] = useState<Entry[]>(loadHistory);
   const [current, setCurrent] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('maths');
+  const [info, setInfo] = useState<WhiteboardInfo | null>(null);
+  const [restoredGame, setRestoredGame] = useState<GuessRecord | null>(null);
+  const [scene, setScene] = useState<SceneRecord | null>(null);
+  const [running, setRunning] = useState(false);
+  const [gravity, setGravity] = useState(1);
+  const [bounce, setBounce] = useState(0.4);
+  const [resetKey, setResetKey] = useState(0);
+  const [picture, setPicture] = useState<PictureRecord | null>(null);
+
+  const remember = (
+    entry: Omit<Entry, 'id' | 'at' | 'thumb' | 'strokes' | 'answers' | 'prompt'> & { prompt?: string },
+  ) => {
+    const full: Entry = {
+      id: crypto.randomUUID(),
+      at: Date.now(),
+      prompt: '',
+      thumb: board.current?.thumbnail() ?? '',
+      strokes: board.current?.strokes() ?? [],
+      answers: [],
+      ...entry,
+    };
+    setHistory((h) => [full, ...h].slice(0, HISTORY_MAX));
+    setCurrent(full.id);
+  };
+
+  const switchMode = (next: Mode) => {
+    if (next === mode) return;
+    setMode(next);
+    setRunning(false);
+    setScene(null);
+    setRestoredGame(null);
+    setCurrent(null);
+    setError('');
+  };
 
   useEffect(() => saveHistory(history), [history]);
 
   useEffect(() => {
+    whiteboardService
+      .info()
+      .then(setInfo)
+      .catch((err) => setError(errorText(err)));
     statusService
       .status()
       .then((s) => {
@@ -185,17 +251,7 @@ export default function WhiteboardPage() {
       const r = await whiteboardService.read(image, text, model || undefined);
       setResult(r);
       setAnswers([]);
-      const entry: Entry = {
-        id: crypto.randomUUID(),
-        at: Date.now(),
-        prompt: text,
-        thumb: board.current?.thumbnail() ?? '',
-        strokes: board.current?.strokes() ?? [],
-        result: r,
-        answers: [],
-      };
-      setHistory((h) => [entry, ...h].slice(0, HISTORY_MAX));
-      setCurrent(entry.id);
+      remember({ mode: 'maths', prompt: text, result: r });
       setCost((c) => c + r.cost_usd);
       setPrompt('');
     } catch (err) {
@@ -226,9 +282,16 @@ export default function WhiteboardPage() {
 
   function open(e: Entry) {
     if (busy) return;
+    const m: Mode = e.mode ?? 'maths';
+    setMode(m);
+    setRunning(false);
     board.current?.load(e.strokes);
-    setResult(e.result);
+    setResult(e.result ?? null);
     setAnswers(e.answers);
+    setRestoredGame(e.game ?? null);
+    setScene(e.scene ?? null);
+    setPicture(e.picture ?? null);
+    setResetKey((k) => k + 1);
     setCurrent(e.id);
     setError('');
   }
@@ -237,6 +300,10 @@ export default function WhiteboardPage() {
     board.current?.load([]);
     setResult(null);
     setAnswers([]);
+    setRestoredGame(null);
+    setScene(null);
+    setRunning(false);
+    setPicture(null);
     setCurrent(null);
   }
 
@@ -247,10 +314,11 @@ export default function WhiteboardPage() {
       <div className="kicker">Building · AI whiteboard</div>
       <h1>Sketch it, and the board makes it real</h1>
       <p className="lede">
-        Draw an equation, a graph or a shape, then press AI. A model that reads images says what you drew, as data; the
-        page turns that into a graph whose constants you can slide, or a 3D solid you can turn and cut. Lines, circles
-        and boxes are tidied as you draw them. The model reads and explains. Code does the maths: it plots the function
-        and works out every cross-section and angle.
+        Four ways to play. Maths: draw an equation, a graph or a shape, and the board turns it into a graph whose
+        constants you can slide, or a 3D solid you can turn and cut. Guess my drawing: draw a word against the clock
+        while the model guesses. Bring it to life: draw balls, boxes and ramps, and a physics engine sets them moving.
+        Sketch to picture: the image model paints your sketch. In every mode the model reads the drawing; code does the
+        maths, the physics and the scoring.
       </p>
 
       <div className="wb-bar">
@@ -266,6 +334,21 @@ export default function WhiteboardPage() {
           </select>
         </label>
         <span className="small muted">Spent here: {usd(cost)}</span>
+      </div>
+      <div className="wb-modes" role="tablist" aria-label="Modes">
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            role="tab"
+            aria-selected={mode === m.id}
+            className={`wb-mode${mode === m.id ? ' on' : ''}`}
+            onClick={() => switchMode(m.id)}
+            disabled={busy}
+          >
+            <b>{m.label}</b>
+            <span>{m.blurb}</span>
+          </button>
+        ))}
       </div>
       {error && <p className="wb-bad small">{error}</p>}
 
@@ -283,9 +366,9 @@ export default function WhiteboardPage() {
               <li key={e.id}>
                 <button className={`wb-history-item${e.id === current ? ' on' : ''}`} onClick={() => open(e)}>
                   {e.thumb && <img src={e.thumb} alt="" />}
-                  <span className="wb-history-title">{e.result.board.title || e.result.board.read_as || 'Board'}</span>
+                  <span className="wb-history-title">{titleOf(e)}</span>
                   <span className="wb-history-meta">
-                    {when(e.at)}
+                    {MODES.find((m) => m.id === (e.mode ?? 'maths'))?.label.split(' ')[0]} {when(e.at)}
                     {e.answers.length > 0 && ` · ${e.answers.length} question${e.answers.length > 1 ? 's' : ''}`}
                   </span>
                 </button>
@@ -307,29 +390,103 @@ export default function WhiteboardPage() {
 
         <div className="wb-layout">
           <section className="card wb-left" aria-label="Board">
-            <Board ref={board} />
-            <VoiceComposer
-              value={prompt}
-              onChange={setPrompt}
-              onSend={(t) => void read(t)}
-              onError={setError}
-              busy={busy}
-              placeholder="What should the AI do? (optional)"
-            />
-            <div className="wb-actions">
-              <button className="btn primary" disabled={busy} onClick={() => void read(prompt)}>
-                {busy ? 'Reading…' : '✨ AI: read my board'}
-              </button>
-              {SAMPLES.map((s) => (
-                <button key={s} className="btn small" disabled={busy} onClick={() => void read(s)}>
-                  {s}
-                </button>
-              ))}
-            </div>
+            <Board
+              ref={board}
+              tidy
+              hint={
+                mode === 'guess'
+                  ? 'Press Start a round, then draw the word here'
+                  : mode === 'life'
+                    ? 'Draw a ball, a ramp and some boxes'
+                    : mode === 'picture'
+                      ? 'Sketch anything: a house, a cat, a boat'
+                      : undefined
+              }
+              covered={mode === 'life' && !!scene}
+            >
+              {mode === 'life' && scene && (
+                <Physics
+                  bodies={scene.bodies}
+                  width={scene.width}
+                  height={scene.height}
+                  running={running}
+                  gravity={gravity}
+                  bounce={bounce}
+                  resetKey={resetKey}
+                />
+              )}
+            </Board>
+            {mode === 'maths' && (
+              <>
+                <VoiceComposer
+                  value={prompt}
+                  onChange={setPrompt}
+                  onSend={(t) => void read(t)}
+                  onError={setError}
+                  busy={busy}
+                  placeholder="What should the AI do? (optional)"
+                />
+                <div className="wb-actions">
+                  <button className="btn primary" disabled={busy} onClick={() => void read(prompt)}>
+                    {busy ? 'Reading…' : '✨ AI: read my board'}
+                  </button>
+                  {SAMPLES.map((s) => (
+                    <button key={s} className="btn small" disabled={busy} onClick={() => void read(s)}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
 
           <section className="card wb-right" aria-label="What the board made">
-            {!b && (
+            {mode === 'guess' && (
+              <GuessGame
+                board={board}
+                info={info}
+                model={model}
+                restored={restoredGame}
+                onCost={(c) => setCost((x) => x + c)}
+                onError={setError}
+                onRoundEnd={(game) => remember({ mode: 'guess', game })}
+              />
+            )}
+            {mode === 'life' && (
+              <LifePanel
+                board={board}
+                model={model}
+                scene={scene}
+                running={running}
+                gravity={gravity}
+                bounce={bounce}
+                onScene={(s) => {
+                  setScene(s);
+                  setResetKey((k) => k + 1);
+                  if (s) remember({ mode: 'life', scene: s });
+                }}
+                onRunning={setRunning}
+                onGravity={setGravity}
+                onBounce={setBounce}
+                onReset={() => setResetKey((k) => k + 1)}
+                onCost={(c) => setCost((x) => x + c)}
+                onError={setError}
+              />
+            )}
+            {mode === 'picture' && (
+              <PicturePanel
+                board={board}
+                info={info}
+                picture={picture}
+                onPicture={(pic) => {
+                  setPicture(pic);
+                  remember({ mode: 'picture', picture: pic });
+                }}
+                onCost={(c) => setCost((x) => x + c)}
+                onError={setError}
+              />
+            )}
+            {mode === 'maths' && !b && (
               <div className="wb-empty small muted">
                 <p>What you draw appears here, made properly.</p>
                 <p>
@@ -337,7 +494,7 @@ export default function WhiteboardPage() {
                 </p>
               </div>
             )}
-            {b && (
+            {mode === 'maths' && b && (
               <>
                 <h2 className="wb-title">{b.title || 'Your board'}</h2>
                 <p className="small muted">
@@ -409,6 +566,31 @@ export default function WhiteboardPage() {
               <td>Turn the solid, cut it, name the section, measure angles and area</td>
               <td>Code: three.js and the geometry module</td>
               <td>A model guessing angles would be wrong some of the time; arithmetic never is</td>
+            </tr>
+            <tr>
+              <td>Guess my drawing: guess what the sketch is</td>
+              <td>The model (Haiku by default), never told the word</td>
+              <td>Recognising a rough drawing is a vision model’s job</td>
+            </tr>
+            <tr>
+              <td>Decide whether a guess is the word, run the clock, keep the score</td>
+              <td>Code: plain words and a short synonym list per word</td>
+              <td>A model asked “is this right?” could be talked into yes; a rule cannot</td>
+            </tr>
+            <tr>
+              <td>Bring it to life: say which shapes are balls, boxes and ramps, and which move</td>
+              <td>The model, as JSON, with the exact shapes the page recognised given to it as hints</td>
+              <td>Telling a ramp from a shelf needs understanding the drawing</td>
+            </tr>
+            <tr>
+              <td>Check the scene, then gravity, collisions, bounce, friction and throwing</td>
+              <td>Code: sizes and positions checked, then matter-js, a 2D physics engine</td>
+              <td>Physics must be the same every time and run sixty times a second</td>
+            </tr>
+            <tr>
+              <td>Sketch to picture</td>
+              <td>gpt-image-2, given the sketch itself as its reference image</td>
+              <td>Making a picture is the image model’s job; the sketch keeps the layout yours</td>
             </tr>
             <tr>
               <td>Explain it, and answer questions</td>

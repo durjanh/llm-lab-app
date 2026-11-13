@@ -27,3 +27,88 @@
 .page-hardware .dl-plot canvas{display:block}
 .page-hardware .dl-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;color:var(--ink2)}
 .page-hardware .dl-legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+
+/* Kernels and the roofline. */
+.page-hardware .hw-kernels h3 {
+  margin: 18px 0 4px;
+}
+.page-hardware .hw-k-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.page-hardware .hw-k-controls label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.page-hardware .hw-roofline {
+  width: 100%;
+  max-width: 640px;
+  display: block;
+  font-size: 11px;
+}
+.page-hardware .hw-roofline text {
+  fill: var(--muted);
+}
+.page-hardware .hw-roofline .axis {
+  font-size: 12px;
+}
+.page-hardware .hw-roofline .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.page-hardware .hw-roofline .roof {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 3;
+}
+.page-hardware .hw-roofline .ridge {
+  stroke: var(--brand);
+  stroke-dasharray: 4 4;
+}
+.page-hardware .hw-roofline .ridge-label {
+  fill: var(--brand);
+}
+.page-hardware .hw-roofline .pt.mm {
+  fill: #e07b2d;
+}
+.page-hardware .hw-roofline .pt.ew {
+  fill: #16a34a;
+}
+.page-hardware .hw-roofline .pt-label {
+  font-size: 12px;
+  fill: currentColor;
+}
+.page-hardware .hw-k-bars {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.page-hardware .hw-k-bars > div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+.page-hardware .hw-k-bars i {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  min-width: 3px;
+}
+.page-hardware .hw-k-bars i.slow {
+  background: #e07b2d;
+}
+.page-hardware .hw-k-bars i.fast {
+  background: #16a34a;
+}
+@media (max-width: 640px) {
+  .page-hardware .hw-k-bars > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

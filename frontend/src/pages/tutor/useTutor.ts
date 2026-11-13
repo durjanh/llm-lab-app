@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { tutorService, type PronunciationScores, type TutorFeedback, type TutorLevel, type TutorScenario } from '@/services';
 import type { Avatar } from './avatar';
 import type { SharedImage } from './images';
-import { Speech, tutorFor, type Heard } from './speech';
+import { tutorFor } from './people';
+import { Speech, type Heard } from './speech';
 
 export interface Line {
   id: number;
@@ -77,7 +78,7 @@ export function useTutor(settings: TutorSettings, speechReady: boolean) {
         const s = settingsRef.current;
         if (!speechReady || !avatar.current || !sentence.trim()) return;
         chain = chain
-          .then(() => speech.current.synthesize(sentence.trim(), tutorFor(s.voice).id, s.rate))
+          .then(() => speech.current.synthesize(sentence.trim(), tutorFor(s.voice).voice, s.rate))
           .then((spoken) => avatar.current?.say(spoken, () => setCaption(sentence.trim())))
           .catch((err: Error) => {
             if (!failed) setProblem(`The voice failed: ${err.message}`);
@@ -234,7 +235,7 @@ export function useTutor(settings: TutorSettings, speechReady: boolean) {
     try {
       const sentences = text.match(/[^.!?]+[.!?]*["')\]]?\s*/g) ?? [text];
       for (const sentence of sentences.map((x) => x.trim()).filter(Boolean)) {
-        await avatar.current.say(await speech.current.synthesize(sentence, tutorFor(s.voice).id, s.rate), () => setCaption(sentence));
+        await avatar.current.say(await speech.current.synthesize(sentence, tutorFor(s.voice).voice, s.rate), () => setCaption(sentence));
       }
       await avatar.current.finished();
     } catch (err) {
@@ -254,7 +255,7 @@ export function useTutor(settings: TutorSettings, speechReady: boolean) {
         if (avatar.current) {
           avatar.current.stop();
           setStatus('speaking');
-          await avatar.current.say(await speech.current.synthesize(sentence, tutorFor(s.voice).id, Math.min(s.rate, 0.9)), () =>
+          await avatar.current.say(await speech.current.synthesize(sentence, tutorFor(s.voice).voice, Math.min(s.rate, 0.9)), () =>
             setCaption(sentence),
           );
           await avatar.current.finished();

@@ -30,6 +30,16 @@ from .services.hotel import HotelService
 from .services.brain import BrainCheckService
 from .services.scans import ScanService
 from .services.tabular import TabularService
+from .services.lora import LoraService
+from .services.planning_patterns import PlanningPatternsService
+from .services.red_team import RedTeamService
+from .services.vectordb import VectorDbService
+from .gateways.pgvector import PgVector
+from .gateways.semantic_cache import PgSemanticCache
+from .services.semantic_cache import SemanticCacheService
+from .services.songbird import SongbirdService
+from .services.graphrag import GraphRagService
+from .gateways.graph_store import PgGraph
 from .services.whiteboard import WhiteboardService
 from .services.token_counter import TokenCounterService
 from .services.medassist_phone import MedAssistPhone
@@ -63,6 +73,8 @@ from .services.skills import MadeFiles, SkillsService
 from .services.spend import SpendTracker
 from .services.status import StatusService
 from .services.tutor import TutorService
+from .services.tutor_people import TutorPeopleService
+from .gateways.personal_voice import AzurePersonalVoice
 from .services.storewatch import StoreWatchService
 from .services.workflows import WorkflowService
 from .settings import Settings
@@ -81,6 +93,7 @@ class Container:
     decks: DeckService
     sites: SiteService
     tutor: TutorService
+    tutor_people: TutorPeopleService
     documents: DocumentService
     mcp_lab: McpLab
     casework: CaseworkService
@@ -96,8 +109,15 @@ class Container:
     brain: BrainCheckService
     scans: ScanService
     tabular: TabularService
+    lora: LoraService
+    planning_patterns: PlanningPatternsService
+    red_team: RedTeamService
     token_counter: TokenCounterService
     local_embeddings: LocalEmbedder
+    vectordb: VectorDbService
+    semantic_cache: SemanticCacheService
+    songbird: SongbirdService
+    graphrag: GraphRagService
     medassist_phone: MedAssistPhone
     guardrails: GuardrailsService
     understanding: UnderstandingService
@@ -122,12 +142,13 @@ class Container:
         calls = CallLog(settings.generated_dir / "observability" / "calls.jsonl")
         claude = ClaudeGateway(TimedClient(client, calls))
         spend = SpendTracker(settings.budget_usd, calls)
+        local_embeddings = LocalEmbeddings(settings.local_embed_model, settings.local_openai_url)
         registry = RunRegistry()
         streamer = RunStreamer(registry, settings.heartbeat_s)
         skills = SkillsService(claude, spend, streamer, MadeFiles())
         if gpt is None and settings.azure_openai_endpoint and settings.azure_openai_deployments:
             gpt = AzureOpenAI(settings.azure_openai_endpoint, list(settings.azure_openai_deployments),
-                              settings.azure_openai_embedding_deployment)
+                              settings.azure_openai_embedding_deployment, calls)
         if foundry is None and settings.foundry_project_endpoint and settings.foundry_model:
             foundry = FoundryAgent(settings.foundry_project_endpoint, settings.foundry_model)
         if agents is None and settings.foundry_project_endpoint and settings.foundry_model:
@@ -142,6 +163,7 @@ class Container:
         if language is None and settings.azure_language_endpoint:
             language = AzureLanguage(settings.azure_language_endpoint)
         understanding = UnderstandingService(tools, spend, settings.generated_dir / "understanding")
+        imagegen = ImageGenService(tools, spend, settings.generated_dir / "images", settings.generated_dir / "understanding")
         archive = TranscriptArchive(settings.generated_dir / "transcripts")  # every conversation, kept
         # Live translation (calls and texts), through the lab's AI Services account; none without it.
         translate = shared_translator.Translator(settings.azure_language_endpoint) if settings.azure_language_endpoint else None
@@ -178,6 +200,8 @@ class Container:
             decks=DeckService(claude, spend, streamer, skills, DeckChats()),
             sites=SiteService(claude, spend, streamer, SiteStore(settings.sites_dir),
                               browser or ChromeScreenshotter(settings.chrome_path or None), settings.origin),
+            tutor_people=TutorPeopleService(settings.generated_dir / "tutor-people", AzurePersonalVoice(
+                settings.azure_personal_voice_resource_id, settings.azure_personal_voice_region)),
             tutor=TutorService(claude, spend, streamer,
                                speech or AzureSpeech(settings.azure_speech_key, settings.azure_speech_region,
                                                      settings.azure_speech_resource_id,
@@ -190,17 +214,25 @@ class Container:
             reviews=ReviewsService(language, claude, spend),
             aftercare=aftercare,
             token_counter=TokenCounterService(claude, HfTokenizers(settings.generated_dir / "tokenizers")),
-            local_embeddings=LocalEmbeddings(settings.local_embed_model, settings.local_openai_url),
+            local_embeddings=local_embeddings,
+            vectordb=VectorDbService(PgVector(settings.pgvector_url), local_embeddings, claude, spend),
+            semantic_cache=SemanticCacheService(PgSemanticCache(settings.pgvector_url), local_embeddings, claude, spend),
+            songbird=SongbirdService(claude, spend),
+            graphrag=GraphRagService(PgVector(settings.pgvector_url), PgGraph(PgVector(settings.pgvector_url)),
+                                     local_embeddings, claude, spend, streamer),
             hotel=HotelService(claude, spend, settings.generated_dir / "hotel" / "hotel.db", hotel_notify.from_settings(
                 settings.medassist_sms_endpoint, settings.medassist_sms_sender, settings.hotel_sms_to,
                 settings.hotel_email_sender, settings.hotel_email_to)),
             diet=DietService(claude, spend, settings.generated_dir / "diet-memory", streamer),
             deals=DealsService(claude, spend, settings.generated_dir / "deals", streamer),
             code_graph=CodeGraphService(claude, spend, settings.generated_dir / "code-graph"),
-            whiteboard=WhiteboardService(claude, spend),
+            whiteboard=WhiteboardService(claude, spend, imagegen),
             brain=BrainCheckService(claude, spend, settings.generated_dir / "brain-check"),
             scans=ScanService(claude, spend),
+            red_team=RedTeamService(claude, spend, settings.generated_dir / "red-team", streamer),
             tabular=TabularService(claude, spend, settings.generated_dir / "tabular", streamer),
+            lora=LoraService(settings.generated_dir / "lora", streamer),
+            planning_patterns=PlanningPatternsService(claude, spend, streamer),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),
             guardrails=GuardrailsService(tools, spend),
@@ -211,7 +243,7 @@ class Container:
             coding=CodingService(claude, spend, registry, streamer, settings.generated_dir / "coding-agent", gpt=gpt,
                                  run_budget_usd=settings.run_budget_usd, approval_timeout_s=settings.approval_timeout_s),
             searchlab=SearchLabService(tools, search, understanding, spend, settings.generated_dir / "search"),
-            imagegen=ImageGenService(tools, spend, settings.generated_dir / "images", settings.generated_dir / "understanding"),
+            imagegen=imagegen,
             runs=registry,
             observability=ObservabilityService(calls, spend),
             video_translate=VideoTranslateService(

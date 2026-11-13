@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type DragEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type DragEvent, type KeyboardEvent } from 'react';
 import { useNavHeight } from '@/lib/useNavHeight';
 import { statusService, tutorService, type LiveStatus, type TutorConfig, type TutorFeedback } from '@/services';
 import { Avatar } from './avatar';
 import { captureScreen, prepareImage, type SharedImage } from './images';
 import { LineView } from './LineView';
-import { tutorFor, VOICES } from './speech';
+import { tutorPeopleService, type PeopleListing } from '@/services/tutorPeopleService';
+import { PeoplePanel } from './PeoplePanel';
+import { builtInPeople, madePeople, setPeople, tutorFor } from './people';
 import { useTutor, type TutorSettings } from './useTutor';
 import './tutor.css';
 
@@ -53,6 +55,8 @@ export default function TutorPage() {
   const [words, setWords] = useState<SavedWord[]>(() => load<{ list: SavedWord[] }>('tutor.words', { list: [] }).list);
   const [loading, setLoading] = useState<number | null>(0); // share of the avatar downloaded; null when ready
   const [avatarProblem, setAvatarProblem] = useState('');
+  const [listing, setListing] = useState<PeopleListing | null>(null);
+  const [showPeople, setShowPeople] = useState(false);
   const [started, setStarted] = useState(false);
   const [text, setText] = useState('');
   const [images, setImages] = useState<SharedImage[]>([]);
@@ -84,6 +88,18 @@ export default function TutorPage() {
       tutorService.config().then(setConfig).catch(() => undefined);
     });
   }, []);
+
+  // Your people (you, colleagues): loaded with the page, and again after each change on the people panel.
+  const loadPeople = useCallback(() => {
+    tutorPeopleService
+      .list()
+      .then((l) => {
+        setPeople(l.people);
+        setListing(l);
+      })
+      .catch(() => undefined);
+  }, []);
+  useEffect(loadPeople, [loadPeople]);
 
   // The avatar loads once, when the page opens, as the person who goes with the chosen voice.
   const person = tutorFor(settings.voice); // the tutor: their name, face and voice
@@ -303,13 +319,27 @@ export default function TutorPage() {
             <label>
               Tutor
               <select value={person.id} onChange={(e) => set('voice', e.target.value)} disabled={busy || loading !== null}>
-                {VOICES.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.label}
-                  </option>
-                ))}
+                <optgroup label="Built in">
+                  {builtInPeople().map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </optgroup>
+                {madePeople().length > 0 && (
+                  <optgroup label="Your people">
+                    {madePeople().map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </label>
+            <button className="btn small tu-people-btn" onClick={() => setShowPeople((v) => !v)} disabled={!listing}>
+              Your people…
+            </button>
             <label>
               Speed {Math.round(settings.rate * 100)}%
               <input type="range" min={0.7} max={1.2} step={0.05} value={settings.rate} onChange={(e) => set('rate', Number(e.target.value))} disabled={!speechReady} />
@@ -334,6 +364,17 @@ export default function TutorPage() {
             )}
           </div>
         </details>
+        {showPeople && listing && (
+          <PeoplePanel
+            listing={listing}
+            onChange={loadPeople}
+            onUse={(id) => {
+              set('voice', id);
+              setShowPeople(false);
+            }}
+            onClose={() => setShowPeople(false)}
+          />
+        )}
 
         <div className="tu-stage" ref={stage}>
           {loading !== null && !avatarProblem && <div className="tu-overlay">Loading your tutor… {Math.round(loading * 100)}%</div>}

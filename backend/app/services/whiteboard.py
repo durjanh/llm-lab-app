@@ -4,12 +4,17 @@ checks what the model says before the page sees it; the model gets one more try 
 
 The model reads and explains. Code does the maths: expressions are checked against a whitelist here and evaluated by
 the page's own parser, and the solid's cross-sections and angles are computed by the page.
+
+Three more modes use the same split. Guess my drawing: the model guesses, and code decides whether a guess is the word.
+Bring it to life: the model reads a sketched scene into bodies (balls, boxes, lines), code checks them, and the page's
+physics engine moves them. Sketch to picture: the image model redraws the sketch in a style.
 """
 from __future__ import annotations
 
 import ast
 import base64
 import json
+import re
 from typing import Any
 
 from ..core.errors import ApiError, to_api_error
@@ -135,9 +140,187 @@ def problems(board: dict) -> list[str]:
     return out
 
 
+# ----- guess my drawing -----
+
+GUESS_MODEL = "claude-haiku-5-5"  # many small calls a round, so the cheapest model that reads images
+MAX_GUESSES = 3
+# Words to draw, by difficulty, each with the other answers that count as right.
+WORDS: dict[str, dict[str, list[str]]] = {
+    "easy": {
+        "sun": [], "house": ["home", "cottage", "hut"], "tree": [], "fish": [], "star": [], "flower": ["daisy", "tulip"],
+        "cat": ["kitten"], "apple": [], "car": ["automobile"], "cloud": [], "heart": [], "boat": ["ship", "sailboat", "yacht"],
+        "cup": ["mug", "teacup"], "ladder": [], "balloon": [], "moon": ["crescent"],
+    },
+    "medium": {
+        "bicycle": ["bike", "cycle"], "umbrella": ["parasol"], "guitar": [], "rocket": ["spaceship", "space shuttle"],
+        "snowman": [], "butterfly": [], "glasses": ["spectacles", "sunglasses", "eyeglasses"], "key": [],
+        "lighthouse": [], "mushroom": ["toadstool"], "clock": ["watch"], "scissors": [], "snail": [],
+        "kite": [], "candle": [], "bridge": [],
+    },
+    "hard": {
+        "windmill": ["wind turbine"], "helicopter": ["chopper"], "octopus": ["squid"], "castle": ["fortress"],
+        "skateboard": [], "volcano": [], "telescope": [], "giraffe": [], "tractor": [], "anchor": [],
+        "microscope": [], "parachute": ["parachutist"], "saxophone": ["sax"], "crane": [],
+    },
+}
+GUESS_SCHEMA: dict[str, Any] = {
+    "type": "object", "additionalProperties": False, "required": ["guesses", "comment"],
+    "properties": {
+        "guesses": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["label", "confidence"],
+            "properties": {"label": {"type": "string"}, "confidence": {"type": "number"}}}},
+        "comment": {"type": "string"},
+    },
+}
+GUESS_SYSTEM = """You are playing a drawing game. Someone is sketching one everyday thing on a dark whiteboard, and the
+sketch may be unfinished. Say what it is: up to three guesses, most likely first, each a common noun of one or two
+words in lower case (never a sentence), with your confidence from 0 to 1. Then one short, friendly comment, at most
+twelve words, on what you can see so far. If the board shows only a mark or two, still guess."""
+
+
+def normalise(label: str) -> str:
+    """A guess reduced to plain words: lower case, no articles or punctuation, simple plurals made singular."""
+    words = [w for w in re.sub(r"[^a-z ]+", " ", label.lower()).split() if w not in {"a", "an", "the", "of"}]
+    words = [w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w for w in words]
+    return " ".join(words)
+
+
+def is_word(word: str, label: str) -> bool:
+    """Whether a guess counts as the word: the word itself or one of its listed synonyms, alone or as a whole word in
+    a longer guess ("a pine tree" is "tree"; "treehouse" is not)."""
+    accepted = {normalise(word)}
+    for words in WORDS.values():
+        if word in words:
+            accepted |= {normalise(w) for w in words[word]}
+    guess = normalise(label)
+    return bool(guess) and any(re.search(rf"\b{re.escape(a)}\b", guess) for a in accepted if a)
+
+
+def clean_guesses(answer: dict) -> list[dict[str, Any]]:
+    """At most three guesses with a label, confidence clipped to 0..1, most confident first."""
+    out = []
+    for g in answer.get("guesses") or []:
+        label = str(g.get("label", "")).strip().lower()[:40]
+        try:
+            confidence = max(0.0, min(1.0, float(g.get("confidence", 0))))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        if label:
+            out.append({"label": label, "confidence": round(confidence, 2)})
+    return sorted(out, key=lambda g: -g["confidence"])[:MAX_GUESSES]
+
+
+# ----- bring it to life -----
+
+MAX_BODIES = 40
+SCENE_SCHEMA: dict[str, Any] = {
+    "type": "object", "additionalProperties": False, "required": ["bodies", "comment"],
+    "properties": {
+        "bodies": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False,
+            "required": ["kind", "label", "moving", "x", "y", "width", "height", "radius", "angle", "x2", "y2"],
+            "properties": {
+                "kind": {"type": "string", "enum": ["ball", "box", "line"]}, "label": {"type": "string"},
+                "moving": {"type": "boolean"},
+                "x": {"type": "number"}, "y": {"type": "number"}, "width": {"type": "number"},
+                "height": {"type": "number"}, "radius": {"type": "number"}, "angle": {"type": "number"},
+                "x2": {"type": "number"}, "y2": {"type": "number"}}}},
+        "comment": {"type": "string"},
+    },
+}
+SCENE_SYSTEM = """You read a sketch of a simple physics scene so a physics engine can run it. The board is {w} units
+wide and {h} high; x runs right and y runs DOWN from the top-left corner, and the picture shows the whole board. List
+every object as a body, in board units:
+
+- "ball": a circle. x, y is its centre; radius. Balls move (moving true) unless the person says otherwise.
+- "box": a rectangle. x, y is its CENTRE; width and height; angle in degrees, clockwise, 0 when its sides are level.
+  Boxes move unless they are clearly a shelf, table, wall or platform, which are fixed (moving false).
+- "line": a ramp, floor, platform or wall drawn as a single stroke: from x, y to x2, y2. Lines never move.
+
+Fill every field; use 0 for the ones a kind does not need. A triangle or other shape becomes the nearest box or, for a
+ramp, a line along its sloping side. Ignore writing and arrows. The page already adds a floor and walls at the board's
+edges, so do not add them. A list of shapes the page has already recognised follows the picture: trust its
+coordinates over your own reading of the picture, and use the picture to decide what each one is and whether it moves.
+The comment is one sentence saying what you expect to happen when it runs."""
+
+
+def scene_problems(scene: dict, width: float, height: float) -> list[str]:
+    """Everything wrong with a scene, for the model to fix. Empty when the page may run it."""
+    bodies = scene.get("bodies") or []
+    if not bodies:
+        return ["there are no bodies: list at least one ball, box or line"]
+    out: list[str] = []
+    if len(bodies) > MAX_BODIES:
+        out.append(f"{len(bodies)} bodies; the limit is {MAX_BODIES}")
+    margin = 0.1 * max(width, height)
+    inside = lambda x, y: -margin <= x <= width + margin and -margin <= y <= height + margin  # noqa: E731
+    for i, b in enumerate(bodies[:MAX_BODIES]):
+        kind = b.get("kind")
+        try:
+            n = {k: float(b.get(k) or 0) for k in ("x", "y", "width", "height", "radius", "angle", "x2", "y2")}
+        except (TypeError, ValueError):
+            out.append(f"body {i}: every measurement must be a number")
+            continue
+        if not inside(n["x"], n["y"]):
+            out.append(f"body {i} ({kind}): x, y is off the board, which is {width:.0f} by {height:.0f}")
+        if kind == "ball":
+            if not 3 <= n["radius"] <= min(width, height) / 2:
+                out.append(f"body {i} (ball): radius must be between 3 and {min(width, height) / 2:.0f}")
+        elif kind == "box":
+            if not (4 <= n["width"] <= width and 4 <= n["height"] <= height):
+                out.append(f"body {i} (box): width and height must be at least 4 and fit on the board")
+        elif kind == "line":
+            if not inside(n["x2"], n["y2"]):
+                out.append(f"body {i} (line): x2, y2 is off the board")
+            elif (n["x2"] - n["x"]) ** 2 + (n["y2"] - n["y"]) ** 2 < 100:
+                out.append(f"body {i} (line): it must be at least 10 units long")
+            if b.get("moving"):
+                out.append(f"body {i} (line): lines are fixed, so moving must be false")
+        else:
+            out.append(f"body {i}: kind must be ball, box or line")
+    return out[:12]
+
+
+def clean_scene(scene: dict) -> list[dict[str, Any]]:
+    """The bodies with only the fields their kind uses, as plain numbers."""
+    out = []
+    for b in scene["bodies"]:
+        n = {k: round(float(b.get(k) or 0), 1) for k in ("x", "y", "width", "height", "radius", "angle", "x2", "y2")}
+        base = {"kind": b["kind"], "label": str(b.get("label", ""))[:40], "x": n["x"], "y": n["y"]}
+        if b["kind"] == "ball":
+            out.append({**base, "moving": bool(b.get("moving")), "radius": n["radius"]})
+        elif b["kind"] == "box":
+            out.append({**base, "moving": bool(b.get("moving")), "width": n["width"], "height": n["height"],
+                        "angle": n["angle"]})
+        else:
+            out.append({**base, "moving": False, "x2": n["x2"], "y2": n["y2"]})
+    return out
+
+
+PICTURE_STYLES = ["a soft watercolour painting", "a children's picture-book illustration", "pixel art",
+                  "a realistic photograph", "a clean flat vector illustration", "a pencil drawing with shading"]
+
+
 class WhiteboardService:
-    def __init__(self, claude: ClaudeGateway, spend: SpendTracker):
-        self.claude, self.spend = claude, spend
+    def __init__(self, claude: ClaudeGateway, spend: SpendTracker, images: Any = None):
+        self.claude, self.spend, self.images = claude, spend, images  # images: the image generation service, or None
+
+    def info(self) -> dict[str, Any]:
+        picture = bool(self.images and self.images.info()["configured"])
+        return {"shapes": SHAPES, "guess_model": GUESS_MODEL, "words": {level: sorted(words) for level, words in WORDS.items()},
+                "picture": picture, "picture_styles": PICTURE_STYLES,
+                "picture_why": "" if picture else "Sketch to picture needs a gpt-image-2 deployment: set "
+                                                  "AZURE_MEDIA_ENDPOINT in .env and restart the backend."}
+
+    @staticmethod
+    def _png(image_b64: str) -> bytes:
+        try:
+            raw = base64.b64decode(image_b64, validate=True)
+        except ValueError:
+            raise ApiError(400, "invalid_request", "The image must be a base64 PNG.") from None
+        if not raw.startswith(b"\x89PNG") or len(raw) > MAX_IMAGE_BYTES:
+            raise ApiError(400, "invalid_request", "Send the board as a PNG under 4 MB.")
+        return raw
 
     def _call(self, model: str, system: str, content: list[dict], schema: dict | None, max_tokens: int) -> tuple[str, float]:
         params: dict[str, Any] = {"model": model, "max_tokens": max_tokens, "system": system,
@@ -153,12 +336,7 @@ class WhiteboardService:
     def read(self, image_b64: str, prompt: str, model: str | None) -> dict[str, Any]:
         """What the sketch is, checked. One retry, with the problems, if the first answer cannot be drawn."""
         model = model or CLAUDE_MODEL
-        try:
-            raw = base64.b64decode(image_b64, validate=True)
-        except ValueError:
-            raise ApiError(400, "invalid_request", "The image must be a base64 PNG.") from None
-        if not raw.startswith(b"\x89PNG") or len(raw) > MAX_IMAGE_BYTES:
-            raise ApiError(400, "invalid_request", "Send the board as a PNG under 4 MB.")
+        self._png(image_b64)
         ask = prompt.strip() or "What is this? Redraw it properly."
         content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_b64}},
                    {"type": "text", "text": f"The student says: {ask}"}]
@@ -185,3 +363,64 @@ class WhiteboardService:
         text, cost = self._call(model, f"{ASK_SYSTEM}\n\n<board>{context}</board>",
                                 [{"type": "text", "text": question}], None, 1200)
         return {"answer": text, "cost_usd": round(cost, 6), "model": model}
+
+    def guess(self, image_b64: str, word: str | None, model: str | None) -> dict[str, Any]:
+        """What the model thinks the sketch is. The model is never told the word; code decides whether a guess is it."""
+        model = model or GUESS_MODEL
+        self._png(image_b64)
+        if word is not None and not any(word in words for words in WORDS.values()):
+            raise ApiError(400, "invalid_request", "That is not one of the game's words.")
+        content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_b64}},
+                   {"type": "text", "text": "What is being drawn?"}]
+        text, cost = self._call(model, GUESS_SYSTEM, content, GUESS_SCHEMA, 300)
+        try:
+            answer = json.loads(text)
+        except json.JSONDecodeError:
+            answer = {}
+        guesses = clean_guesses(answer if isinstance(answer, dict) else {})
+        matched = next((g["label"] for g in guesses if word and is_word(word, g["label"])), None)
+        return {"guesses": guesses, "comment": str(answer.get("comment", ""))[:160] if isinstance(answer, dict) else "",
+                "matched": matched, "cost_usd": round(cost, 6), "model": model}
+
+    def scene(self, image_b64: str, hints: list[dict], width: float, height: float, prompt: str,
+              model: str | None) -> dict[str, Any]:
+        """The sketch as bodies for the page's physics engine, checked. One retry with the problems."""
+        model = model or CLAUDE_MODEL
+        self._png(image_b64)
+        seen = json.dumps(hints[:60], ensure_ascii=False)[:6000] if hints else "none"
+        content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_b64}},
+                   {"type": "text", "text": f"Shapes the page recognised (board units): {seen}\n"
+                                            f"The person says: {prompt.strip() or 'Bring it to life.'}"}]
+        system = SCENE_SYSTEM.format(w=round(width), h=round(height))
+        cost, tries = 0.0, []
+        for attempt in range(2):
+            text, spent = self._call(model, system, content, SCENE_SCHEMA, 4000)
+            cost += spent
+            try:
+                scene = json.loads(text)
+            except json.JSONDecodeError:
+                scene, found = {}, ["the answer was not valid JSON matching the schema"]
+            else:
+                found = scene_problems(scene, width, height)
+            tries.append({"attempt": attempt + 1, "problems": found})
+            if not found:
+                return {"bodies": clean_scene(scene), "comment": str(scene.get("comment", ""))[:300], "tries": tries,
+                        "cost_usd": round(cost, 6), "model": model}
+            content = content + [{"type": "text", "text": "That scene cannot be run: " + "; ".join(found)
+                                  + ". Answer again with the whole scene, fixed."}]
+        raise ApiError(502, "unreadable", "The model's scene could not be run: " + "; ".join(tries[-1]["problems"]))
+
+    def picture(self, image_b64: str, style: str, subject: str) -> dict[str, Any]:
+        """The sketch redrawn by the image model in a style. The sketch goes in as the reference image."""
+        if not self.images or not self.images.info()["configured"]:
+            raise ApiError(503, "not_configured", self.info()["picture_why"])
+        raw = self._png(image_b64)
+        what = f" It shows: {subject.strip()}." if subject.strip() else ""
+        prompt = (f"Make {style.strip()} of the scene in this rough whiteboard sketch.{what} Use the sketch only as a "
+                  "layout: the same objects in the same places and proportions. Paint them as real, solid, coloured "
+                  "things with their own materials and light; do not keep the white chalk lines or the dark board. "
+                  "Add nothing that is not in the sketch, and no writing or frame.")
+        made = self.images.from_sketch(raw, prompt)
+        item = made["items"][0]
+        return {"id": item["id"], "url": f"/api/imagegen/images/{item['id']}", "prompt": prompt,
+                "cost_usd": made["cost_usd"], "seconds": made["seconds"]}

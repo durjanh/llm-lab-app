@@ -23,10 +23,6 @@ def desk(tmp_path: Path) -> StoreWatchService:
     return StoreWatchService(tmp_path / "s.db")
 
 
-def ready(desk: StoreWatchService) -> None:
-    desk.set_compliance("The Shop Ltd", "Legitimate interests, see the DPIA", "DPIA-1", True)
-
-
 def confirm(desk: StoreWatchService, alert_id: int) -> dict:
     return desk.review(alert_id, "Sam", True, NOTE, True)
 
@@ -42,7 +38,6 @@ def test_a_high_score_alerts_the_admin_and_holds_the_face_but_lists_nobody(desk:
 
 
 def test_a_held_face_cannot_trigger_the_door(desk: StoreWatchService) -> None:
-    ready(desk)
     desk.next_alert()
     state = desk.next_visitor(80)  # S1
     state = desk.next_visitor(80)  # P1 comes back, and is only held
@@ -50,7 +45,6 @@ def test_a_held_face_cannot_trigger_the_door(desk: StoreWatchService) -> None:
 
 
 def test_a_person_confirming_makes_the_entry_live_and_the_door_matches(desk: StoreWatchService) -> None:
-    ready(desk)
     desk.next_alert()
     assert status(confirm(desk, 1)) == ["active"]
     desk.next_visitor(80)
@@ -74,25 +68,22 @@ def test_a_low_score_holds_nothing(desk: StoreWatchService) -> None:
     assert len(state["watchlist"]) == 2 and len(state["alerts"]) == 3  # P3 scored 72
 
 
-def test_nothing_is_confirmed_before_the_shop_has_recorded_its_basis(desk: StoreWatchService) -> None:
+def test_the_desk_runs_as_a_demo_with_no_gate_and_says_so_once_in_the_audit_log(desk: StoreWatchService) -> None:
+    desk.state()
     desk.next_alert()
-    with pytest.raises(ApiError) as caught:
-        confirm(desk, 1)
-    assert caught.value.status == 409
-    with pytest.raises(ApiError):
-        desk.next_visitor(80)
+    state = desk.review(1, "Sam", True)  # one click: a named person, the note optional
+    assert status(state) == ["active"] and state["watchlist"][0]["reason"] == "Confirmed from the footage."
+    assert state["watchlist"][0]["added_by"] == "Sam"
+    assert sum("Demo mode" in a["action"] for a in state["audit"]) == 1
+    desk.next_visitor(80)  # the door needs no form either
 
 
-@pytest.mark.parametrize("note,watched", [(NOTE, False), ("Looks dodgy", True)])
-def test_confirming_needs_the_footage_watched_and_a_reason(desk: StoreWatchService, note: str, watched: bool) -> None:
-    ready(desk)
-    desk.next_alert()
-    with pytest.raises(ApiError):
-        desk.review(1, "Sam", True, note, watched)
+def test_a_governance_record_is_optional_and_kept(desk: StoreWatchService) -> None:
+    state = desk.set_compliance("The Shop Ltd", "Legitimate interests, see the DPIA", "DPIA-1", True)
+    assert state["compliance"]["dpia_reference"] == "DPIA-1"
 
 
 def test_a_look_alike_is_a_possible_match_that_staff_can_reject(desk: StoreWatchService) -> None:
-    ready(desk)
     for _ in range(3):
         desk.next_alert()
     confirm(desk, 3)
@@ -111,7 +102,6 @@ def test_a_face_nobody_reviewed_is_deleted_and_the_alert_expires(desk: StoreWatc
 
 
 def test_a_live_entry_is_deleted_when_retention_ends(desk: StoreWatchService) -> None:
-    ready(desk)
     desk.next_alert()
     confirm(desk, 1)
     assert status(desk.advance(89)) == ["active"]
@@ -119,7 +109,6 @@ def test_a_live_entry_is_deleted_when_retention_ends(desk: StoreWatchService) ->
 
 
 def test_someone_can_be_removed_from_the_list(desk: StoreWatchService) -> None:
-    ready(desk)
     desk.next_alert()
     state = confirm(desk, 1)
     assert desk.remove(state["watchlist"][0]["id"], "Sam", "Erasure request")["watchlist"] == []
@@ -151,19 +140,7 @@ FAR = [0.1 + 0.2 * (-1) ** i for i in range(128)]  # distance 2.26
 
 
 def camera(tmp_path: Path, score: int) -> StoreWatchService:
-    desk = StoreWatchService(tmp_path / "c.db", gpt=FakeVision(score), spend=SpendTracker(1.0))
-    ready(desk)
-    desk.camera_consent("Sam")
-    return desk
-
-
-def test_the_camera_needs_consent(tmp_path: Path) -> None:
-    desk = StoreWatchService(tmp_path / "c.db", gpt=FakeVision(95))
-    ready(desk)
-    with pytest.raises(ApiError):
-        desk.camera_analyse([FRAME], ME, None)
-    with pytest.raises(ApiError):
-        desk.camera_door(ME, 80)
+    return StoreWatchService(tmp_path / "c.db", gpt=FakeVision(score), spend=SpendTracker(1.0))
 
 
 def test_a_low_camera_score_keeps_nothing(tmp_path: Path) -> None:
@@ -254,3 +231,99 @@ def test_leaving_ends_the_visit(tmp_path: Path) -> None:
     desk.gpt.seen_next = {"picked_up": True, "left_exit": True}
     assert desk.camera_analyse([FRAME], ME, FRAME)["camera_visit"]["carrying"] is False
 
+
+
+EVENTS = ["12:01:04 Person 3 picked up a bottle", "12:01:09 Person 3: the bottle went out of sight at the hip"]
+
+
+def test_the_model_is_called_with_the_trackers_events_and_the_rules_are_kept_on_the_alert(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 80)
+    state = desk.camera_analyse([FRAME] * 5, ME, FRAME, None, EVENTS, ["possible_concealment", "made_up_rule"], 3)
+    system = desk.gpt.seen[0][0]["content"]
+    assert EVENTS[1] in system and "It can be wrong" in system and "never as something you saw" in system
+    alert = state["alerts"][0]
+    assert alert["rules"] == ["possible_concealment"] and alert["source"] == "model" and alert["reasoning"] == "It went out of sight."
+    assert state["last_camera"]["alert_id"] == alert["id"] and state["camera_calls"] == 1 and state["camera_spent_usd"] > 0
+
+
+def test_each_tracked_person_has_their_own_visit(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 10)
+    desk.gpt.seen_next = {"picked_up": True}
+    desk.camera_analyse([FRAME], ME, FRAME, track=1)
+    desk.gpt.seen_next = {"left_exit": True}
+    assert desk.camera_analyse([FRAME], ME, FRAME, track=2)["alerts"] == []  # person 2 picked nothing up
+    assert desk.camera_analyse([FRAME], ME, FRAME, track=1)["last_camera"]["left_unpaid"] is True
+
+
+def test_the_rules_alone_score_when_there_is_no_model_or_it_is_switched_off(tmp_path: Path) -> None:
+    desk = StoreWatchService(tmp_path / "r.db")
+    assert desk.camera_analyse([FRAME], ME, FRAME, events=EVENTS, rules=["long_dwell"])["alerts"] == []
+    state = desk.camera_analyse([FRAME], ME, FRAME, events=EVENTS, rules=["possible_concealment"])
+    assert state["alerts"][0]["score"] == 72 and state["alerts"][0]["source"] == "rules" and state["watchlist"] == []
+    state = desk.camera_analyse([FRAME], ME, FRAME, events=EVENTS, rules=["left_without_paying"], track=2)
+    assert status(state) == ["held"] and state["last_camera"]["modelled"] is False
+    modelled = camera(tmp_path, 95)
+    modelled.camera_analyse([FRAME], ME, FRAME, rules=["possible_concealment"], use_model=False)
+    assert modelled.gpt.seen == []  # nothing went to the cloud
+
+
+WEBM = b"\x1a\x45\xdf\xa3" + b"0" * 64
+
+
+def test_a_clip_is_a_file_on_disk_and_goes_when_the_footage_goes(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 95)
+    alert_id = desk.camera_analyse([FRAME], ME, FRAME)["last_camera"]["alert_id"]
+    state = desk.attach_clip(alert_id, WEBM, 4.5)
+    alert = state["alerts"][0]
+    name = alert["clip"].rsplit("/", 1)[1]
+    assert alert["clip_start"] == 4.5 and (tmp_path / "clips" / name).read_bytes() == WEBM
+    assert desk.clip_file(name)[1] == "video/webm"
+    with desk._db() as db:  # the clip is not in the database
+        assert WEBM.hex() not in str(db.execute("SELECT * FROM media").fetchone()[:])
+    desk.attach_clip(alert_id, WEBM)  # a second upload replaces the first
+    assert len(list((tmp_path / "clips").iterdir())) == 1
+    desk.review(alert_id, "Sam", False)
+    assert list((tmp_path / "clips").iterdir()) == []
+    with pytest.raises(ApiError):
+        desk.clip_file(name)
+    with pytest.raises(ApiError):
+        desk.attach_clip(alert_id, WEBM)  # decided: it keeps no footage
+
+
+@pytest.mark.parametrize("how", ["expiry", "removal", "reset"])
+def test_expiry_removal_and_reset_delete_the_clip_file(tmp_path: Path, how: str) -> None:
+    desk = camera(tmp_path, 95)
+    desk.camera_analyse([FRAME], ME, FRAME)
+    desk.attach_clip(1, WEBM)
+    if how == "expiry":
+        desk.advance(4)
+    elif how == "removal":
+        state = desk.review(1, "Sam", True)
+        assert state["alerts"][0]["status"] == "confirmed"
+        desk.remove(state["watchlist"][0]["id"], "Sam", "Erasure request")
+    else:
+        desk.reset()
+    assert list((tmp_path / "clips").iterdir()) == []
+
+
+def test_a_clip_must_be_a_video_and_its_name_cannot_leave_the_folder(tmp_path: Path) -> None:
+    desk = camera(tmp_path, 95)
+    desk.camera_analyse([FRAME], ME, FRAME)
+    with pytest.raises(ApiError):
+        desk.attach_clip(1, b"<html>not a video</html>")
+    for name in ("../s.db", "1-zzzzzzzzzzzz.webm", "c.db"):
+        with pytest.raises(ApiError):
+            desk.clip_file(name)
+
+
+def test_clips_upload_through_the_guarded_route_and_play_without_the_header(tmp_path: Path) -> None:
+    lab = {"x-llm-lab": "1", "host": "localhost:8000"}
+    with TestClient(create_app(Settings(generated_dir=tmp_path), client=object(), gpt=FakeVision(95))) as client:
+        body = {"frames": [FRAME], "descriptor": ME, "thumbnail": FRAME, "events": EVENTS, "rules": ["possible_concealment"], "track": 1}
+        alert_id = client.post("/api/storewatch/camera/analyse", headers=lab, json=body).json()["last_camera"]["alert_id"]
+        files = {"file": ("clip.webm", WEBM, "video/webm")}
+        assert client.post(f"/api/storewatch/alerts/{alert_id}/clip", headers={"host": "localhost:8000"}, files=files).status_code == 403
+        state = client.post(f"/api/storewatch/alerts/{alert_id}/clip", headers=lab, files=files, data={"start_s": "2"}).json()
+        played = client.get(state["alerts"][0]["clip"], headers={"host": "localhost:8000"})
+        assert played.status_code == 200 and played.content == WEBM and played.headers["content-type"] == "video/webm"
+        assert client.post("/api/storewatch/camera/analyse", headers=lab, json={**body, "frames": [FRAME] * 7}).status_code in (400, 422)

@@ -4,6 +4,7 @@ import { useEngine } from '@/lib/useEngine';
 import { mount } from './engine';
 import { CodeBlock } from '@/components/CodeBlock';
 import * as S from './snippets';
+import { SoftmaxSurface } from './SoftmaxSurface';
 import './confidence.css';
 
 export default function ConfidencePage() {
@@ -236,6 +237,22 @@ export default function ConfidencePage() {
           answers with 80% confidence are right about 8 times in 10, so the threshold can be agreed in plain terms with
           the people who own the risk. Temperature scaling keeps the reviews in almost the same order, so the curve
           keeps its shape. What changes is the threshold you need to reach a given point on it.
+        </div>
+        <h2>Temperature changes how sure a model looks, not what it picks</h2>
+        <p>
+          A wrong prediction can be made to look 99% certain without changing a single weight. The model's scores pass
+          through softmax, and dividing them by a temperature T before softmax rescales every confidence at once. Below,
+          three classes get scores (x, y, 0). The height of the surface is the confidence, the colour is the class the
+          model picks, and the floor shows where each class wins. Lower T and the surface rises towards 1 everywhere:
+          every answer looks certain, the wrong ones too. Raise T and it sinks towards ⅓. The coloured regions on the
+          floor never move, because dividing all scores by the same number never changes which is largest.
+        </p>
+        <SoftmaxSurface />
+        <div className="note">
+          This is why a confidence is only worth what its calibration is worth. A provider, a sampling setting or a
+          post-processing step can change T, and with it every probability you see, while accuracy stays exactly the
+          same. Temperature scaling, above, uses this on purpose: it picks the one T that makes confidences match how
+          often the model is right on labelled data.
         </div>
         <h2>High probability is not the same as being right</h2>
         <p>

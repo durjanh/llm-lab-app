@@ -1,4 +1,5 @@
 import type { TalkingHead } from '@met4citizen/talkinghead';
+import { uploadedAvatar } from './people';
 import type { Spoken } from './speech';
 
 /**
@@ -62,13 +63,21 @@ const VIEWS: Record<AvatarId, { cameraY: number; cameraDistance: number }> = {
 };
 export type AvatarId = keyof typeof AVATARS;
 
+/** The settings TalkingHead needs for a built-in avatar, or for one uploaded on the people panel. */
+function avatarConfig(who: string): Record<string, unknown> {
+  if (who in AVATARS) return structuredClone(AVATARS[who as AvatarId]) as unknown as Record<string, unknown>;
+  const custom = uploadedAvatar(who);
+  if (!custom) throw new Error('That person has no avatar file any more.');
+  return { url: custom.url, body: custom.body, avatarMood: 'happy' };
+}
+
 export class Avatar {
-  private current: AvatarId | null = null;
+  private current: string | null = null;
 
   private constructor(private readonly head: TalkingHead) {}
 
   /** Loads TalkingHead and the avatar into `node`. onProgress gets 0 to 1 while the model downloads. */
-  static async create(node: HTMLElement, who: AvatarId, onProgress: (share: number) => void): Promise<Avatar> {
+  static async create(node: HTMLElement, who: string, onProgress: (share: number) => void): Promise<Avatar> {
     const { TalkingHead } = await import('@met4citizen/talkinghead');
     const head = new TalkingHead(node, {
       lipsyncModules: [], // Azure sends the mouth shapes, so TalkingHead's own lip-sync rules are not needed
@@ -87,12 +96,12 @@ export class Avatar {
   }
 
   /** Shows another person, for another voice. The scene stays; only the model is replaced. */
-  async show(who: AvatarId, onProgress: (share: number) => void = () => undefined): Promise<void> {
+  async show(who: string, onProgress: (share: number) => void = () => undefined): Promise<void> {
     if (who === this.current) return;
     this.head.stopSpeaking();
-    await this.head.showAvatar({ ...structuredClone(AVATARS[who]), lipsyncLang: 'en' }, (e) => e.lengthComputable && onProgress(e.loaded / e.total));
-    this.head.setView('head', VIEWS[who]);
-    this.dress(OUTFITS[who]);
+    await this.head.showAvatar({ ...avatarConfig(who), lipsyncLang: 'en' }, (e) => e.lengthComputable && onProgress(e.loaded / e.total));
+    this.head.setView('head', VIEWS[who as AvatarId] ?? { cameraY: 0, cameraDistance: 0 });
+    this.dress(OUTFITS[who as AvatarId] ?? {});
     this.current = who;
   }
 
@@ -108,7 +117,7 @@ export class Avatar {
     });
   }
 
-  get who(): AvatarId | null {
+  get who(): string | null {
     return this.current;
   }
 
