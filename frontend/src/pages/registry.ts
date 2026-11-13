@@ -76,6 +76,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'reviews',
       'aftercare',
       'ai103',
+      'ab100',
       'understanding',
       'imagegen',
       'searchlab',
@@ -562,6 +563,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./ai103/Ai103Page')),
+  },
+  {
+    id: 'ab100',
+    path: '/ab-100',
+    title: 'AB-100 Exam Map',
+    label: 'AB-100 exam map',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./ab100/Ab100Page')),
   },
   {
     id: 'claude-associate',

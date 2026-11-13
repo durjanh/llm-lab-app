@@ -10,7 +10,8 @@ from typing import Any
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import DEFAULT_MODEL, text_of
+from ..shared import DEFAULT_MODEL, Refused, text_of
+from .history import assistant_text
 from .spend import SpendTracker
 
 PATTERNS = ("augmented_llm", "workflow", "agent")
@@ -147,7 +148,7 @@ class DeliveryService:
                 raise to_api_error(exc) from exc
             cost += self.spend.charge(response, model) or 0.0
             if response.stop_reason == "refusal":
-                raise ApiError(502, "refused", "The model declined to design for this brief. Try rewording it.")
+                raise to_api_error(Refused("The model declined to design for this brief. Try rewording it."))
             raw = text_of(response)
             try:
                 design = json.loads(raw)
@@ -159,8 +160,7 @@ class DeliveryService:
             tries.append({"attempt": attempt, "problems": found})
             if not found:
                 return {"design": unflatten(design), "tries": tries, "cost_usd": round(cost, 6), "model": model}
-            # The API refuses an empty assistant turn, so an empty reply is named rather than sent as "".
-            messages += [{"role": "assistant", "content": raw or f"(No text: stop_reason {response.stop_reason}.)"},
+            messages += [{"role": "assistant", "content": assistant_text(raw, response)},
                          {"role": "user", "content": "The design has problems:\n- " + "\n- ".join(found)
                           + "\nFix these and send the whole design again."}]
         raise ApiError(502, "invalid_design", "The model's design still had problems after a second try: "

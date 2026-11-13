@@ -1,0 +1,234 @@
+/* The hook lifecycle chart, shared by /claude-code and /claude-code-inside. Its colours follow the reference diagram:
+   green for the session start, amber for the agentic loop, blue for the tool itself, red for the stop, grey for the
+   rest, and dashed outlines for events off the main path. Tokens are redefined for dark mode. */
+
+.hl-svg {
+  --hl-bg: #f7f7f4;
+  --hl-ink: #1f2937;
+  --hl-sub: #6b7280;
+  --hl-arrow: #6b7280;
+  --hl-start: #bfdcc4;
+  --hl-start-line: #7fb48c;
+  --hl-start-ink: #24502f;
+  --hl-grey: #ececec;
+  --hl-grey-line: #d4d4d4;
+  --hl-loop: #fdf3dc;
+  --hl-loop-line: #ddb98a;
+  --hl-loop-zone: #c9895a;
+  --hl-tool: #7aa9d4;
+  --hl-tool-line: #5a8fc0;
+  --hl-tool-ink: #0f2742;
+  --hl-stop: #f2d0d0;
+  --hl-stop-line: #d79a9a;
+  --hl-turn-zone: #3f86c6;
+  --hl-side-line: #b8b8b8;
+  --hl-on: #5b4fd6;
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .hl-svg {
+    --hl-bg: #1e1e1e;
+    --hl-ink: #f3f4f6;
+    --hl-sub: #a3a3a3;
+    --hl-arrow: #d4d4d4;
+    --hl-start: #2f6b47;
+    --hl-start-line: #5fae7d;
+    --hl-start-ink: #ffffff;
+    --hl-grey: #3a3a3a;
+    --hl-grey-line: #555555;
+    --hl-loop: #5b4a22;
+    --hl-loop-line: #e0a978;
+    --hl-loop-zone: #e0a978;
+    --hl-tool: #6cb0dc;
+    --hl-tool-line: #9ccbea;
+    --hl-tool-ink: #0b1d2c;
+    --hl-stop: #5e2b2e;
+    --hl-stop-line: #d98a8a;
+    --hl-turn-zone: #4aa3df;
+    --hl-side-line: #6b6b6b;
+    --hl-on: #a99ff5;
+  }
+}
+:root[data-theme='dark'] .hl-svg {
+  --hl-bg: #1e1e1e;
+  --hl-ink: #f3f4f6;
+  --hl-sub: #a3a3a3;
+  --hl-arrow: #d4d4d4;
+  --hl-start: #2f6b47;
+  --hl-start-line: #5fae7d;
+  --hl-start-ink: #ffffff;
+  --hl-grey: #3a3a3a;
+  --hl-grey-line: #555555;
+  --hl-loop: #5b4a22;
+  --hl-loop-line: #e0a978;
+  --hl-loop-zone: #e0a978;
+  --hl-tool: #6cb0dc;
+  --hl-tool-line: #9ccbea;
+  --hl-tool-ink: #0b1d2c;
+  --hl-stop: #5e2b2e;
+  --hl-stop-line: #d98a8a;
+  --hl-turn-zone: #4aa3df;
+  --hl-side-line: #6b6b6b;
+  --hl-on: #a99ff5;
+}
+
+.hl-svg .hl-bg {
+  fill: var(--hl-bg);
+}
+.hl-svg .hl-loopbox,
+.hl-svg .hl-turnbox {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-dasharray: 5 4;
+}
+.hl-svg .hl-loopbox {
+  stroke: var(--hl-loop-zone);
+}
+.hl-svg .hl-turnbox {
+  stroke: var(--hl-turn-zone);
+}
+.hl-svg .hl-zone {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.hl-svg .hl-zone-loop {
+  fill: var(--hl-loop-zone);
+}
+.hl-svg .hl-zone-turn {
+  fill: var(--hl-turn-zone);
+}
+.hl-svg .hl-flow,
+.hl-svg .hl-side-flow,
+.hl-svg .hl-back-resume {
+  stroke: var(--hl-arrow);
+  stroke-width: 1.6;
+  fill: none;
+}
+.hl-svg .hl-side-flow,
+.hl-svg .hl-back-resume {
+  stroke-dasharray: 5 4;
+}
+.hl-svg .hl-back-loop {
+  stroke: var(--hl-loop-zone);
+  stroke-width: 1.6;
+  fill: none;
+}
+.hl-svg .hl-back-turn {
+  stroke: var(--hl-turn-zone);
+  stroke-width: 1.6;
+  fill: none;
+}
+.hl-svg .hl-head {
+  fill: var(--hl-arrow);
+}
+.hl-svg .hl-head-loop {
+  fill: var(--hl-loop-zone);
+}
+.hl-svg .hl-head-turn {
+  fill: var(--hl-turn-zone);
+}
+.hl-svg .hl-note {
+  fill: var(--hl-sub);
+  font-size: 11px;
+}
+
+.hl-svg .hl-node rect {
+  stroke-width: 1.4;
+  transition:
+    opacity 0.2s,
+    stroke-width 0.2s;
+}
+.hl-svg .hl-node text {
+  fill: var(--hl-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.hl-svg .hl-start rect {
+  fill: var(--hl-start);
+  stroke: var(--hl-start-line);
+}
+.hl-svg .hl-start text {
+  fill: var(--hl-start-ink);
+}
+.hl-svg .hl-grey rect {
+  fill: var(--hl-grey);
+  stroke: var(--hl-grey-line);
+}
+.hl-svg .hl-node.hl-loop rect {
+  fill: var(--hl-loop);
+  stroke: var(--hl-loop-line);
+}
+.hl-svg .hl-tool rect {
+  fill: var(--hl-tool);
+  stroke: var(--hl-tool-line);
+}
+.hl-svg .hl-tool text {
+  fill: var(--hl-tool-ink);
+}
+.hl-svg .hl-stop rect {
+  fill: var(--hl-stop);
+  stroke: var(--hl-stop-line);
+}
+.hl-svg .hl-side rect {
+  fill: none;
+  stroke: var(--hl-side-line);
+  stroke-dasharray: 4 3;
+}
+.hl-svg .hl-side.hl-solid rect {
+  fill: var(--hl-grey);
+  stroke-dasharray: none;
+}
+.hl-svg .hl-side text {
+  font-size: 11.5px;
+}
+.hl-svg .hl-side .hl-sub {
+  fill: var(--hl-sub);
+  font-size: 10px;
+  font-weight: 500;
+}
+.hl-svg .hl-node[data-ev] {
+  cursor: pointer;
+}
+.hl-svg .hl-node[data-ev]:hover rect,
+.hl-svg .hl-node[data-ev]:focus-visible rect {
+  stroke: var(--hl-on);
+  stroke-width: 2.4;
+}
+.hl-svg .hl-node:focus {
+  outline: none;
+}
+.hl-svg .hl-node.on rect {
+  stroke: var(--hl-on);
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+.hl-svg .hl-node.dim {
+  opacity: 0.62;
+}
+
+/* The details panel beside the chart */
+.hl-facts {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13.5px;
+}
+.hl-facts th {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 10px 5px 0;
+  white-space: nowrap;
+  color: var(--muted);
+  font-weight: 600;
+}
+.hl-facts td {
+  padding: 5px 0;
+  vertical-align: top;
+}
+.hl-facts tr + tr th,
+.hl-facts tr + tr td {
+  border-top: 1px solid var(--line);
+}

@@ -139,3 +139,9 @@ body.present .stage-head h2{font-size:28px}
 .page-claude-code-inside .stage-head h2{font-size:20px}
 .page-claude-code-inside .dots{display:none}
 }
+
+/* The lifecycle chart beside each step of the advanced hooks chapter (drawing in claude-code/hook-lifecycle.css) */
+.page-claude-code-inside .hl-mini{float:right;width:min(46%,250px);margin:0 0 10px 14px}
+.page-claude-code-inside .hl-mini + pre.code{clear:none}
+.page-claude-code-inside #after .hl-svg{max-width:520px}
+@media (max-width:600px){.page-claude-code-inside .hl-mini{float:none;width:100%;max-width:300px;margin:8px auto}}

@@ -33,6 +33,7 @@ from typing import Any
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
 from ..shared import DEFAULT_MODEL, text_of
+from .history import assistant_blocks
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
@@ -740,13 +741,8 @@ class SupportDeskService:
                                          messages=list(case.messages))
                 cost += c
                 last_stop = response.stop_reason
-                blocks = [b for b in response.content if getattr(b, "type", None) in ("text", "tool_use")]
-                content = [{"type": "text", "text": b.text} if b.type == "text"
-                           else {"type": "tool_use", "id": b.id, "name": b.name, "input": dict(b.input)} for b in blocks]
-                if not content:  # a refusal or an empty reply: the API refuses an empty assistant turn next time
-                    content = [{"type": "text", "text": f"(No reply: stop_reason {response.stop_reason}.)"}]
-                case.messages.append({"role": "assistant", "content": content})
-                uses = [b for b in blocks if b.type == "tool_use"]
+                case.messages.append({"role": "assistant", "content": assistant_blocks(response)})
+                uses = [b for b in response.content if getattr(b, "type", None) == "tool_use"]
                 decision = ("continue: stop_reason is tool_use" if response.stop_reason == "tool_use"
                             else "stop: stop_reason is end_turn" if response.stop_reason == "end_turn"
                             else f"stop: stop_reason is {response.stop_reason}")

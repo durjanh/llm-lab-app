@@ -21,7 +21,7 @@ from .extraction_logic import (BASE_SYSTEM, CURRENCIES, PLACEHOLDERS, TOOLS, ana
                                resubmit_plan, retry_decision, retry_messages, score, split_custom_id, summarise,
                                system_prompt, tool_input, validate)
 from .runs import Run, RunStreamer
-from .spend import SpendTracker
+from .spend import RunBudget, SpendTracker
 
 BATCH_DISCOUNT = 0.5
 FIRST_PASS_TOKENS = 700  # small on purpose: the 30-line order does not fit, so the batch demo has something to resubmit
@@ -115,12 +115,17 @@ class ExtractionService:
                 "batch_discount": BATCH_DISCOUNT,
                 "prices": {m: p for m, p in PRICES.items() if m.startswith("claude-")}}
 
+    @staticmethod
+    def _doc_cost(docs: list[dict[str, Any]], model: str, few_shot: bool) -> float:
+        """Approximate dollars to extract one of `docs`, from their average length (about 3.5 characters a token)."""
+        price = PRICES[model]
+        prompt_tokens = (len(system_prompt(few_shot)) + sum(len(d["text"]) for d in docs) / len(docs)
+                         + len(str(TOOLS["extract_document"]))) / 3.5
+        return (prompt_tokens * price["input"] + 420 * price["output"]) / 1e6
+
     def estimate(self, model: str, few_shot: bool, doc_ids: list[str] | None) -> dict[str, Any]:
         docs = [self._doc(i) for i in doc_ids] if doc_ids else DOCUMENTS
-        price = PRICES[model]
-        prompt_tokens = (len(system_prompt(few_shot)) + sum(len(d["text"]) for d in docs) / max(len(docs), 1)
-                         + len(str(TOOLS["extract_document"]))) / 3.5
-        cost = len(docs) * (prompt_tokens * price["input"] + 420 * price["output"]) / 1e6
+        cost = len(docs) * self._doc_cost(docs, model, few_shot)
         return {"docs": len(docs), "approx_cost_usd": round(cost, 4), "approx_cost_batch_usd": round(cost * BATCH_DISCOUNT, 4)}
 
     # ----- 1. the schema: required and non-nullable invents values -----
@@ -232,15 +237,13 @@ class ExtractionService:
         model, few_shot, cap = body["model"], bool(body["few_shot"]), body["budget_usd"]
         run = Run()
 
-        # Workers start documents before earlier ones are counted, so each document reserves an estimated cost
-        # before it starts and settles to the real one after: the run stops before the cap, not several documents past.
-        per_doc = self.estimate(model, few_shot, [d["id"] for d in docs])["approx_cost_usd"] / max(len(docs), 1)
+        # Workers start documents before earlier ones are counted, so each one reserves its cost first (see RunBudget).
+        budget = RunBudget(cap, self._doc_cost(docs, model, few_shot))
 
         def work() -> None:
             started, spent, results = time.perf_counter(), 0.0, []
             stop = {"why": None}
             lock = threading.Lock()
-            budget = {"settled": 0.0, "reserved": 0.0, "done": 0}
             run.publish({"type": "start", "total": len(docs), "model": model, "few_shot": few_shot})
 
             def one(doc: dict[str, Any]) -> dict[str, Any] | None:
@@ -253,20 +256,16 @@ class ExtractionService:
                     if self.spend.over_budget:
                         stop["why"] = "Stopped: the server's budget is spent."
                         return None
-                    # the estimate, or what documents have really cost so far if that is more
-                    est = max(per_doc, budget["settled"] / budget["done"] if budget["done"] else 0.0)
-                    if budget["settled"] + budget["reserved"] + est > cap:
+                    held = budget.reserve()
+                    if held is None:
                         stop["why"] = f"Stopped at the run's ${cap:.2f} cap."
                         return None
-                    budget["reserved"] += est
                 try:
                     result = self._extract(doc, model, few_shot)
-                finally:
-                    with lock:
-                        budget["reserved"] -= est
-                with lock:
-                    budget["settled"] += result["cost_usd"]
-                    budget["done"] += 1
+                except BaseException:
+                    budget.settle(held, None)
+                    raise
+                budget.settle(held, result["cost_usd"])
                 return result
 
             with ThreadPoolExecutor(WORKERS) as pool:
@@ -363,10 +362,11 @@ class ExtractionService:
         outcomes = match_results(results, state["custom_ids"])
         standard = sum(cost_usd(o["usage"], state["model"]) or 0 for o in outcomes.values() if o["status"] == "ok")
         charged = self.spend.charge_usd(standard * BATCH_DISCOUNT, "batch extraction") if standard else 0.0
+        settled = {"outcomes": outcomes, "cost_usd": round(charged, 6), "standard_usd": round(standard, 6)}
         with self._lock:
             group = self._groups.get(state["group"])
             if group is None:  # forgotten while this batch was being collected
-                state["settled"] = {"outcomes": outcomes, "cost_usd": round(charged, 6), "standard_usd": round(standard, 6)}
+                state["settled"] = settled
                 return
             group["cost_usd"] += charged
             group["standard_usd"] += standard
@@ -384,7 +384,7 @@ class ExtractionService:
                 elif len(got) == expected:
                     group["outcomes"][doc_id] = {"status": "failed", "reason": "chunk_failed",
                                                  "detail": "One of the chunks failed too."}
-            state["settled"] = {"outcomes": outcomes, "cost_usd": round(charged, 6), "standard_usd": round(standard, 6)}
+            state["settled"] = settled
 
     def _group_view(self, group_id: str) -> dict[str, Any] | None:
         with self._lock:

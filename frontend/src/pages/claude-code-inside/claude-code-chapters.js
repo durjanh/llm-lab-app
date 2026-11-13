@@ -4,6 +4,8 @@
  * A step: t title, d text (HTML), why, extra (HTML), tags [[class, text]], term [[type, text]],
  * pk [[from, to, label, kind]] packets, on [nodes], add (blocks before the request), call (true or a count),
  * resp (blocks after the request), del [ids], set {id: props}, subAdd, subClear, gates {at, verdict, label}. */
+import { HOOKS_ADVANCED } from './hooks-advanced-chapter';
+
 const B = (id, k, label, tok, note) => ({ id, k, label, tok, note });
 const U = (id, text, tok, note) => B(id, 'msg', 'You: ' + text, tok, note);
 const C = (id, text, tok, note) => B(id, 'msg', 'Claude: ' + text, tok, note);
@@ -143,14 +145,14 @@ const CHAPTERS = [
         pk: [['you', 'cc', '1. Yes', 'you'], ['cc', 'files', 'write src/cli.ts', 'tool'], ['files', 'cc', 'done', 'file']],
         add: [T('r2', 'Result: edit applied', 100)],
         term: [['out', 'Updated src/cli.ts with 14 additions and 2 removals']],
-        d: `Before changing the file, Claude Code keeps a snapshot of it, so you can rewind later (${go('rewind', 'chapter 11')}).`
+        d: `Before changing the file, Claude Code keeps a snapshot of it, so you can rewind later (${go('rewind', 'chapter 12')}).`
       },
       {
         t: 'Request 3: Claude runs the tests', call: true,
         pk: [['cc', 'api', 'request 3', 'req'], ['api', 'cc', 'tool_use: Bash', 'resp'], ['cc', 'files', 'npm test', 'tool'], ['files', 'cc', '43 passed', 'file']],
         resp: [T('a3', 'Claude: Bash npm test', 60), T('r3', 'Result: 43 passed', 350)],
         term: [['tool', 'Bash(npm test)'], ['out', '43 passed (1.9s)']],
-        d: `Running the tests is how Claude checks its own work. Whether it asks before running a command depends on your permission rules and mode (${go('permissions', 'chapter 12')}).`
+        d: `Running the tests is how Claude checks its own work. Whether it asks before running a command depends on your permission rules and mode (${go('permissions', 'chapter 13')}).`
       },
       {
         t: 'Request 4: the answer, and the loop ends', call: true,
@@ -335,7 +337,7 @@ Recent commits:  3f2a1c9 Add coupon model</code></pre>`,
         pk: [['you', 'cc', 'prompt with @file', 'you'], ['files', 'cc', 'file contents', 'file']],
         add: [U('u2', 'prompt + contents of @src/services/refunds.ts', 2450, 'attached by Claude Code')],
         d: `Typing <code>@</code> and a path makes Claude Code read the file and attach it to your prompt, along with any CLAUDE.md files in that file's folders, so the model skips the search and read rounds. A folder gives a file listing instead. Naming the right files is the quickest way to make Claude faster and cheaper.`,
-        why: `Everything the tools return is sent to Anthropic's API as part of each request. Keep secrets out of reach with deny rules such as <code>Read(./.env)</code> (${go('permissions', 'chapter 12')}).`
+        why: `Everything the tools return is sent to Anthropic's API as part of each request. Keep secrets out of reach with deny rules such as <code>Read(./.env)</code> (${go('permissions', 'chapter 13')}).`
       }
     ],
     after: `<div class="takeaways"><h3>Remember</h3><ul>
@@ -572,6 +574,8 @@ exit 0</code></pre>`
       <li><b>Keep them fast,</b> because they run on every matching event.</li>
     </ul></div>`
   },
+
+  HOOKS_ADVANCED,
 
   // ------------------------------------------------------------------ 7
   {
@@ -1086,7 +1090,7 @@ with file and line, most serious first.</code></pre>
   // ------------------------------------------------------------------ 14
   {
     id: 'cheatsheet', short: 'Cheat sheet', title: 'Cheat sheet', sub: '', static: true, nodes: [], steps: [],
-    after: `<h2 style="margin-top:6px">14. Cheat sheet</h2>
+    after: `<h2 style="margin-top:6px">15. Cheat sheet</h2>
     <p>Everything from the talk on one page.</p>
     <div class="sheet">
       <div class="table-wrap"><table class="t"><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>

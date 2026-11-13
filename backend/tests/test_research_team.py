@@ -9,10 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-from backend.app.core.errors import ApiError
 from fastapi.testclient import TestClient
 
+from backend.app.core.errors import ApiError
 from backend.app.gateways.claude import ClaudeGateway
 from backend.app.services import research_team as rt
 from backend.app.services.research_team import (
@@ -320,7 +319,8 @@ def test_a_tool_outside_a_subagents_scope_is_refused(tmp_path: Path) -> None:
     assert refused["ok"] is False and refused["result"]["error"]["failure_type"] == "tool_not_available"
 
 
-def test_a_crashed_run_resumes_and_redoes_only_the_unfinished_work(tmp_path: Path) -> None:
+def crashed_run(tmp_path: Path) -> str:
+    """A run, on Haiku, that crashed after its first search as the synthesis began."""
     first = ScriptedClient([
         [use("set_subquestions", SQ)],
         [use("delegate", {"agent": "search", "task": "Find 2024 installation counts"})],
@@ -331,8 +331,12 @@ def test_a_crashed_run_resumes_and_redoes_only_the_unfinished_work(tmp_path: Pat
         [use("delegate", {"agent": "synthesis", "task": "Combine", "include_results": ["a1"]})],  # crash here
     ])
     events = events_of(make(tmp_path, first), "How many installs?", HAIKU, 1.0, stop_after=1)
-    run_id = of(events, "started")[0]["run_id"]
     assert of(events, "crashed") and events[-1]["status"] == "crashed"
+    return events[-1]["run_id"]
+
+
+def test_a_crashed_run_resumes_and_redoes_only_the_unfinished_work(tmp_path: Path) -> None:
+    run_id = crashed_run(tmp_path)
     on_disk = json.loads((tmp_path / "research-team" / run_id / "manifest.json").read_text())
     assert [(s["agent"], s["status"]) for s in on_disk["steps"]] == [("search", "done"), ("synthesis", "running")]
 
@@ -444,23 +448,8 @@ def test_the_routes_stream_a_run_and_list_it(tmp_path: Path) -> None:
 
 # ---------- found by code review: resuming safely ----------
 
-def crashed_run(tmp_path: Path, model: str) -> str:
-    """A run that crashed after its first search, started on `model`."""
-    first = ScriptedClient([
-        [use("set_subquestions", SQ)],
-        [use("delegate", {"agent": "search", "task": "Find 2024 installation counts"})],
-        [use("search_corpus", {"query": "installations 2024"})],
-        [use("fetch_source", {"source_id": "S01"})],
-        [use("submit_findings", {"findings": [{"claim": "98,000 installed in 2024", "evidence": EVIDENCE_1,
-                                               "source_id": "S01", "sub_question": "q1"}], "summary": "one"})],
-        [use("delegate", {"agent": "synthesis", "task": "Combine", "include_results": ["a1"]})],
-    ])
-    events = events_of(make(tmp_path, first), "How many installs?", model, 1.0, stop_after=1)
-    return events[-1]["run_id"]
-
-
 def test_a_run_that_is_still_going_cannot_be_resumed_and_its_manifest_is_left_alone(tmp_path: Path) -> None:
-    run_id = crashed_run(tmp_path, HAIKU)
+    run_id = crashed_run(tmp_path)
     service = make(tmp_path, ScriptedClient([]))
     manifest = tmp_path / "research-team" / run_id / "manifest.json"
     before = manifest.read_text()
@@ -471,14 +460,14 @@ def test_a_run_that_is_still_going_cannot_be_resumed_and_its_manifest_is_left_al
 
 
 def test_a_resumed_run_keeps_the_model_it_started_with(tmp_path: Path) -> None:
-    run_id = crashed_run(tmp_path, "claude-sonnet-5-5")
+    run_id = crashed_run(tmp_path)  # started on Haiku; the resume below asks for Sonnet
     second = ScriptedClient([
         [use("submit_synthesis", {"claims": [{"sub_question_id": "q1", "claim": "98,000 in 2024",
                                               "source_ids": ["S01"], "status": "single_source"}]})],
         [use("finish", {"answer": "Done."})],
     ])
     service = make(tmp_path, second)
-    events = events_of(service, "", None, 1.0, resume_id=run_id)
-    assert events[-1]["status"] == "done" and events[-1]["model"] == "claude-sonnet-5-5"
-    assert {c[1]["model"] for c in second.calls} == {"claude-sonnet-5-5"}
+    events = events_of(service, "", "claude-sonnet-5-5", 1.0, resume_id=run_id)
+    assert events[-1]["status"] == "done" and events[-1]["model"] == HAIKU
+    assert {c[1]["model"] for c in second.calls} == {HAIKU}
     assert run_id not in service._active  # free to resume again later
