@@ -38,6 +38,7 @@ from .gateways.pgvector import PgVector
 from .gateways.semantic_cache import PgSemanticCache
 from .services.semantic_cache import SemanticCacheService
 from .services.songbird import SongbirdService
+from .services.fitness import FitnessService
 from .services.graphrag import GraphRagService
 from .gateways.graph_store import PgGraph
 from .services.whiteboard import WhiteboardService
@@ -117,6 +118,7 @@ class Container:
     vectordb: VectorDbService
     semantic_cache: SemanticCacheService
     songbird: SongbirdService
+    fitness: FitnessService
     graphrag: GraphRagService
     medassist_phone: MedAssistPhone
     guardrails: GuardrailsService
@@ -218,6 +220,7 @@ class Container:
             vectordb=VectorDbService(PgVector(settings.pgvector_url), local_embeddings, claude, spend),
             semantic_cache=SemanticCacheService(PgSemanticCache(settings.pgvector_url), local_embeddings, claude, spend),
             songbird=SongbirdService(claude, spend),
+            fitness=FitnessService(claude, spend),
             graphrag=GraphRagService(PgVector(settings.pgvector_url), PgGraph(PgVector(settings.pgvector_url)),
                                      local_embeddings, claude, spend, streamer),
             hotel=HotelService(claude, spend, settings.generated_dir / "hotel" / "hotel.db", hotel_notify.from_settings(

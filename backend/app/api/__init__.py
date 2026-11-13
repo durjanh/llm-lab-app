@@ -62,6 +62,10 @@ from . import songbird  # noqa: E402  (a two-voice syrinx synth; a model compose
 
 router.include_router(songbird.router)
 
+from . import fitness  # noqa: E402  (a fitness coach: pose checks in the browser, a model for the spoken reply)
+
+router.include_router(fitness.router)
+
 router.include_router(storewatch.media)  # evidence clips for <video> tags, which cannot send the lab header
 
 from . import tutor_people  # noqa: E402  (the tutor's people: faces and voices, including their own)

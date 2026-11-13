@@ -53,6 +53,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'diet',
       'whiteboard',
       'songbird',
+      'fitness-coach',
       'brain-check',
       'scans',
       'gaze-pointer',
@@ -389,6 +390,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./songbird/SongbirdPage')),
+  },
+  {
+    id: 'fitness-coach',
+    path: '/fitness-coach',
+    title: 'Fitness Coach',
+    label: 'Fitness coach (pose)',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./fitness-coach/FitnessCoachPage')),
   },
   {
     id: 'vector-db',
