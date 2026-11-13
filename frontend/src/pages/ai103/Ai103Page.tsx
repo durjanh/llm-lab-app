@@ -522,6 +522,10 @@ export default function Ai103Page() {
         </a>
         . A score of 700 passes. Most questions are on generally available features.
       </p>
+      <p className="small">
+        AI-103 is one of the Associate certifications that count towards the Agentic AI Business Solutions Architect
+        Expert. That certification’s exam is mapped on <a href="/ab-100">the AB-100 exam map</a>.
+      </p>
       {AREAS.map((a) => (
         <section key={a.area} className="az-panel">
           <h2 style={{ marginTop: 0 }}>

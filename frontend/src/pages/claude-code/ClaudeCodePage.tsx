@@ -4,6 +4,8 @@ import { useEngine } from '@/lib/useEngine';
 import { mount } from './engine';
 import { CodeBlock } from '@/components/CodeBlock';
 import * as S from './snippets';
+import { HookLifecycle } from './HookLifecycle';
+import { HOOK_EVENTS } from './hookEvents';
 import './claude-code.css';
 
 export default function ClaudeCodePage() {
@@ -570,6 +572,75 @@ export default function ClaudeCodePage() {
         <b>Common mistake:</b> writing "never edit .env" in CLAUDE.md and assuming it is enforced. CLAUDE.md is
         guidance. A PreToolUse hook or a permission rule is enforcement.
       </div>
+      <h3 id="lifecycle">Advanced: the whole lifecycle, all 33 events</h3>
+      <p>
+        The eight events above are the ones most setups need. Claude Code has 33. This chart follows the one in the
+        hooks reference: the green start, the blue dashed box that repeats for each prompt, the amber agentic loop that
+        repeats for each tool call, and the events off the main path on the left. Pick a box to see when it fires, what
+        its matcher matches, what exit code 2 does and what JSON can decide. Every event is played out in{' '}
+        <a href="/claude-code-inside#hooks-advanced">the advanced hooks chapter</a>, and working scripts for each
+        scenario are in <code>examples/claude-code/hook-lifecycle/</code>.
+      </p>
+      <HookLifecycle />
+      <details className="hl-all">
+        <summary>All 33 events in one table</summary>
+        <div className="table-wrap">
+          <table className="t">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Fires</th>
+                <th>Exit code 2</th>
+                <th>JSON output</th>
+              </tr>
+            </thead>
+            <tbody>
+              {HOOK_EVENTS.map((e) => (
+                <tr key={e.name}>
+                  <td>
+                    <code>{e.name}</code>
+                  </td>
+                  <td>{e.when}</td>
+                  <td>{e.exit2}</td>
+                  <td>{e.json}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <ul className="bp">
+        <li>
+          <b>Hooks that match the same event run in parallel,</b> and all finish before their answers are combined. For
+          PreToolUse, deny beats defer, ask and allow, and one hook's deny does not stop the others from running.
+        </li>
+        <li>
+          <b>
+            Put decisions in <code>hookSpecificOutput</code>
+          </b>{' '}
+          with <code>hookEventName</code>. A <code>permissionDecision</code> or <code>additionalContext</code> at the
+          top level is ignored without a warning, and anything printed before the JSON (from a shell profile, say) turns
+          the whole output into plain text.
+        </li>
+        <li>
+          <b>
+            <code>async: true</code> runs a command hook in the background:
+          </b>{' '}
+          it cannot block, and its context arrives on the next turn. <code>asyncRewake</code> wakes Claude when the
+          background hook exits with code 2.
+        </li>
+        <li>
+          <b>
+            The <code>if</code> field
+          </b>{' '}
+          (one permission rule, such as <code>Bash(git push*)</code>) works only on the tool events: PreToolUse,
+          PostToolUse, PostToolUseFailure, PermissionRequest and PermissionDenied. On other events the hook never runs.
+        </li>
+        <li>
+          <b>WorktreeCreate replaces git.</b> A hook there must print the new folder's path, or no worktree is made. Do
+          not put a logging hook on it.
+        </li>
+      </ul>
       <h2 id="subagents">
         6. Subagents <span className="tag">focused work, separate context</span>
       </h2>

@@ -21,7 +21,7 @@ from backend.tests.test_api import LAB
 HAIKU = "claude-haiku-5-5"
 
 
-def service(script: list[list[dict]]) -> tuple[sd.SupportDeskService, ScriptedClient]:
+def service(script: list[Any]) -> tuple[sd.SupportDeskService, ScriptedClient]:
     client = ScriptedClient(script)
     return sd.SupportDeskService(ClaudeGateway(client), SpendTracker(1.0)), client
 
@@ -460,17 +460,7 @@ def test_the_evaluate_route_streams_cases_and_a_summary(tmp_path: Path) -> None:
 # ---------- found by code review: refusals and errors mid-turn ----------
 
 def test_a_refusal_leaves_a_history_the_next_turn_can_send() -> None:
-    svc, client = service([[], [text("Happy to help. What is your order number?")]])
-    client.script[0] = []  # no blocks at all, as a refusal or an empty reply has
-
-    def refuse(**params: Any) -> Any:
-        from backend.tests.test_aftercare import reply
-        client.calls.append(("messages.create", params))
-        client.script.pop(0)
-        return reply(params["model"], stop="refusal")
-
-    first_create = client.messages.create
-    client.messages.create = lambda **p: refuse(**p) if len(client.calls) == 0 else first_create(**p)  # type: ignore[method-assign]
+    svc, client = service([([], "refusal"), [text("Happy to help. What is your order number?")]])
     out = svc.chat({"message": "Help me with something odd.", "model": HAIKU})
     assert out["stop_reason"] == "refusal" and out["reply"] == "The assistant declined to answer that message."
     again = svc.chat({"case_id": out["case_id"], "message": "Sorry, I mean my order.", "model": HAIKU})
@@ -479,29 +469,12 @@ def test_a_refusal_leaves_a_history_the_next_turn_can_send() -> None:
     assert again["reply"].startswith("Happy to help")
 
 
-class FailsAfter(ScriptedClient):
-    """Answers the scripted replies, then raises: the API failing part-way through a turn."""
-
-    def __init__(self, script: list[list[dict]], fail_on: int) -> None:
-        super().__init__(script)
-        scripted, self.n = self.messages.create, 0
-
-        def create(**params: Any) -> Any:
-            self.n += 1
-            if self.n == fail_on:
-                raise RuntimeError("overloaded")
-            return scripted(**params)
-
-        self.messages.create = create  # type: ignore[method-assign]
-
-
 def test_an_error_after_a_refund_keeps_the_refund_and_the_history_in_step() -> None:
-    client = FailsAfter([
+    svc, _ = service([
         [use("get_customer", {"email": "mira.okafor@example.com"}, 1)],
         [use("process_refund", {"order_id": "LF-2001", "amount_usd": 20, "reason": "chipped"}, 2)],
-        [text("Done.")],  # never reached: the third call fails
-    ], fail_on=3)
-    svc = sd.SupportDeskService(ClaudeGateway(client), SpendTracker(1.0))
+        RuntimeError("overloaded"),  # the third call fails
+    ])
     case = svc._case(None)
     with pytest.raises(Exception):
         svc.run_turn(case, "Refund $20 on LF-2001 please, mira.okafor@example.com", HAIKU, sd.Opts())
@@ -512,8 +485,7 @@ def test_an_error_after_a_refund_keeps_the_refund_and_the_history_in_step() -> N
 
 
 def test_an_error_before_any_tool_undoes_the_turn() -> None:
-    client = FailsAfter([], fail_on=1)
-    svc = sd.SupportDeskService(ClaudeGateway(client), SpendTracker(1.0))
+    svc, _ = service([RuntimeError("overloaded")])
     case = svc._case(None)
     with pytest.raises(Exception):
         svc.run_turn(case, "Hello?", HAIKU, sd.Opts())

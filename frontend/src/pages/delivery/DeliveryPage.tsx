@@ -1,9 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { modelName } from '@/lib/models';
 import { deliveryService, type Design, type DesignResult } from '@/services/deliveryService';
 import { statusService } from '@/services/statusService';
 import { BRIEFS } from './briefs';
+import { List, Section, Table } from './parts';
+import { AdoptionSection, BuildBuySection, CoeSection, PromptLibrarySection, RoiSection } from './strategy';
 import './delivery.css';
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -11,49 +13,19 @@ const errorText = (err: unknown) => (err instanceof Error ? err.message : String
 const SECTIONS: [string, string][] = [
   ['brief', 'From brief to design'],
   ['discovery', 'Discovery'],
+  ['adoption', 'AI adoption'],
   ['patterns', 'Choosing a pattern'],
+  ['build-buy', 'Build, buy or extend'],
   ['value', 'Business value'],
+  ['roi', 'ROI and TCO'],
   ['integration', 'Integration'],
   ['observability', 'Observability'],
   ['compliance', 'Compliance'],
   ['risks', 'Risks and ethics'],
   ['lifecycle', 'Lifecycle'],
+  ['coe', 'AI Center of Excellence'],
+  ['prompt-library', 'Prompt library'],
 ];
-
-function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
-  return (
-    <div className="table-wrap">
-      <table className="t">
-        <thead>
-          <tr>
-            {head.map((h) => (
-              <th key={h}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              {r.map((c, j) => (
-                <td key={j}>{c}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Section({ id, title, tags, children }: { id: string; title: string; tags: string; children: ReactNode }) {
-  return (
-    <section id={id} className="dl-section">
-      <h2>{title}</h2>
-      <p className="small muted dl-tags">{tags}</p>
-      {children}
-    </section>
-  );
-}
 
 /** The MedAssist system as input, processing, output and a feedback loop. Colours come from the page's variables. */
 function MedAssistFlow() {
@@ -151,16 +123,6 @@ function MedAssistFlow() {
         <path d="M110 255V190" />
       </g>
     </svg>
-  );
-}
-
-function List({ items }: { items: string[] }) {
-  return (
-    <ul>
-      {items.map((i) => (
-        <li key={i}>{i}</li>
-      ))}
-    </ul>
   );
 }
 
@@ -440,6 +402,8 @@ export default function DeliveryPage() {
         </p>
       </Section>
 
+      <AdoptionSection />
+
       <Section
         id="patterns"
         title="Choosing the pattern"
@@ -494,6 +458,8 @@ export default function DeliveryPage() {
         </p>
       </Section>
 
+      <BuildBuySection />
+
       <Section id="value" title="Business value pillars" tags="Professional P1.6 · Associate S4.5">
         <p>
           Value is a claim you can check. Name the pillar, the claim, the measure and the baseline you need before
@@ -540,6 +506,8 @@ export default function DeliveryPage() {
           <Link to="/routing">routing</Link> for cutting cost without cutting quality.
         </p>
       </Section>
+
+      <RoiSection />
 
       <Section
         id="integration"
@@ -913,6 +881,10 @@ export default function DeliveryPage() {
         />
       </Section>
 
+      <CoeSection />
+
+      <PromptLibrarySection />
+
       <div className="takeaways">
         <h3>Takeaways</h3>
         <ul>
@@ -923,6 +895,8 @@ export default function DeliveryPage() {
           <li>Log, trace and sample so you can see the system at scale.</li>
           <li>For compliance, state what is verified and send the rest to the vendor and your legal team.</li>
           <li>Hand over with ADRs, a runbook, an evaluation set and agreed SLAs.</li>
+          <li>Prefer the option with the least to run yourself: buy, then extend, then build.</li>
+          <li>Count every cost, including review time and adoption, and show ROI as a range.</li>
         </ul>
       </div>
     </main>

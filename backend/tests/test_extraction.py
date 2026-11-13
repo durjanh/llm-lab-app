@@ -4,21 +4,28 @@ from __future__ import annotations
 
 import copy
 import json
+import threading
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 import backend.app.api as api_package
+from backend.app.api import extraction as extraction_routes
+from backend.app.api.deps import require_budget
+from backend.app.api.extraction import BatchSubmit, EstimateBody, RunBody
 from backend.app.core.errors import ApiError
 from backend.app.gateways.claude import ClaudeGateway
 from backend.app.main import create_app
 from backend.app.services import extraction_logic as L
-from backend.app.services.extraction import ExtractionService, judge_missing
+from backend.app.services.extraction import KEPT_GROUPS, ExtractionService, judge_missing
 from backend.app.services.extraction_docs import BY_ID, DOCUMENTS, EXAMPLES, FIELDS
 from backend.app.services.runs import RunRegistry, RunStreamer
-from backend.app.services.spend import SpendTracker
+from backend.app.services.spend import RunBudget, SpendTracker
 from backend.app.settings import Settings
 from backend.tests.test_aftercare import ScriptedClient, reply, text, use
 from backend.tests.test_api import LAB
@@ -551,6 +558,17 @@ def test_every_batch_custom_id_is_one_the_batches_api_accepts() -> None:
 
 # ---------- found by code review: concurrency, retries and limits ----------
 
+def at_once(fn: Callable[[], Any], n: int = 2) -> list[Any]:
+    """Runs fn in n threads started together, as two tabs or a double click would, and returns what each got."""
+    out: list[Any] = []
+    threads = [threading.Thread(target=lambda: out.append(fn())) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return out
+
+
 class SlowBatchGateway(FakeBatchGateway):
     """Collecting results takes a moment, so two polls can overlap."""
 
@@ -563,52 +581,38 @@ class SlowBatchGateway(FakeBatchGateway):
                                                                "canceled": 0, "expired": 0}}
 
     def batch_results(self, batch_id: str) -> list[dict[str, Any]]:
-        import time
         self.collected += 1
         time.sleep(0.2)
         return super().batch_results(batch_id)
 
 
 def test_two_polls_at_the_same_moment_collect_and_charge_a_batch_once() -> None:
-    import threading
     gateway = SlowBatchGateway(ScriptedClient([]))
     spend = SpendTracker(5.0)
     svc = ExtractionService(gateway, spend)
     sub = svc.batch_submit(MODEL, None, 700)
-    polls = [threading.Thread(target=svc.batch_poll, args=(sub["batch_id"],)) for _ in range(2)]
-    for t in polls:
-        t.start()
-    for t in polls:
-        t.join()
+    at_once(lambda: svc.batch_poll(sub["batch_id"]))
     group = svc.batch_poll(sub["batch_id"])["group"]
     assert gateway.collected == 1
     assert spend.spent_usd == pytest.approx(group["standard_usd"] * 0.5) == pytest.approx(group["cost_usd"])
 
 
 def test_resubmitting_twice_sends_one_batch_and_the_documents_are_not_offered_again() -> None:
-    import threading
     gateway = SlowBatchGateway(ScriptedClient([]))
     svc = ExtractionService(gateway, SpendTracker(5.0))
     sub = svc.batch_submit(MODEL, None, 700)
     svc.batch_poll(sub["batch_id"])
-    answers: list[dict[str, Any]] = []
-    clicks = [threading.Thread(target=lambda: answers.append(svc.batch_resubmit(sub["batch_id"]))) for _ in range(2)]
-    for t in clicks:
-        t.start()
-    for t in clicks:
-        t.join()
+    answers = at_once(lambda: svc.batch_resubmit(sub["batch_id"]))
     assert len(gateway.created) == 2 and answers[0]["batch_id"] == answers[1]["batch_id"]  # one new batch, not two
     group = svc._groups[sub["group_id"]]
     assert {group["outcomes"][d]["status"] for d in ("po-07", "rec-02")} == {"resubmitted"}
     assert L.resubmit_plan(group["outcomes"])["resubmit"] == []  # in flight: not offered again
 
 
-def test_the_estimate_refuses_documents_that_do_not_exist() -> None:
-    from pydantic import ValidationError
-
-    from backend.app.api.extraction import EstimateBody
-    with pytest.raises(ValidationError):
-        EstimateBody(doc_ids=["inv-99"])
+def test_unknown_documents_are_refused_before_any_work() -> None:
+    for body in (EstimateBody, RunBody, BatchSubmit):
+        with pytest.raises(ValidationError):
+            body(doc_ids=["inv-99"])
     assert EstimateBody(doc_ids=["inv-01"]).doc_ids == ["inv-01"]
     svc, _ = service([])
     with pytest.raises(ApiError) as caught:
@@ -617,11 +621,8 @@ def test_the_estimate_refuses_documents_that_do_not_exist() -> None:
 
 
 def test_polling_a_batch_does_not_need_budget_but_submitting_does() -> None:
-    from backend.app.api import extraction as routes
-    from backend.app.api.deps import require_budget
-
     def guarded(path: str, method: str) -> bool:
-        route = next(r for r in routes.router.routes if r.path == path and method in r.methods)
+        route = next(r for r in extraction_routes.router.routes if r.path == path and method in r.methods)
         return any(d.call is require_budget for d in route.dependant.dependencies)
 
     assert not guarded("/extraction/batch/{batch_id}", "GET")
@@ -629,10 +630,8 @@ def test_polling_a_batch_does_not_need_budget_but_submitting_does() -> None:
 
 
 def test_a_run_stops_before_its_cap_even_with_four_workers_starting_at_once() -> None:
-    import time
-    streamer = RunStreamer(RunRegistry(), 0.2)
-    svc, _ = service([], streamer)
-    svc.estimate = lambda model, few_shot, ids: {"approx_cost_usd": 0.01 * len(ids)}  # type: ignore[method-assign]
+    svc, _ = service([], RunStreamer(RunRegistry(), 0.2))
+    svc._doc_cost = lambda docs, model, few_shot: 0.01  # type: ignore[method-assign]
 
     def fake_extract(doc: dict[str, Any], model: str, few_shot: bool) -> dict[str, Any]:
         time.sleep(0.05)
@@ -645,8 +644,16 @@ def test_a_run_stops_before_its_cap_even_with_four_workers_starting_at_once() ->
     assert done["type"] == "done" and done["cost_usd"] <= 0.035 + 1e-9 and "cap" in (done["stopped"] or "")
 
 
+def test_a_run_budget_reserves_before_and_settles_after() -> None:
+    budget = RunBudget(cap=0.035, estimate=0.01)
+    held = [budget.reserve() for _ in range(4)]
+    assert held[:3] == [0.01, 0.01, 0.01] and held[3] is None  # a fourth would pass the cap
+    budget.settle(0.01, None)  # a piece that failed releases its hold and costs nothing
+    budget.settle(0.01, 0.02)  # a piece that cost more than guessed raises the estimate for the rest
+    assert budget.settled == 0.02 and budget.reserve() is None
+
+
 def test_batch_groups_are_capped_and_their_batches_forgotten() -> None:
-    from backend.app.services.extraction import KEPT_GROUPS
     gateway = FakeBatchGateway(ScriptedClient([]))
     svc = ExtractionService(gateway, SpendTracker(5.0))
     first = svc.batch_submit(MODEL, ["inv-01"], 700)

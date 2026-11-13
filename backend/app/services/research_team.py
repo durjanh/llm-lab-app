@@ -1057,46 +1057,59 @@ class ResearchTeamService:
                         "unfinished": sum(s["status"] != "done" for s in steps)})
         return out
 
+    def _claim(self, run_id: str) -> None:
+        """One worker per run at a time: a second request for the same run gets 409 busy, as elsewhere in the lab."""
+        with self._active_lock:
+            if run_id in self._active:
+                raise ApiError(409, "busy", "That run is still going. Wait for it to finish or crash first.")
+            self._active.add(run_id)
+
+    def _release(self, run_id: str) -> None:
+        with self._active_lock:
+            self._active.discard(run_id)
+
     def run(self, question: str, model: str | None, budget_usd: float, stop_after: int | None = None,
             resume_id: str | None = None) -> Iterator[str]:
         if self.streamer is None:
             raise ApiError(503, "not_configured", "Streaming is not set up on this server.")
+        run_id = resume_id or uuid.uuid4().hex[:12]
+        self._claim(run_id)  # before the manifest on disk is touched
+        try:
+            if resume_id:
+                manifest = Manifest.load(self.root, run_id)
+                model = manifest.data.get("model") or model  # a run keeps the model it started with
+                steps = manifest.data["steps"]
+                manifest.data["interrupted"] = [s for s in steps if s["status"] != "done"]  # to be done again
+                manifest.data["steps"] = [s for s in steps if s["status"] == "done"]
+                manifest.data["status"] = "running"
+                manifest.save()
+            else:
+                manifest = Manifest.create(self.root, run_id, question.strip(), model or DEFAULT_MODEL)
+        except BaseException:
+            self._release(run_id)
+            raise
         model = model or DEFAULT_MODEL
-        if resume_id:
-            with self._active_lock:  # checked before the manifest on disk is touched
-                if resume_id in self._active:
-                    raise ApiError(409, "running", "That run is still going. Wait for it to finish or crash first.")
-                self._active.add(resume_id)
-            try:
-                manifest = Manifest.load(self.root, resume_id)
-            except Exception:
-                with self._active_lock:
-                    self._active.discard(resume_id)
-                raise
-            model = manifest.data.get("model") or model  # a run keeps the model it started with
-            steps = manifest.data["steps"]
-            manifest.data["interrupted"] = [s for s in steps if s["status"] != "done"]  # to be done again
-            manifest.data["steps"] = [s for s in steps if s["status"] == "done"]
-            manifest.data["status"] = "running"
-            manifest.save()
-        else:
-            manifest = Manifest.create(self.root, uuid.uuid4().hex[:12], question.strip(), model)
-            with self._active_lock:
-                self._active.add(manifest.data["run_id"])
-        run_id = manifest.data["run_id"]
         run, budget = Run(), Budget(budget_usd)
         team = TeamRun(self, run, model, budget, manifest, stop_after)
         started = time.perf_counter()
+        began = threading.Event()
 
         def work() -> None:
-            run.publish({"type": "started", "run_id": manifest.data["run_id"], "question": team.question,
+            began.set()
+            try:
+                finish()
+            finally:
+                self._release(run_id)
+
+        def finish() -> None:
+            run.publish({"type": "started", "run_id": run_id, "question": team.question,
                          "model": model, "budget_usd": budget_usd, "resumed": bool(resume_id)})
             status = "done"
             try:
                 team.coordinate(bool(resume_id))
             except CrashSimulated as exc:
                 status = "crashed"
-                run.publish({"type": "crashed", "message": str(exc), "run_id": manifest.data["run_id"]})
+                run.publish({"type": "crashed", "message": str(exc), "run_id": run_id})
             except StopRun as exc:
                 status = "stopped"
                 run.publish({"type": "note", "message": str(exc)})
@@ -1110,10 +1123,16 @@ class ResearchTeamService:
             manifest.data["final"] = team.final
             manifest.save()
             run.publish({"type": "manifest", **manifest.view()})
-            with self._active_lock:
-                self._active.discard(run_id)
             run.publish({"type": "done", "status": status, "final": team.final, "spent_usd": round(budget.spent, 6),
                          "model_calls": team.calls, "seconds": round(time.perf_counter() - started, 2),
-                         "run_id": manifest.data["run_id"], "model": model})
+                         "run_id": run_id, "model": model})
 
-        return self.streamer.lines(run, work)
+        def stream() -> Iterator[str]:
+            # The streamer starts `work` only when the page starts reading. If it never does, release the claim here.
+            try:
+                yield from self.streamer.lines(run, work)
+            finally:
+                if not began.is_set():
+                    self._release(run_id)
+
+        return stream()

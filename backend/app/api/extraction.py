@@ -41,10 +41,9 @@ class ValidateDemo(DocDemo):
     simulate_format_errors: bool = False
 
 
-class RunBody(ClaudeChoice):
-    few_shot: bool = False
+class DocSelection(ClaudeChoice):
+    """Which documents to work on: none named means the whole set. Unknown ids are refused here, before any call."""
     doc_ids: list[str] | None = Field(default=None, max_length=24)
-    budget_usd: float = Field(default=0.5, gt=0, le=2.0)
 
     @field_validator("doc_ids")
     @classmethod
@@ -55,18 +54,16 @@ class RunBody(ClaudeChoice):
         return value
 
 
-class EstimateBody(ClaudeChoice):
+class RunBody(DocSelection):
     few_shot: bool = False
-    doc_ids: list[str] | None = Field(default=None, max_length=24)
-
-    @field_validator("doc_ids")
-    @classmethod
-    def known_docs(cls, value: list[str] | None) -> list[str] | None:
-        return RunBody.known_docs(value)
+    budget_usd: float = Field(default=0.5, gt=0, le=2.0)
 
 
-class BatchSubmit(ClaudeChoice):
-    doc_ids: list[str] | None = Field(default=None, max_length=24)
+class EstimateBody(DocSelection):
+    few_shot: bool = False
+
+
+class BatchSubmit(DocSelection):
     max_tokens: int = Field(default=FIRST_PASS_TOKENS, ge=300, le=4000)
 
 

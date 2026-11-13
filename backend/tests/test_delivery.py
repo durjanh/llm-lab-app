@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,7 +39,7 @@ GOOD = {
 }
 
 
-def service(script: list[list[dict]]) -> tuple[DeliveryService, ScriptedClient]:
+def service(script: list[Any]) -> tuple[DeliveryService, ScriptedClient]:
     fake = ScriptedClient(script)
     return DeliveryService(ClaudeGateway(fake), SpendTracker(1.0)), fake
 
@@ -115,35 +116,16 @@ def test_flat_rows_from_the_model_become_the_pages_rows() -> None:
                                  "dataset": "200", "ab_test": "shadow"}
 
 
-def test_an_empty_or_cut_off_first_reply_is_retried_without_an_empty_assistant_turn(tmp_path: Path) -> None:
-    from backend.app.services.delivery import DeliveryService
-    from backend.app.services.spend import SpendTracker
-    from backend.app.gateways.claude import ClaudeGateway
-    from backend.tests.test_aftercare import ScriptedClient, reply, text
-    client = ScriptedClient([[], [text(json.dumps(GOOD))]])
-    scripted = client.messages.create
-
-    def first_cut_off(**params: Any) -> Any:
-        if not client.calls:
-            client.calls.append(("messages.create", params))
-            client.script.pop(0)
-            return reply(params["model"], stop="max_tokens")
-        return scripted(**params)
-
-    client.messages.create = first_cut_off  # type: ignore[method-assign]
-    out = DeliveryService(ClaudeGateway(client), SpendTracker(1.0)).design("A bank wants to triage insurance claims faster.", "claude-haiku-5-5")
+def test_an_empty_or_cut_off_first_reply_is_retried_without_an_empty_assistant_turn() -> None:
+    svc, client = service([([], "max_tokens"), [text(json.dumps(GOOD))]])
+    out = svc.design("A bank wants to triage insurance claims faster.", "claude-haiku-5-5")
     retry = client.calls[1][1]["messages"]
     assert retry[1]["role"] == "assistant" and retry[1]["content"]  # named, not ""
     assert "cut off" in retry[2]["content"] and out["tries"][0]["problems"]
 
 
-def test_a_refusal_gives_a_clear_error(tmp_path: Path) -> None:
-    from backend.app.services.delivery import DeliveryService
-    from backend.app.services.spend import SpendTracker
-    from backend.app.gateways.claude import ClaudeGateway
-    from backend.tests.test_aftercare import ScriptedClient, reply
-    client = ScriptedClient([])
-    client.messages.create = lambda **p: reply(p["model"], stop="refusal")  # type: ignore[method-assign]
+def test_a_refusal_gives_a_clear_error() -> None:
+    svc, _ = service([([], "refusal")])
     with pytest.raises(ApiError) as caught:
-        DeliveryService(ClaudeGateway(client), SpendTracker(1.0)).design("A bank wants to triage insurance claims faster.", "claude-haiku-5-5")
-    assert caught.value.kind == "refused"
+        svc.design("A bank wants to triage insurance claims faster.", "claude-haiku-5-5")
+    assert (caught.value.status, caught.value.kind) == (422, "refused")  # as every other refusal in the backend

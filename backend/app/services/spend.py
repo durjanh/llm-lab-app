@@ -59,3 +59,32 @@ class SpendTracker:
 
 def money(value: float) -> str:
     return f"${value:.4f}" if value < 0.1 else f"${value:.2f}"
+
+
+class RunBudget:
+    """One run's own cap, for work done in parallel. Each piece reserves its estimated cost before it starts and settles
+    to the real cost after, so parallel workers stop before the cap instead of several pieces past it. The estimate
+    rises to the real average once pieces have finished, so a low first guess cannot carry the run over."""
+
+    def __init__(self, cap: float, estimate: float):
+        self.cap, self.estimate = cap, estimate
+        self.settled = 0.0
+        self._reserved, self._done = 0.0, 0
+        self._lock = threading.Lock()
+
+    def reserve(self) -> float | None:
+        """The amount held for one more piece, or None when it would go over the cap."""
+        with self._lock:
+            est = max(self.estimate, self.settled / self._done if self._done else 0.0)
+            if self.settled + self._reserved + est > self.cap:
+                return None
+            self._reserved += est
+            return est
+
+    def settle(self, reserved: float, actual: float | None) -> None:
+        """Releases a reservation; `actual` is what the piece cost, or None if it failed before costing anything."""
+        with self._lock:
+            self._reserved -= reserved
+            if actual is not None:
+                self.settled += actual
+                self._done += 1

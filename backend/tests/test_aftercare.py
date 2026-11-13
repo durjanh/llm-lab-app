@@ -140,16 +140,22 @@ def reply(model: str, *blocks: dict, stop: str = "end_turn") -> Message:
 
 
 class ScriptedClient(FakeClient):
-    """Answers each Messages API request with the next scripted reply."""
+    """Answers each Messages API request with the next scripted reply. An entry is a list of blocks (the stop reason
+    follows from them), a (blocks, stop_reason) pair for a refusal or a cut-off reply, or an exception to raise, for an
+    API error part-way through."""
 
-    def __init__(self, script: list[list[dict]]) -> None:
+    def __init__(self, script: list[Any]) -> None:
         super().__init__()
         self.script = script
 
         def create(**params: Any) -> Message:
             self.calls.append(("messages.create", params))
-            blocks = self.script.pop(0)
-            return reply(params["model"], *blocks, stop="tool_use" if any(b["type"] == "tool_use" for b in blocks) else "end_turn")
+            entry = self.script.pop(0)
+            if isinstance(entry, BaseException):
+                raise entry
+            blocks, stop = entry if isinstance(entry, tuple) else (entry, None)
+            stop = stop or ("tool_use" if any(b["type"] == "tool_use" for b in blocks) else "end_turn")
+            return reply(params["model"], *blocks, stop=stop)
 
         self.messages.create = create  # type: ignore[method-assign]
 

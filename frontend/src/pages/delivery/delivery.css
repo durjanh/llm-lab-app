@@ -124,3 +124,42 @@
     overflow-x: auto;
   }
 }
+
+/* The ROI calculator */
+.page-delivery .dl-calc {
+  max-width: 900px;
+}
+.page-delivery .dl-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 10px 14px;
+}
+.page-delivery .dl-calc-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 14px;
+}
+.page-delivery .dl-calc-grid input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.page-delivery .dl-calc-out {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 10px;
+  margin: 16px 0 8px;
+}
+.page-delivery .dl-calc-out > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line2);
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.page-delivery .dl-calc-out b {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}

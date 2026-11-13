@@ -4,14 +4,17 @@
 # undo an edit.
 set -uo pipefail
 
-file=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input", {}).get("file_path", ""))' 2>/dev/null)
-root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+input=$(cat)
+case "$input" in *'/frontend/src/'*) ;; *) exit 0 ;; esac  # most edits are elsewhere: no process started for them
 
+root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+file=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')
 case "$file" in
   "$root"/frontend/src/*.ts | "$root"/frontend/src/*.tsx | "$root"/frontend/src/*.css) ;;
   *) exit 0 ;;
 esac
-[ -f "$file" ] || exit 0
+prettier="$root/frontend/node_modules/.bin/prettier"  # direct, not npx: about 50 ms instead of 270 ms an edit
+[ -f "$file" ] && [ -x "$prettier" ] || exit 0
 
-cd "$root/frontend" && npx --no-install prettier --write "$file" >/dev/null 2>&1
+cd "$root/frontend" && "$prettier" --write "$file" >/dev/null 2>&1
 exit 0

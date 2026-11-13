@@ -46,8 +46,7 @@ TASKS = {
                   "$689 back.",
     "human": "I want to talk to a real person please.",
 }
-LIMIT_RULE = ("You may refund up to $500 on a delivered order. Above that, call escalate_to_human with the issue, the "
-              "amount and a recommended action. ")
+LIMIT_RULE = "You may refund up to $500 on a delivered order. Above that, call escalate_to_human. "
 SYSTEM = (
     "You are the customer support agent for Larkfield Home Goods, an invented online shop. Verify the customer with "
     "get_customer before you look up an order or refund anything. {limit}When you escalate, give the issue, the amount "

@@ -25,3 +25,22 @@
 .page-claude-code .facts-note{font-size:12.5px;color:var(--muted);margin-top:4px}
 .page-claude-code h2 .tag{font-size:12px;font-weight:600;color:var(--muted);margin-left:6px}
 .page-claude-code pre.code.wrap{white-space:pre-wrap;word-break:break-word}
+
+/* The full hook lifecycle chart (shared drawing in hook-lifecycle.css) */
+.page-claude-code .hl-wrap{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:18px;align-items:start;margin:12px 0}
+.page-claude-code .hl-chart{overflow-x:auto}
+.page-claude-code .hl-chart .hl-svg{min-width:460px}
+.page-claude-code .hl-panel{position:sticky;top:70px}
+.page-claude-code .hl-panel h4{margin:10px 0 4px;font-size:16px}
+.page-claude-code .hl-lenses{display:flex;flex-wrap:wrap;gap:8px}
+.page-claude-code .hl-list{padding-left:18px;margin:6px 0}
+.page-claude-code .hl-list li{margin:3px 0}
+.page-claude-code .linklike{background:none;border:0;padding:0;cursor:pointer;color:var(--brand);font:inherit}
+.page-claude-code .linklike:hover{text-decoration:underline}
+.page-claude-code .hl-hint{margin:10px 0 0}
+.page-claude-code .hl-all{margin:12px 0}
+.page-claude-code .hl-all summary{cursor:pointer;font-weight:600}
+@media (max-width:860px){
+  .page-claude-code .hl-wrap{grid-template-columns:minmax(0,1fr)}
+  .page-claude-code .hl-panel{position:static}
+}
