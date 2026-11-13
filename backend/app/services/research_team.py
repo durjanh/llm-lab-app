@@ -1031,6 +1031,8 @@ class ResearchTeamService:
                  streamer: RunStreamer | None = None, parallel: bool = True) -> None:
         self.claude, self.spend, self.streamer, self.parallel = claude, spend, streamer, parallel
         self.root = Path(generated_dir) / "research-team"
+        self._active: set[str] = set()  # runs being worked on now, so one cannot be resumed twice at once
+        self._active_lock = threading.Lock()
 
     def info(self) -> dict[str, Any]:
         return {"questions": QUESTIONS, "agents": agent_definitions(),
@@ -1061,7 +1063,17 @@ class ResearchTeamService:
             raise ApiError(503, "not_configured", "Streaming is not set up on this server.")
         model = model or DEFAULT_MODEL
         if resume_id:
-            manifest = Manifest.load(self.root, resume_id)
+            with self._active_lock:  # checked before the manifest on disk is touched
+                if resume_id in self._active:
+                    raise ApiError(409, "running", "That run is still going. Wait for it to finish or crash first.")
+                self._active.add(resume_id)
+            try:
+                manifest = Manifest.load(self.root, resume_id)
+            except Exception:
+                with self._active_lock:
+                    self._active.discard(resume_id)
+                raise
+            model = manifest.data.get("model") or model  # a run keeps the model it started with
             steps = manifest.data["steps"]
             manifest.data["interrupted"] = [s for s in steps if s["status"] != "done"]  # to be done again
             manifest.data["steps"] = [s for s in steps if s["status"] == "done"]
@@ -1069,6 +1081,9 @@ class ResearchTeamService:
             manifest.save()
         else:
             manifest = Manifest.create(self.root, uuid.uuid4().hex[:12], question.strip(), model)
+            with self._active_lock:
+                self._active.add(manifest.data["run_id"])
+        run_id = manifest.data["run_id"]
         run, budget = Run(), Budget(budget_usd)
         team = TeamRun(self, run, model, budget, manifest, stop_after)
         started = time.perf_counter()
@@ -1095,8 +1110,10 @@ class ResearchTeamService:
             manifest.data["final"] = team.final
             manifest.save()
             run.publish({"type": "manifest", **manifest.view()})
+            with self._active_lock:
+                self._active.discard(run_id)
             run.publish({"type": "done", "status": status, "final": team.final, "spent_usd": round(budget.spent, 6),
                          "model_calls": team.calls, "seconds": round(time.perf_counter() - started, 2),
-                         "run_id": manifest.data["run_id"]})
+                         "run_id": manifest.data["run_id"], "model": model})
 
         return self.streamer.lines(run, work)

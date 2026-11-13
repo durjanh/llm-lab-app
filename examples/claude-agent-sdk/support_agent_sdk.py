@@ -8,6 +8,8 @@ The lab's service writes the agent loop by hand. Here the SDK runs it, and what 
   tools / allowed  tools=[] turns off every built-in tool (no Bash, no files), and allowed_tools names only the four
                    support tools: least privilege. can_use_tool refuses anything else.
   PreToolUse       denies process_refund above $500 with a reason that says to escalate. The model can ask, the hook decides.
+                   In the big_refund task the prompt and the tool description do not mention the limit at all, so the
+                   model tries the refund and only the hook stops it: instructions guide, hooks guarantee.
   PostToolUse      normalises dates before the model sees them: Unix timestamps and "03/11/2026" become ISO 8601.
   max_turns        the loop's safety stop. The run ends when Claude Code reaches end_turn.
 
@@ -25,6 +27,7 @@ import re
 import shutil
 import sys
 import tempfile
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -43,11 +46,13 @@ TASKS = {
                   "$689 back.",
     "human": "I want to talk to a real person please.",
 }
+LIMIT_RULE = ("You may refund up to $500 on a delivered order. Above that, call escalate_to_human with the issue, the "
+              "amount and a recommended action. ")
 SYSTEM = (
     "You are the customer support agent for Larkfield Home Goods, an invented online shop. Verify the customer with "
-    "get_customer before you look up an order or refund anything. You may refund up to $500 on a delivered order. "
-    "Above that, call escalate_to_human with the issue, the amount and a recommended action, because the person who "
-    "picks it up cannot see this conversation. If the customer asks for a person, escalate at once. A tool error has an "
+    "get_customer before you look up an order or refund anything. {limit}When you escalate, give the issue, the amount "
+    "and a recommended action, because the person who picks it up cannot see this conversation. If the customer asks "
+    "for a person, escalate at once. If a tool refuses, follow what its message says. A tool error has an "
     "errorCategory: retry a transient one once, explain a business one, and do not retry a permission one."
 )
 
@@ -55,10 +60,13 @@ SYSTEM = (
 CUSTOMERS = {"mira.okafor@example.com": {"customer_id": "C-101", "name": "Mira Okafor"},
              "tom.bellweather@example.com": {"customer_id": "C-102", "name": "Tom Bellweather"}}
 ORDERS = {"LF-2001": {"order_id": "LF-2001", "customer_id": "C-101", "status": 4, "total_usd": 64.5,
+                      "items": [{"name": "Ceramic planter set", "price_usd": 64.5}],
                       "placed_at": 1793183520, "delivered_on": "03/11/2026"},  # Unix seconds, and day/month/year
           "LF-2002": {"order_id": "LF-2002", "customer_id": "C-101", "status": 3, "total_usd": 67.0,
+                      "items": [{"name": "Brass desk lamp", "price_usd": 67.0}],
                       "placed_at": 1794240000, "delivered_on": None},
           "LF-2003": {"order_id": "LF-2003", "customer_id": "C-102", "status": 4, "total_usd": 689.0,
+                      "items": [{"name": "Oak dining bench", "price_usd": 689.0}],
                       "placed_at": "2026-10-29T09:00:00Z", "delivered_on": "2026-11-05T13:10:00Z"}}
 STATUS = {1: "placed", 2: "packed", 3: "shipped", 4: "delivered", 5: "cancelled", 6: "returned"}
 
@@ -73,7 +81,7 @@ def failure(category: str, retryable: bool, message: str, **extra: Any) -> dict[
     return reply({"isError": True, "errorCategory": category, "isRetryable": retryable, "message": message, **extra}, True)
 
 
-def make_tools(state: dict[str, Any]):
+def make_tools(state: dict[str, Any], limit_in_description: bool = True):
     """The four support tools. `state` holds the verified customer for this conversation."""
     @tool("get_customer", "Find and verify the customer by email. Call this first, before any order look-up or refund. "
           "Returns the customer_id, or no_match.", {"type": "object", "properties": {"email": {"type": "string"}},
@@ -85,8 +93,8 @@ def make_tools(state: dict[str, Any]):
         state["verified"] = found["customer_id"]
         return reply({"status": "verified", **found})
 
-    @tool("lookup_order", "Get one order by order_id (like LF-2001) for the verified customer: status, total in "
-          "dollars, dates. Cannot change anything.", {"type": "object", "properties": {"order_id": {"type": "string"}},
+    @tool("lookup_order", "Get one order by order_id (like LF-2001) for the verified customer: status, items with "
+          "prices, total in dollars, dates. Cannot change anything.", {"type": "object", "properties": {"order_id": {"type": "string"}},
                                                       "required": ["order_id"]})
     async def lookup_order(args: dict[str, Any]) -> dict[str, Any]:
         if not state.get("verified"):
@@ -96,8 +104,8 @@ def make_tools(state: dict[str, Any]):
             return failure("validation", False, "No order with that id was found on this account.")
         return reply(order)
 
-    @tool("process_refund", "Refund an amount in dollars on a delivered order of the verified customer. Up to $500 only: "
-          "use escalate_to_human above that.",
+    @tool("process_refund", "Refund an amount in dollars on a delivered order of the verified customer."
+          + (" Up to $500 only: use escalate_to_human above that." if limit_in_description else ""),
           {"type": "object", "properties": {"order_id": {"type": "string"}, "amount_usd": {"type": "number"},
                                             "reason": {"type": "string"}}, "required": ["order_id", "amount_usd", "reason"]})
     async def process_refund(args: dict[str, Any]) -> dict[str, Any]:
@@ -204,16 +212,20 @@ async def main() -> None:
     args = parser.parse_args()
 
     state: dict[str, Any] = {}
+    # big_refund leaves the limit out of the instructions, so nothing but the PreToolUse hook enforces it.
+    limit_told = args.task != "big_refund" or bool(args.prompt)
+    if not limit_told:
+        print("The prompt and the tool description do not mention the $500 limit; only the hook enforces it.\n")
     work = Path(tempfile.mkdtemp(prefix="support-agent-sdk-"))  # an empty folder: the agent has no files to reach
     config = Path(tempfile.mkdtemp(prefix="claude-config-"))  # keeps your own ~/.claude out of the run
     options = ClaudeAgentOptions(
         cwd=str(work),
         model=args.model,
-        system_prompt=SYSTEM,
+        system_prompt=SYSTEM.format(limit=LIMIT_RULE if limit_told else ""),
         tools=[],  # no built-in tools at all
         allowed_tools=ALLOW,
         can_use_tool=only_support_tools,
-        mcp_servers={"support": create_sdk_mcp_server("support", tools=make_tools(state))},
+        mcp_servers={"support": create_sdk_mcp_server("support", tools=make_tools(state, limit_told))},
         hooks={"PreToolUse": [HookMatcher(matcher="mcp__support__process_refund", hooks=[limit_refunds])],
                "PostToolUse": [HookMatcher(matcher="mcp__support__.*", hooks=[normalise_dates])]},
         setting_sources=[],
@@ -221,6 +233,9 @@ async def main() -> None:
         max_budget_usd=args.budget,
         env={"ANTHROPIC_API_KEY": api_key(), "CLAUDE_CONFIG_DIR": str(config)},
     )
+    # allowed_tools approves the four support tools before can_use_tool is asked, and the SDK warns about that. Here it is
+    # intended: the callback exists only to refuse anything outside those four.
+    warnings.filterwarnings("ignore", message="can_use_tool will not be invoked")
     prompt = args.prompt or TASKS[args.task]
     print(f"Customer: {prompt}\n")
     names: dict[str, str] = {}

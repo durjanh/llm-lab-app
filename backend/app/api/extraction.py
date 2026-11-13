@@ -59,6 +59,11 @@ class EstimateBody(ClaudeChoice):
     few_shot: bool = False
     doc_ids: list[str] | None = Field(default=None, max_length=24)
 
+    @field_validator("doc_ids")
+    @classmethod
+    def known_docs(cls, value: list[str] | None) -> list[str] | None:
+        return RunBody.known_docs(value)
+
 
 class BatchSubmit(ClaudeChoice):
     doc_ids: list[str] | None = Field(default=None, max_length=24)
@@ -133,7 +138,7 @@ def batch_submit(body: BatchSubmit, service: ExtractionService = Depends(extract
     return service.batch_submit(body.model, body.doc_ids, body.max_tokens)
 
 
-@router.get("/extraction/batch/{batch_id}", dependencies=[Depends(require_budget)])
+@router.get("/extraction/batch/{batch_id}")  # no budget check: collecting a batch already paid for must still work
 def batch_poll(batch_id: str, service: ExtractionService = Depends(extraction)) -> dict[str, Any]:
     """The batch's status; once it has ended, the results matched by custom_id and scored."""
     _check(batch_id)

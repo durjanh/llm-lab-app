@@ -511,7 +511,7 @@ def resubmit_plan(outcomes: dict[str, dict[str, Any]]) -> dict[str, list[dict[st
     again: list[dict[str, str]] = []
     held: list[dict[str, str]] = []
     for doc_id, o in outcomes.items():
-        if o["status"] == "ok":
+        if o["status"] in ("ok", "resubmitted"):  # resubmitted: already in flight in a later batch
             continue
         row = {"doc_id": doc_id, "reason": o["reason"], "detail": o.get("detail", "")}
         if o["reason"] in ("invalid_request_error", "refusal"):

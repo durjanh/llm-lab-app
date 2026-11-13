@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(pytest backend*)",
+      "Bash(python -m pytest backend*)",
+      "Bash(cd frontend && npm run typecheck)",
+      "Bash(cd frontend && npm run build)",
+      "Bash(cd frontend && npm run format)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run build)",
+      "Bash(npm run format)",
+      "Bash(npx prettier *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(azd *)",
+      "Bash(./infra/pipeline.sh*)",
+      "Bash(./examples/coding-sandbox/setup*)",
+      "Bash(./examples/coding-sandbox/teardown*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Bash(rm -rf *)",
+      "Edit(./python/coding_project/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-frontend.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

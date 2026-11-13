@@ -31,3 +31,6 @@ generated/
 
 # azd environments (values for this machine)
 .azure/
+
+# Claude Code: personal settings for this project, never shared
+.claude/settings.local.json

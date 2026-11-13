@@ -1,6 +1,6 @@
 # Results
 
-Run on 2026-11-13 with `run_all.py` (task 4 with `--auto-approve`).
+Run with `run_all.py` (task 4 with `--auto-approve`): the first nine SDKs on 2026-10-30, `strands` and `pydantic-ai` on 2026-11-13. `run_all.py` now replaces only the rows it ran, so earlier results are kept.
 
 | SDK | 01_structured | 02_tools | 03_mcp | 04_agent | 05_multi_agent |
 |---|---|---|---|---|---|

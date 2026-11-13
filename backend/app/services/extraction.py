@@ -28,6 +28,7 @@ FIRST_PASS_TOKENS = 700  # small on purpose: the 30-line order does not fit, so 
 FULL_TOKENS = 1500
 WORKERS = 4
 KEPT_RUNS = 16
+KEPT_GROUPS = 16  # batch groups kept in memory; the oldest (and its batches) go first
 MAX_RETRIES = 2
 LOOSE_SYSTEM = "You help the accounts team with documents that arrive in the post room."
 TOOL_CHOICE_FORCED = {"type": "tool", "name": "extract_metadata"}
@@ -63,7 +64,7 @@ class ExtractionService:
         self.claude, self.spend, self.streamer = claude, spend, streamer
         self._runs: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._batches: dict[str, dict[str, Any]] = {}
-        self._groups: dict[str, dict[str, Any]] = {}
+        self._groups: OrderedDict[str, dict[str, Any]] = OrderedDict()
         self._lock = threading.Lock()
 
     # ----- the plumbing -----
@@ -115,7 +116,7 @@ class ExtractionService:
                 "prices": {m: p for m, p in PRICES.items() if m.startswith("claude-")}}
 
     def estimate(self, model: str, few_shot: bool, doc_ids: list[str] | None) -> dict[str, Any]:
-        docs = [BY_ID[i] for i in doc_ids] if doc_ids else DOCUMENTS
+        docs = [self._doc(i) for i in doc_ids] if doc_ids else DOCUMENTS
         price = PRICES[model]
         prompt_tokens = (len(system_prompt(few_shot)) + sum(len(d["text"]) for d in docs) / max(len(docs), 1)
                          + len(str(TOOLS["extract_document"]))) / 3.5
@@ -231,10 +232,15 @@ class ExtractionService:
         model, few_shot, cap = body["model"], bool(body["few_shot"]), body["budget_usd"]
         run = Run()
 
+        # Workers start documents before earlier ones are counted, so each document reserves an estimated cost
+        # before it starts and settles to the real one after: the run stops before the cap, not several documents past.
+        per_doc = self.estimate(model, few_shot, [d["id"] for d in docs])["approx_cost_usd"] / max(len(docs), 1)
+
         def work() -> None:
             started, spent, results = time.perf_counter(), 0.0, []
             stop = {"why": None}
             lock = threading.Lock()
+            budget = {"settled": 0.0, "reserved": 0.0, "done": 0}
             run.publish({"type": "start", "total": len(docs), "model": model, "few_shot": few_shot})
 
             def one(doc: dict[str, Any]) -> dict[str, Any] | None:
@@ -247,10 +253,21 @@ class ExtractionService:
                     if self.spend.over_budget:
                         stop["why"] = "Stopped: the server's budget is spent."
                         return None
-                    if spent >= cap:
+                    # the estimate, or what documents have really cost so far if that is more
+                    est = max(per_doc, budget["settled"] / budget["done"] if budget["done"] else 0.0)
+                    if budget["settled"] + budget["reserved"] + est > cap:
                         stop["why"] = f"Stopped at the run's ${cap:.2f} cap."
                         return None
-                return self._extract(doc, model, few_shot)
+                    budget["reserved"] += est
+                try:
+                    result = self._extract(doc, model, few_shot)
+                finally:
+                    with lock:
+                        budget["reserved"] -= est
+                with lock:
+                    budget["settled"] += result["cost_usd"]
+                    budget["done"] += 1
+                return result
 
             with ThreadPoolExecutor(WORKERS) as pool:
                 for r in pool.map(one, docs):
@@ -309,18 +326,36 @@ class ExtractionService:
         group = uuid.uuid4().hex[:12]
         with self._lock:
             self._groups[group] = {"model": model, "docs": [d["id"] for d in docs], "outcomes": {}, "chunks": {},
-                                   "expected_chunks": {}, "batches": [made["id"]], "cost_usd": 0.0, "standard_usd": 0.0}
-            self._batches[made["id"]] = {"group": group, "model": model, "custom_ids": [r["custom_id"] for r in requests],
-                                         "max_tokens": max_tokens, "settled": None, "round": 1,
-                                         "submitted": time.strftime("%H:%M:%S")}
+                                   "expected_chunks": {}, "batches": [made["id"]], "cost_usd": 0.0, "standard_usd": 0.0,
+                                   "resubmit_lock": threading.Lock()}
+            self._batches[made["id"]] = self._new_state(group, model, [r["custom_id"] for r in requests], max_tokens, 1)
+            while len(self._groups) > KEPT_GROUPS:  # forget the oldest group and every batch in it
+                _, old = self._groups.popitem(last=False)
+                for b in old["batches"]:
+                    self._batches.pop(b, None)
         return {"batch_id": made["id"], "group_id": group, "requests": len(requests), "expires_at": made["expires_at"],
                 "first_request": requests[0], "max_tokens": max_tokens}
 
-    def _settle(self, batch_id: str, state: dict[str, Any]) -> dict[str, Any]:
-        """Collects an ended batch once: match on custom_id, charge half price, fold the outcomes into its group."""
+    @staticmethod
+    def _new_state(group: str, model: str, custom_ids: list[str], max_tokens: int, round_no: int) -> dict[str, Any]:
+        return {"group": group, "model": model, "custom_ids": custom_ids, "max_tokens": max_tokens, "settled": None,
+                "round": round_no, "submitted": time.strftime("%H:%M:%S"), "resubmitted": None,
+                "settle_lock": threading.Lock()}
+
+    def _state(self, batch_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         with self._lock:
-            if state["settled"] is not None:
-                return state["settled"]
+            state = self._batches.get(batch_id)
+            return state, (self._groups.get(state["group"]) if state else None)
+
+    def _settle(self, batch_id: str, state: dict[str, Any]) -> dict[str, Any]:
+        """Collects an ended batch once: match on custom_id, charge half price, fold the outcomes into its group. The
+        batch's own lock is held throughout, so two polls at the same moment cannot both collect and charge it."""
+        with state["settle_lock"]:
+            if state["settled"] is None:
+                self._collect(batch_id, state)
+            return state["settled"]
+
+    def _collect(self, batch_id: str, state: dict[str, Any]) -> None:
         try:
             results = self.claude.batch_results(batch_id)
         except Exception as exc:
@@ -328,8 +363,11 @@ class ExtractionService:
         outcomes = match_results(results, state["custom_ids"])
         standard = sum(cost_usd(o["usage"], state["model"]) or 0 for o in outcomes.values() if o["status"] == "ok")
         charged = self.spend.charge_usd(standard * BATCH_DISCOUNT, "batch extraction") if standard else 0.0
-        group = self._groups[state["group"]]
         with self._lock:
+            group = self._groups.get(state["group"])
+            if group is None:  # forgotten while this batch was being collected
+                state["settled"] = {"outcomes": outcomes, "cost_usd": round(charged, 6), "standard_usd": round(standard, 6)}
+                return
             group["cost_usd"] += charged
             group["standard_usd"] += standard
             for cid, o in outcomes.items():
@@ -347,20 +385,23 @@ class ExtractionService:
                     group["outcomes"][doc_id] = {"status": "failed", "reason": "chunk_failed",
                                                  "detail": "One of the chunks failed too."}
             state["settled"] = {"outcomes": outcomes, "cost_usd": round(charged, 6), "standard_usd": round(standard, 6)}
-        return state["settled"]
 
-    def _group_view(self, group_id: str) -> dict[str, Any]:
-        group = self._groups[group_id]
+    def _group_view(self, group_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            group = self._groups.get(group_id)
+            if group is None:
+                return None
+            outcomes = dict(group["outcomes"])
         scored = [self._record(BY_ID[d], o["extraction"], "batch", None, 0.0)
-                  for d, o in group["outcomes"].items() if o["status"] == "ok"]
-        plan = resubmit_plan({d: o for d, o in group["outcomes"].items()})
+                  for d, o in outcomes.items() if o["status"] == "ok"]
+        plan = resubmit_plan(outcomes)
         return {"group_id": group_id, "docs": len(group["docs"]), "ok": len(scored), "failed": len(plan["resubmit"]) + len(plan["held"]),
                 "summary": summarise(scored) if scored else None, "plan": plan, "batches": group["batches"],
                 "cost_usd": round(group["cost_usd"], 6), "standard_usd": round(group["standard_usd"], 6),
                 "results": [{k: r[k] for k in ("doc_id", "type", "issues", "fields")} for r in scored]}
 
     def batch_poll(self, batch_id: str) -> dict[str, Any]:
-        state = self._batches.get(batch_id)
+        state, _ = self._state(batch_id)
         if state is None:
             raise ApiError(404, "not_found", "This server did not submit that batch (or has restarted since).")
         try:
@@ -380,33 +421,45 @@ class ExtractionService:
 
     def batch_resubmit(self, batch_id: str) -> dict[str, Any]:
         """Sends only the failures again: split the oversized ones into chunks, resend the rest as they were."""
-        state = self._batches.get(batch_id)
-        if state is None or state["settled"] is None:
+        state, group = self._state(batch_id)
+        if state is None or group is None or state["settled"] is None:
             raise ApiError(409, "not_ready", "Collect the batch's results before resubmitting.")
-        group = self._groups[state["group"]]
-        plan = resubmit_plan(group["outcomes"])["resubmit"]
-        if not plan:
-            raise ApiError(409, "nothing_to_do", "Nothing failed that is worth sending again.")
-        model, requests = state["model"], []
-        for row in plan:
-            doc = BY_ID[row["doc_id"]]
-            if row["action"] == "chunk":
-                pieces = chunk_document(doc["text"])
-                group["expected_chunks"][doc["id"]] = len(pieces)
-                group["chunks"].pop(doc["id"], None)
-                for i, piece in enumerate(pieces, 1):
-                    note = f"\n\nThis is part {i} of {len(pieces)} of a long document. Extract only what this part shows."
-                    requests.append(self._batch_request(chunk_custom_id(doc["id"], i), piece, model, FULL_TOKENS, note))
-            else:
-                requests.append(self._batch_request(doc["id"], doc["text"], model, FULL_TOKENS))
-        try:
-            made = self.claude.batch_create(requests)
-        except Exception as exc:
-            raise to_api_error(exc) from exc
-        with self._lock:
-            group["batches"].append(made["id"])
-            self._batches[made["id"]] = {"group": state["group"], "model": model, "round": state["round"] + 1,
-                                         "custom_ids": [r["custom_id"] for r in requests], "max_tokens": FULL_TOKENS,
-                                         "settled": None, "submitted": time.strftime("%H:%M:%S")}
-        return {"batch_id": made["id"], "group_id": state["group"], "requests": len(requests), "plan": plan,
-                "custom_ids": [r["custom_id"] for r in requests]}
+        # One resubmission per group at a time, and once per batch: a double click returns the first answer instead
+        # of paying for a second batch of the same documents.
+        with group["resubmit_lock"]:
+            if state["resubmitted"] is not None:
+                return state["resubmitted"]
+            with self._lock:
+                plan = resubmit_plan(group["outcomes"])["resubmit"]
+            if not plan:
+                raise ApiError(409, "nothing_to_do", "Nothing failed that is worth sending again.")
+            model, requests, chunked = state["model"], [], {}
+            for row in plan:
+                doc = BY_ID[row["doc_id"]]
+                if row["action"] == "chunk":
+                    pieces = chunk_document(doc["text"])
+                    chunked[doc["id"]] = len(pieces)
+                    for i, piece in enumerate(pieces, 1):
+                        note = (f"\n\nThis is part {i} of {len(pieces)} of a long document. Extract only what this "
+                                "part shows.")
+                        requests.append(self._batch_request(chunk_custom_id(doc["id"], i), piece, model, FULL_TOKENS,
+                                                            note))
+                else:
+                    requests.append(self._batch_request(doc["id"], doc["text"], model, FULL_TOKENS))
+            try:
+                made = self.claude.batch_create(requests)
+            except Exception as exc:
+                raise to_api_error(exc) from exc
+            ids = [r["custom_id"] for r in requests]
+            with self._lock:
+                for doc_id, n in chunked.items():
+                    group["expected_chunks"][doc_id] = n
+                    group["chunks"].pop(doc_id, None)
+                for row in plan:  # in flight: not offered for resubmission again until this batch reports
+                    group["outcomes"][row["doc_id"]] = {"status": "resubmitted", "reason": "resubmitted",
+                                                        "detail": f"Sent again in {made['id']}."}
+                group["batches"].append(made["id"])
+                self._batches[made["id"]] = self._new_state(state["group"], model, ids, FULL_TOKENS, state["round"] + 1)
+            state["resubmitted"] = {"batch_id": made["id"], "group_id": state["group"], "requests": len(requests),
+                                    "plan": plan, "custom_ids": ids}
+            return state["resubmitted"]

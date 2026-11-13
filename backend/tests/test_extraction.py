@@ -547,3 +547,111 @@ def test_every_batch_custom_id_is_one_the_batches_api_accepts() -> None:
     ids += [L.chunk_custom_id(i, n) for i in ids for n in (1, 2, 3)]
     assert all(re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", i) for i in ids)
     assert all(L.split_custom_id(L.chunk_custom_id(i, 2)) == (i, 2) for i in ids[:24])
+
+
+# ---------- found by code review: concurrency, retries and limits ----------
+
+class SlowBatchGateway(FakeBatchGateway):
+    """Collecting results takes a moment, so two polls can overlap."""
+
+    def __init__(self, client: Any) -> None:
+        super().__init__(client)
+        self.collected = 0
+
+    def batch_retrieve(self, batch_id: str) -> dict[str, Any]:
+        return {"id": batch_id, "status": "ended", "counts": {"processing": 0, "succeeded": 24, "errored": 0,
+                                                               "canceled": 0, "expired": 0}}
+
+    def batch_results(self, batch_id: str) -> list[dict[str, Any]]:
+        import time
+        self.collected += 1
+        time.sleep(0.2)
+        return super().batch_results(batch_id)
+
+
+def test_two_polls_at_the_same_moment_collect_and_charge_a_batch_once() -> None:
+    import threading
+    gateway = SlowBatchGateway(ScriptedClient([]))
+    spend = SpendTracker(5.0)
+    svc = ExtractionService(gateway, spend)
+    sub = svc.batch_submit(MODEL, None, 700)
+    polls = [threading.Thread(target=svc.batch_poll, args=(sub["batch_id"],)) for _ in range(2)]
+    for t in polls:
+        t.start()
+    for t in polls:
+        t.join()
+    group = svc.batch_poll(sub["batch_id"])["group"]
+    assert gateway.collected == 1
+    assert spend.spent_usd == pytest.approx(group["standard_usd"] * 0.5) == pytest.approx(group["cost_usd"])
+
+
+def test_resubmitting_twice_sends_one_batch_and_the_documents_are_not_offered_again() -> None:
+    import threading
+    gateway = SlowBatchGateway(ScriptedClient([]))
+    svc = ExtractionService(gateway, SpendTracker(5.0))
+    sub = svc.batch_submit(MODEL, None, 700)
+    svc.batch_poll(sub["batch_id"])
+    answers: list[dict[str, Any]] = []
+    clicks = [threading.Thread(target=lambda: answers.append(svc.batch_resubmit(sub["batch_id"]))) for _ in range(2)]
+    for t in clicks:
+        t.start()
+    for t in clicks:
+        t.join()
+    assert len(gateway.created) == 2 and answers[0]["batch_id"] == answers[1]["batch_id"]  # one new batch, not two
+    group = svc._groups[sub["group_id"]]
+    assert {group["outcomes"][d]["status"] for d in ("po-07", "rec-02")} == {"resubmitted"}
+    assert L.resubmit_plan(group["outcomes"])["resubmit"] == []  # in flight: not offered again
+
+
+def test_the_estimate_refuses_documents_that_do_not_exist() -> None:
+    from pydantic import ValidationError
+
+    from backend.app.api.extraction import EstimateBody
+    with pytest.raises(ValidationError):
+        EstimateBody(doc_ids=["inv-99"])
+    assert EstimateBody(doc_ids=["inv-01"]).doc_ids == ["inv-01"]
+    svc, _ = service([])
+    with pytest.raises(ApiError) as caught:
+        svc.estimate(MODEL, False, ["zzz"])
+    assert caught.value.status == 404
+
+
+def test_polling_a_batch_does_not_need_budget_but_submitting_does() -> None:
+    from backend.app.api import extraction as routes
+    from backend.app.api.deps import require_budget
+
+    def guarded(path: str, method: str) -> bool:
+        route = next(r for r in routes.router.routes if r.path == path and method in r.methods)
+        return any(d.call is require_budget for d in route.dependant.dependencies)
+
+    assert not guarded("/extraction/batch/{batch_id}", "GET")
+    assert guarded("/extraction/batch", "POST") and guarded("/extraction/batch/{batch_id}/resubmit", "POST")
+
+
+def test_a_run_stops_before_its_cap_even_with_four_workers_starting_at_once() -> None:
+    import time
+    streamer = RunStreamer(RunRegistry(), 0.2)
+    svc, _ = service([], streamer)
+    svc.estimate = lambda model, few_shot, ids: {"approx_cost_usd": 0.01 * len(ids)}  # type: ignore[method-assign]
+
+    def fake_extract(doc: dict[str, Any], model: str, few_shot: bool) -> dict[str, Any]:
+        time.sleep(0.05)
+        return result(doc["id"], cost_usd=0.01, error=None)
+
+    svc._extract = fake_extract  # type: ignore[method-assign]
+    events = [json.loads(line) for line in svc.run({"model": MODEL, "few_shot": False, "budget_usd": 0.035,
+                                                     "doc_ids": None})]
+    done = events[-1]
+    assert done["type"] == "done" and done["cost_usd"] <= 0.035 + 1e-9 and "cap" in (done["stopped"] or "")
+
+
+def test_batch_groups_are_capped_and_their_batches_forgotten() -> None:
+    from backend.app.services.extraction import KEPT_GROUPS
+    gateway = FakeBatchGateway(ScriptedClient([]))
+    svc = ExtractionService(gateway, SpendTracker(5.0))
+    first = svc.batch_submit(MODEL, ["inv-01"], 700)
+    for _ in range(KEPT_GROUPS):
+        svc.batch_submit(MODEL, ["inv-01"], 700)
+    assert len(svc._groups) == KEPT_GROUPS and first["batch_id"] not in svc._batches
+    with pytest.raises(ApiError):
+        svc.batch_poll(first["batch_id"])

@@ -113,3 +113,37 @@ def test_flat_rows_from_the_model_become_the_pages_rows() -> None:
     assert out["slas"][0] == {"name": "Latency", "target": "p95 under 5 s", "how_measured": ""}
     assert out["evaluation"] == {"metrics": {"accuracy": "a", "latency": "b", "cost": "c", "safety": "d"},
                                  "dataset": "200", "ab_test": "shadow"}
+
+
+def test_an_empty_or_cut_off_first_reply_is_retried_without_an_empty_assistant_turn(tmp_path: Path) -> None:
+    from backend.app.services.delivery import DeliveryService
+    from backend.app.services.spend import SpendTracker
+    from backend.app.gateways.claude import ClaudeGateway
+    from backend.tests.test_aftercare import ScriptedClient, reply, text
+    client = ScriptedClient([[], [text(json.dumps(GOOD))]])
+    scripted = client.messages.create
+
+    def first_cut_off(**params: Any) -> Any:
+        if not client.calls:
+            client.calls.append(("messages.create", params))
+            client.script.pop(0)
+            return reply(params["model"], stop="max_tokens")
+        return scripted(**params)
+
+    client.messages.create = first_cut_off  # type: ignore[method-assign]
+    out = DeliveryService(ClaudeGateway(client), SpendTracker(1.0)).design("A bank wants to triage insurance claims faster.", "claude-haiku-5-5")
+    retry = client.calls[1][1]["messages"]
+    assert retry[1]["role"] == "assistant" and retry[1]["content"]  # named, not ""
+    assert "cut off" in retry[2]["content"] and out["tries"][0]["problems"]
+
+
+def test_a_refusal_gives_a_clear_error(tmp_path: Path) -> None:
+    from backend.app.services.delivery import DeliveryService
+    from backend.app.services.spend import SpendTracker
+    from backend.app.gateways.claude import ClaudeGateway
+    from backend.tests.test_aftercare import ScriptedClient, reply
+    client = ScriptedClient([])
+    client.messages.create = lambda **p: reply(p["model"], stop="refusal")  # type: ignore[method-assign]
+    with pytest.raises(ApiError) as caught:
+        DeliveryService(ClaudeGateway(client), SpendTracker(1.0)).design("A bank wants to triage insurance claims faster.", "claude-haiku-5-5")
+    assert caught.value.kind == "refused"

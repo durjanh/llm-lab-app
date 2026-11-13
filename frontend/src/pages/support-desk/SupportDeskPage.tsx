@@ -146,7 +146,7 @@ export default function SupportDeskPage() {
         setChoiceMessage(i.choice_message);
         const offered = s.models || [];
         setModels(offered);
-        setModel(s.default_model || offered[0] || '');
+        setModel(s.claude_model || s.default_model || offered[0] || ''); // tool_choice and the hooks demo need Claude
       })
       .catch((err) => setError(errorText(err)));
     return () => abort.current?.abort();
