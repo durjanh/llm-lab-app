@@ -72,3 +72,31 @@ class ClaudeGateway:
 
     def delete_file(self, file_id: str) -> None:
         self.client.files.delete(file_id)
+
+    # ----- Message Batches API: half price, asynchronous, results in any order -----
+
+    def batch_create(self, requests: list[dict[str, Any]]) -> dict[str, Any]:
+        """Submits a batch. Each request is {custom_id, params}. Returns the batch id and when it expires."""
+        batch = self.client.messages.batches.create(requests=requests)
+        return {"id": batch.id, "expires_at": str(batch.expires_at)}
+
+    def batch_retrieve(self, batch_id: str) -> dict[str, Any]:
+        """The batch's processing status ("in_progress", "canceling" or "ended") and its request counts."""
+        batch = self.client.messages.batches.retrieve(batch_id)
+        counts = batch.request_counts
+        return {"id": batch.id, "status": batch.processing_status,
+                "counts": {k: getattr(counts, k, 0) for k in ("processing", "succeeded", "errored", "canceled", "expired")}}
+
+    def batch_results(self, batch_id: str) -> list[dict[str, Any]]:
+        """Every result of an ended batch, in the order Anthropic returns them (not the order sent): match on custom_id."""
+        out: list[dict[str, Any]] = []
+        for item in self.client.messages.batches.results(batch_id):
+            outcome = item.result
+            entry: dict[str, Any] = {"custom_id": item.custom_id, "type": outcome.type}
+            if outcome.type == "succeeded":
+                entry["message"] = outcome.message
+            elif outcome.type == "errored":
+                entry["error_type"] = outcome.error.error.type
+                entry["error_message"] = getattr(outcome.error.error, "message", "")
+            out.append(entry)
+        return out

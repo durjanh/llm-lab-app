@@ -161,6 +161,15 @@ def build_server(store: Store | None = None, auth: AuthSettings | None = None, t
         return (f"# {e.client}: {e.name}\n\n{e.summary}\n\nPartner: {e.partner}. {e.start} to {e.end}.\n"
                 f"Budget £{e.budget_gbp:,}, spent £{e.spent_gbp:,}.\n\n## Open risks\n{risks}\n")
 
+    # A catalogue: one resource that lists everything there is, so an agent can see what exists (ids and a line
+    # each) without exploratory search calls, then go straight to get_engagement.
+    @mcp.resource("engagement://catalogue", mime_type="text/markdown")
+    def engagement_catalogue() -> str:
+        """Every engagement, active and closed, with its id and a one-line summary."""
+        rows = "\n".join(f"- {e.id} ({e.status}): {e.client}, {e.name}. {e.summary.split('. ')[0].rstrip('.')}."
+                         for e in store.engagements.values())
+        return f"# Engagements ({len(store.engagements)})\n\nRead one with get_engagement.\n\n{rows}\n"
+
     # A prompt is a reusable starting message the person picks, such as a slash command in Claude Code.
     @mcp.prompt()
     def weekly_update(engagement_id: str) -> str:

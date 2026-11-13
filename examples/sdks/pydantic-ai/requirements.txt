@@ -1,0 +1,7 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+pydantic-ai-slim[anthropic,mcp]==2.68.0
+anthropic==2.8.0
+mcp==2.3.0
+pydantic==2.14.3
+azure-identity==1.27.0   # shared/config imports it; Claude itself uses ANTHROPIC_API_KEY
+fastmcp==4.1.8

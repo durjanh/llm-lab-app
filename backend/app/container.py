@@ -39,6 +39,12 @@ from .gateways.semantic_cache import PgSemanticCache
 from .services.semantic_cache import SemanticCacheService
 from .services.songbird import SongbirdService
 from .services.fitness import FitnessService
+from .services.extraction import ExtractionService
+from .services.support_desk import SupportDeskService
+from .services.research_team import ResearchTeamService
+from .services.review_passes import ReviewPassesService
+from .services.at_work import AtWorkService
+from .services.delivery import DeliveryService
 from .services.graphrag import GraphRagService
 from .gateways.graph_store import PgGraph
 from .services.whiteboard import WhiteboardService
@@ -119,6 +125,12 @@ class Container:
     semantic_cache: SemanticCacheService
     songbird: SongbirdService
     fitness: FitnessService
+    extraction: ExtractionService
+    support_desk: SupportDeskService
+    research_team: ResearchTeamService
+    review_passes: ReviewPassesService
+    at_work: AtWorkService
+    delivery: DeliveryService
     graphrag: GraphRagService
     medassist_phone: MedAssistPhone
     guardrails: GuardrailsService
@@ -221,6 +233,12 @@ class Container:
             semantic_cache=SemanticCacheService(PgSemanticCache(settings.pgvector_url), local_embeddings, claude, spend),
             songbird=SongbirdService(claude, spend),
             fitness=FitnessService(claude, spend),
+            extraction=ExtractionService(claude, spend, streamer),
+            support_desk=SupportDeskService(claude, spend, streamer),
+            research_team=ResearchTeamService(claude, spend, settings.generated_dir, streamer),
+            review_passes=ReviewPassesService(claude, spend),
+            at_work=AtWorkService(claude, spend),
+            delivery=DeliveryService(claude, spend),
             graphrag=GraphRagService(PgVector(settings.pgvector_url), PgGraph(PgVector(settings.pgvector_url)),
                                      local_embeddings, claude, spend, streamer),
             hotel=HotelService(claude, spend, settings.generated_dir / "hotel" / "hotel.db", hotel_notify.from_settings(

@@ -1,0 +1,170 @@
+/* Structured extraction: sections of tables, raw JSON and bars. Colours come from the shared variables. */
+
+.page-extraction section.card {
+  margin-top: 14px;
+  scroll-margin-top: 70px;
+}
+.page-extraction h2 {
+  margin-top: 0;
+}
+.page-extraction h3 {
+  margin: 14px 0 6px;
+  font-size: 15px;
+}
+.page-extraction code {
+  font-size: 0.92em;
+}
+.page-extraction .ex-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 10px 0;
+}
+.page-extraction .ex-bad {
+  color: var(--bad);
+}
+.page-extraction .ex-good {
+  color: var(--good);
+}
+.page-extraction .ex-spent {
+  margin: 4px 0 0;
+}
+.page-extraction .ex-notice {
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--brand);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  margin: 10px 0;
+}
+.page-extraction .ex-notice.flagged {
+  border-left-color: var(--warn);
+}
+.page-extraction .ex-notice.accepted {
+  border-left-color: var(--good);
+}
+.page-extraction .ex-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 10px 0;
+}
+.page-extraction .ex-doc {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 14px;
+  margin-top: 10px;
+}
+.page-extraction .ex-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.page-extraction .ex-grid,
+.page-extraction .ex-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+@media (max-width: 800px) {
+  .page-extraction .ex-doc,
+  .page-extraction .ex-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-extraction .ex-step,
+.page-extraction .ex-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  min-width: 0;
+  margin-top: 10px;
+}
+.page-extraction .ex-grid .ex-step {
+  margin-top: 0;
+}
+.page-extraction .ex-text,
+.page-extraction .ex-json {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-x: auto;
+  max-height: 340px;
+  white-space: pre;
+}
+.page-extraction .ex-click {
+  cursor: pointer;
+}
+.page-extraction .ex-tag {
+  display: inline-block;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--line2);
+}
+.page-extraction .ex-tag.bad {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.page-extraction .ex-tag.good {
+  color: var(--good);
+  border-color: var(--good);
+}
+.page-extraction .ex-tag.warn {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.page-extraction .ex-issues {
+  padding-left: 18px;
+}
+.page-extraction .ex-bar {
+  display: inline-block;
+  width: 70px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  vertical-align: middle;
+  overflow: hidden;
+}
+.page-extraction .ex-bar i {
+  display: block;
+  height: 100%;
+  background: var(--good);
+}
+.page-extraction .ex-bar i.warn {
+  background: var(--warn);
+}
+.page-extraction .ex-bar i.bad {
+  background: var(--bad);
+}
+.page-extraction .ex-big {
+  font-size: 30px;
+  margin: 4px 0;
+}
+.page-extraction .ex-total td {
+  font-weight: 600;
+}
+.page-extraction .ex-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.page-extraction .table-wrap {
+  overflow-x: auto;
+}
+
+/* Long option labels must not push a dropdown past the edge of the screen on a phone. */
+.page-extraction select {
+  max-width: 100%;
+}
+.page-extraction label {
+  max-width: 100%;
+}

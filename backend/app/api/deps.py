@@ -12,6 +12,12 @@ from ..services.vectordb import VectorDbService
 from ..services.semantic_cache import SemanticCacheService
 from ..services.songbird import SongbirdService
 from ..services.fitness import FitnessService
+from ..services.extraction import ExtractionService
+from ..services.support_desk import SupportDeskService
+from ..services.research_team import ResearchTeamService
+from ..services.review_passes import ReviewPassesService
+from ..services.at_work import AtWorkService
+from ..services.delivery import DeliveryService
 from ..services.graphrag import GraphRagService
 from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
@@ -195,6 +201,30 @@ def songbird(c: Container = Depends(container)) -> SongbirdService:
 
 def fitness(c: Container = Depends(container)) -> FitnessService:
     return c.fitness
+
+
+def extraction(c: Container = Depends(container)) -> ExtractionService:
+    return c.extraction
+
+
+def support_desk(c: Container = Depends(container)) -> SupportDeskService:
+    return c.support_desk
+
+
+def research_team(c: Container = Depends(container)) -> ResearchTeamService:
+    return c.research_team
+
+
+def review_passes(c: Container = Depends(container)) -> ReviewPassesService:
+    return c.review_passes
+
+
+def at_work(c: Container = Depends(container)) -> AtWorkService:
+    return c.at_work
+
+
+def delivery(c: Container = Depends(container)) -> DeliveryService:
+    return c.delivery
 
 
 def graphrag(c: Container = Depends(container)) -> GraphRagService:

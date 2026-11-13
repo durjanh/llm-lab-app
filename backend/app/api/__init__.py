@@ -72,3 +72,27 @@ from . import tutor_people  # noqa: E402  (the tutor's people: faces and voices,
 
 router.include_router(tutor_people.router)
 router.include_router(tutor_people.media)  # uploaded avatars, for TalkingHead's loader
+
+from . import delivery  # noqa: E402  (Delivery and governance)
+
+router.include_router(delivery.router)
+
+from . import at_work  # noqa: E402  (Claude at Work)
+
+router.include_router(at_work.router)
+
+from . import review_passes  # noqa: E402  (Code Review Passes)
+
+router.include_router(review_passes.router)
+
+from . import research_team  # noqa: E402  (Research Team)
+
+router.include_router(research_team.router)
+
+from . import support_desk  # noqa: E402  (Support Desk Agent)
+
+router.include_router(support_desk.router)
+
+from . import extraction  # noqa: E402  (Structured Extraction)
+
+router.include_router(extraction.router)

@@ -1,0 +1,180 @@
+/* Support desk agent: the switches, the trace, the section views and the evaluation. */
+
+.page-support-desk .card {
+  margin-top: 14px;
+}
+.page-support-desk h3 {
+  margin: 14px 0 6px;
+  font-size: 15px;
+}
+.page-support-desk section[id] {
+  scroll-margin-top: 70px;
+}
+.page-support-desk .sd-bad {
+  color: var(--bad);
+}
+.page-support-desk .sd-bar {
+  display: grid;
+  gap: 8px;
+}
+.page-support-desk .sd-switches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 4px 16px;
+}
+.page-support-desk .sd-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+.page-support-desk .sd-block {
+  display: block;
+  margin: 8px 0;
+}
+.page-support-desk textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+}
+.page-support-desk .sd-trace {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.page-support-desk .sd-trace li {
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--line2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.page-support-desk .sd-trace li.sd-user {
+  border-left-color: var(--muted);
+}
+.page-support-desk .sd-trace li.sd-model {
+  border-left-color: var(--brand);
+}
+.page-support-desk .sd-trace li.sd-tool {
+  border-left-color: var(--good);
+  background: var(--surface2);
+}
+.page-support-desk .sd-trace li.sd-tool.err {
+  border-left-color: var(--warn);
+}
+.page-support-desk .sd-trace li.sd-tool.danger {
+  border-left-color: var(--bad);
+}
+.page-support-desk .sd-who {
+  display: inline-block;
+  min-width: 92px;
+  margin-right: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.page-support-desk .sd-result {
+  margin-top: 2px;
+}
+.page-support-desk .sd-text {
+  margin: 4px 0;
+  white-space: pre-wrap;
+}
+.page-support-desk .sd-reply {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 8px 0 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.page-support-desk .sd-turn {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.page-support-desk .sd-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  margin-left: 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface2);
+  color: var(--ink2);
+}
+.page-support-desk .sd-pill.good {
+  background: #dcfce7;
+  color: #15803d;
+}
+.page-support-desk .sd-pill.bad {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.page-support-desk .sd-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.page-support-desk .sd-cols.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 10px;
+}
+.page-support-desk .sd-mini {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 10px 8px;
+  overflow-wrap: anywhere;
+}
+.page-support-desk .sd-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 760px) {
+  .page-support-desk .sd-cols,
+  .page-support-desk .sd-cols.three,
+  .page-support-desk .sd-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-support-desk .sd-json,
+.page-support-desk .sd-details pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface2);
+  font-size: 12px;
+  margin: 6px 0;
+}
+.page-support-desk .sd-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.page-support-desk .sd-headline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  align-items: center;
+  margin: 12px 0;
+}
+.page-support-desk .sd-big {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--brand);
+  line-height: 1;
+}
+.page-support-desk .table-wrap {
+  overflow-x: auto;
+}
