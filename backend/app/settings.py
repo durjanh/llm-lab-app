@@ -80,6 +80,33 @@ class Settings:
     azure_media_resource_id: str = ""
     azure_personal_voice_resource_id: str = ""
     azure_personal_voice_region: str = "swedencentral"
+    # The model failover lab's own history store: see services/conversation_store.py. Empty: files in generated/.
+    model_failover_storage_account: str = ""
+    model_failover_blob_endpoint: str = ""
+    model_failover_table_endpoint: str = ""
+    model_failover_storage_connection_string: str = field(default="", repr=False)
+    # Compaction defaults (python/settings.py explains them); each conversation may override the first three.
+    model_failover_compact_at: float = 0.7
+    model_failover_compact_max_tokens: int = 60000
+    model_failover_keep_recent: int = 4
+    model_failover_compact_model: str = ""  # an optional override; empty: the catalog's compact_model
+    model_failover_max_tokens: int = 1024
+    model_failover_summary_max_tokens: int = 700
+    model_failover_max_iterations: int = 6
+    model_failover_cooldown_s: float = 30.0
+    model_failover_max_cooldown_s: float = 300.0
+    model_failover_short_retry_s: float = 2.0
+    # Where that lab's model list lives: "file" or "table" (python/settings.py explains them).
+    model_failover_catalog: str = "file"
+    model_failover_catalog_path: str = "config/model-failover.json"
+    model_failover_catalog_ttl_s: float = 30.0
+    # Voice agent defaults (python/settings.py explains them); each conversation may change the first four.
+    voice_agent_end_silence_ms: int = 700
+    voice_agent_eager_threshold: float = 0.6
+    voice_agent_voice: str = "en-GB-SoniaNeural"
+    voice_agent_expressiveness: int = 2
+    voice_agent_local_tts_port: int = 8098
+    voice_agent_max_conversations: int = 20
 
     @classmethod
     def from_env(cls, env: EnvSettings | None = None) -> "Settings":
@@ -123,6 +150,29 @@ class Settings:
             azure_media_resource_id=env.azure_media_resource_id,
             azure_personal_voice_resource_id=env.azure_personal_voice_resource_id,
             azure_personal_voice_region=env.azure_personal_voice_region,
+            model_failover_storage_account=env.model_failover_storage_account,
+            model_failover_blob_endpoint=env.model_failover_blob_endpoint,
+            model_failover_table_endpoint=env.model_failover_table_endpoint,
+            model_failover_storage_connection_string=env.model_failover_storage_connection_string,
+            model_failover_compact_at=env.model_failover_compact_at,
+            model_failover_compact_max_tokens=env.model_failover_compact_max_tokens,
+            model_failover_keep_recent=env.model_failover_keep_recent,
+            model_failover_compact_model=env.model_failover_compact_model,
+            model_failover_max_tokens=env.model_failover_max_tokens,
+            model_failover_summary_max_tokens=env.model_failover_summary_max_tokens,
+            model_failover_max_iterations=env.model_failover_max_iterations,
+            model_failover_cooldown_s=env.model_failover_cooldown_s,
+            model_failover_max_cooldown_s=max(env.model_failover_cooldown_s, env.model_failover_max_cooldown_s),
+            model_failover_short_retry_s=env.model_failover_short_retry_s,
+            model_failover_catalog=env.model_failover_catalog,
+            model_failover_catalog_path=env.model_failover_catalog_path,
+            model_failover_catalog_ttl_s=env.model_failover_catalog_ttl_s,
+            voice_agent_end_silence_ms=env.voice_agent_end_silence_ms,
+            voice_agent_eager_threshold=env.voice_agent_eager_threshold,
+            voice_agent_voice=env.voice_agent_voice,
+            voice_agent_expressiveness=env.voice_agent_expressiveness,
+            voice_agent_local_tts_port=env.voice_agent_local_tts_port,
+            voice_agent_max_conversations=env.voice_agent_max_conversations,
         )
 
     @property

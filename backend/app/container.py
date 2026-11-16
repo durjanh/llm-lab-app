@@ -41,6 +41,12 @@ from .services.songbird import SongbirdService
 from .services.fitness import FitnessService
 from .services.extraction import ExtractionService
 from .services.support_desk import SupportDeskService
+from .services.voice_agent import ConvSettings, VoiceAgentService
+from .gateways.local_tts import LocalTts
+from .services.conversation_store import ConversationStore, store_from_settings
+from .services.model_catalog import ModelCatalog, catalog_env, repository_from_settings
+from .services.model_failover import Compaction, Limits, ModelFailoverService, TicketDesk
+from .services.model_router import ModelRouter
 from .services.research_team import ResearchTeamService
 from .services.review_passes import ReviewPassesService
 from .services.at_work import AtWorkService
@@ -51,7 +57,7 @@ from .services.whiteboard import WhiteboardService
 from .services.token_counter import TokenCounterService
 from .services.medassist_phone import MedAssistPhone
 from .services.transcripts import TranscriptArchive
-from .shared import translator as shared_translator
+from .shared import ROOT, translator as shared_translator
 from .gateways.phone import CallAutomation, PhoneLine
 from .services.casework import CaseworkService
 from .services.coding import CodingService
@@ -127,6 +133,8 @@ class Container:
     fitness: FitnessService
     extraction: ExtractionService
     support_desk: SupportDeskService
+    voice_agent: VoiceAgentService
+    model_failover: ModelFailoverService
     research_team: ResearchTeamService
     review_passes: ReviewPassesService
     at_work: AtWorkService
@@ -151,13 +159,16 @@ class Container:
               search: AzureSearch | None = None, foundry: AgentConversations | None = None,
               language: TextAnalyzer | None = None, agents: FrameworkAgents | None = None,
               tools: FoundryTools | None = None, phone: PhoneLine | None = None,
-              workflows: WorkflowRunner | None = None) -> "Container":
+              workflows: WorkflowRunner | None = None,
+              history: ConversationStore | None = None) -> "Container":
         # Every model call is timed by the client wrapper and written to the call log when it is charged.
         calls = CallLog(settings.generated_dir / "observability" / "calls.jsonl")
         claude = ClaudeGateway(TimedClient(client, calls))
         spend = SpendTracker(settings.budget_usd, calls)
         local_embeddings = LocalEmbeddings(settings.local_embed_model, settings.local_openai_url)
         registry = RunRegistry()
+        env = catalog_env(settings)
+        failover_models = ModelCatalog(repository_from_settings(settings, env), env)
         streamer = RunStreamer(registry, settings.heartbeat_s)
         skills = SkillsService(claude, spend, streamer, MadeFiles())
         if gpt is None and settings.azure_openai_endpoint and settings.azure_openai_deployments:
@@ -235,6 +246,22 @@ class Container:
             fitness=FitnessService(claude, spend),
             extraction=ExtractionService(claude, spend, streamer),
             support_desk=SupportDeskService(claude, spend, streamer),
+            voice_agent=VoiceAgentService(
+                claude, spend,
+                AzureSpeechRest(settings.azure_language_endpoint, timeout_s=20.0) if settings.azure_language_endpoint else None,
+                LocalTts(ROOT / "examples" / "voice-agent", settings.generated_dir / "voice-agent" / "kokoro",
+                         settings.voice_agent_local_tts_port),
+                ConvSettings(end_silence_ms=settings.voice_agent_end_silence_ms,
+                             eager_threshold=settings.voice_agent_eager_threshold, voice=settings.voice_agent_voice,
+                             expressiveness=settings.voice_agent_expressiveness),
+                settings.voice_agent_max_conversations, heartbeat_s=settings.heartbeat_s),
+            model_failover=ModelFailoverService(
+                claude, spend, streamer, history or store_from_settings(settings),
+                ModelRouter(source=failover_models.source, cooldown_s=settings.model_failover_cooldown_s,
+                            max_cooldown_s=settings.model_failover_max_cooldown_s,
+                            short_retry_s=settings.model_failover_short_retry_s),
+                Compaction.from_settings(settings), TicketDesk(settings.generated_dir / "model-failover" / "tickets.json"),
+                run_budget_usd=settings.run_budget_usd, models=failover_models, limits=Limits.from_settings(settings)),
             research_team=ResearchTeamService(claude, spend, settings.generated_dir, streamer),
             review_passes=ReviewPassesService(claude, spend),
             at_work=AtWorkService(claude, spend),

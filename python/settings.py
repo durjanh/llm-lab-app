@@ -120,6 +120,53 @@ class EnvSettings:
     # voice is limited access: Microsoft must approve the resource first (https://aka.ms/customneural).
     azure_personal_voice_resource_id: str = ""
     azure_personal_voice_region: str = "swedencentral"
+    # The model failover lab keeps every conversation in its own store (backend/app/services/conversation_store.py).
+    # MODEL_FAILOVER_STORAGE_ACCOUNT: an Azure Storage account name (Blob and Table, signed in with your Azure login),
+    # or MODEL_FAILOVER_BLOB_ENDPOINT and MODEL_FAILOVER_TABLE_ENDPOINT for the two addresses. Or, for a local test,
+    # MODEL_FAILOVER_STORAGE_CONNECTION_STRING set to Azurite's published development string (devstoreaccount1, or
+    # UseDevelopmentStorage=true); any other connection string is refused. With none of them, the history is files.
+    model_failover_storage_account: str = ""
+    model_failover_blob_endpoint: str = ""
+    model_failover_table_endpoint: str = ""
+    model_failover_storage_connection_string: str = field(default="", repr=False)
+    # Compaction of a long conversation in that lab. COMPACT_AT: compact once the history reaches this fraction of the
+    # current model's context window (0.2 to 0.95), so a switch to a smaller window triggers it too. COMPACT_MAX_TOKENS:
+    # an absolute ceiling whatever the window (4000 or more); whichever is reached first counts. KEEP_RECENT: how many
+    # of the latest turns stay word for word (1 to 20). COMPACT_MODEL: an optional override of the model that writes the
+    # summary; empty (the default) uses the catalog's compact_model. It goes through the router so it can fail over. A
+    # conversation can override the first three on the page.
+    model_failover_compact_at: float = 0.7
+    model_failover_compact_max_tokens: int = 60000
+    model_failover_keep_recent: int = 4
+    model_failover_compact_model: str = ""
+    # The rest of that lab's limits. MAX_TOKENS: the longest reply a model may write in one call (256 to 8192).
+    # SUMMARY_MAX_TOKENS: the longest summary (200 to 4000). MAX_ITERATIONS: model calls in one turn before it stops, a
+    # safety stop (1 to 20). The router: COOLDOWN_S is how long a failed model is left alone at least (1 to 600 s), and
+    # MAX_COOLDOWN_S the most, however long the server asks for (up to 3600 s). SHORT_RETRY_S: a 429 that asks for this
+    # many seconds or fewer is retried on the same model instead of switching (0 to 30; 0 always switches).
+    model_failover_max_tokens: int = 1024
+    model_failover_summary_max_tokens: int = 700
+    model_failover_max_iterations: int = 6
+    model_failover_cooldown_s: float = 30.0
+    model_failover_max_cooldown_s: float = 300.0
+    model_failover_short_retry_s: float = 2.0
+    # Which models that lab uses, and their order (backend/app/services/model_catalog.py). MODEL_FAILOVER_CATALOG: "file"
+    # (default; config/model-failover.json, or MODEL_FAILOVER_CATALOG_PATH) or "table" (Azure Table Storage, in the same
+    # account as the history, signed in with your Azure login). CATALOG_TTL_S: how long a table read is cached, so a change
+    # made by another instance applies within that time (the file is checked every second).
+    model_failover_catalog: str = "file"
+    model_failover_catalog_path: str = "config/model-failover.json"
+    model_failover_catalog_ttl_s: float = 30.0
+    # The voice agent lab (/voice-agent). END_SILENCE_MS: how long the speaker must be quiet before a finished-sounding
+    # turn ends (a turn that sounds unfinished waits longer). EAGER_THRESHOLD: how finished a sentence must sound (0.3 to
+    # 0.95) before the reply starts speculatively, ahead of the end of the turn. EXPRESSIVENESS: 0 (off) to 3 (strong).
+    # LOCAL_TTS_PORT: where the local open voice (examples/voice-agent/server.py) listens on this machine.
+    voice_agent_end_silence_ms: int = 700
+    voice_agent_eager_threshold: float = 0.6
+    voice_agent_voice: str = "en-GB-SoniaNeural"
+    voice_agent_expressiveness: int = 2
+    voice_agent_local_tts_port: int = 8098
+    voice_agent_max_conversations: int = 20
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
@@ -171,6 +218,35 @@ class EnvSettings:
             azure_media_resource_id=get("AZURE_MEDIA_RESOURCE_ID", ""),
             azure_personal_voice_resource_id=get("AZURE_PERSONAL_VOICE_RESOURCE_ID", "").strip(),
             azure_personal_voice_region=(get("AZURE_PERSONAL_VOICE_REGION") or cls.azure_personal_voice_region).strip().lower(),
+            model_failover_storage_account=get("MODEL_FAILOVER_STORAGE_ACCOUNT", "").strip(),
+            model_failover_blob_endpoint=get("MODEL_FAILOVER_BLOB_ENDPOINT", "").strip().rstrip("/"),
+            model_failover_table_endpoint=get("MODEL_FAILOVER_TABLE_ENDPOINT", "").strip().rstrip("/"),
+            model_failover_storage_connection_string=get("MODEL_FAILOVER_STORAGE_CONNECTION_STRING", "").strip(),
+            model_failover_compact_at=min(0.95, max(0.2, float(get("MODEL_FAILOVER_COMPACT_AT") or cls.model_failover_compact_at))),
+            model_failover_compact_max_tokens=max(4000, int(get("MODEL_FAILOVER_COMPACT_MAX_TOKENS")
+                                                            or cls.model_failover_compact_max_tokens)),
+            model_failover_keep_recent=min(20, max(1, int(get("MODEL_FAILOVER_KEEP_RECENT") or cls.model_failover_keep_recent))),
+            model_failover_compact_model=get("MODEL_FAILOVER_COMPACT_MODEL", "").strip(),
+            model_failover_max_tokens=min(8192, max(256, int(get("MODEL_FAILOVER_MAX_TOKENS") or cls.model_failover_max_tokens))),
+            model_failover_summary_max_tokens=min(4000, max(200, int(get("MODEL_FAILOVER_SUMMARY_MAX_TOKENS")
+                                                                     or cls.model_failover_summary_max_tokens))),
+            model_failover_max_iterations=min(20, max(1, int(get("MODEL_FAILOVER_MAX_ITERATIONS")
+                                                             or cls.model_failover_max_iterations))),
+            model_failover_cooldown_s=min(600.0, max(1.0, float(get("MODEL_FAILOVER_COOLDOWN_S") or cls.model_failover_cooldown_s))),
+            model_failover_max_cooldown_s=min(3600.0, max(1.0, float(get("MODEL_FAILOVER_MAX_COOLDOWN_S")
+                                                                     or cls.model_failover_max_cooldown_s))),
+            model_failover_short_retry_s=min(30.0, max(0.0, float(get("MODEL_FAILOVER_SHORT_RETRY_S")
+                                                                  or cls.model_failover_short_retry_s))),
+            model_failover_catalog="table" if get("MODEL_FAILOVER_CATALOG", "").strip().lower() == "table" else "file",
+            model_failover_catalog_path=(get("MODEL_FAILOVER_CATALOG_PATH") or cls.model_failover_catalog_path).strip(),
+            model_failover_catalog_ttl_s=min(3600.0, max(1.0, float(get("MODEL_FAILOVER_CATALOG_TTL_S")
+                                                                     or cls.model_failover_catalog_ttl_s))),
+            voice_agent_end_silence_ms=min(3000, max(200, int(get("VOICE_AGENT_END_SILENCE_MS") or cls.voice_agent_end_silence_ms))),
+            voice_agent_eager_threshold=min(0.95, max(0.3, float(get("VOICE_AGENT_EAGER_THRESHOLD") or cls.voice_agent_eager_threshold))),
+            voice_agent_voice=(get("VOICE_AGENT_VOICE") or cls.voice_agent_voice).strip(),
+            voice_agent_expressiveness=min(3, max(0, int(get("VOICE_AGENT_EXPRESSIVENESS") or cls.voice_agent_expressiveness))),
+            voice_agent_local_tts_port=int(get("VOICE_AGENT_LOCAL_TTS_PORT") or cls.voice_agent_local_tts_port),
+            voice_agent_max_conversations=min(100, max(1, int(get("VOICE_AGENT_MAX_CONVERSATIONS") or cls.voice_agent_max_conversations))),
         )
 
 

@@ -13,6 +13,9 @@
 .nav-menu .menu.mega{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(170px,1fr);gap:2px 14px;padding:8px;max-width:calc(100vw - 32px);overflow-x:auto}
 .nav-menu .mega-col{display:flex;flex-direction:column;gap:2px}
 .nav-menu .mega-head{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;padding:6px 10px 4px}
+/* The last menu (Certification) sits at the right end of the bar: open it from its right edge, sized to its labels. */
+.site-links .nav-menu:last-of-type .menu{left:auto;right:0}
+.site-links .nav-menu:last-of-type .menu.mega{width:max-content}
 .site-nav .site-links a{color:#e5e7eb;text-decoration:none;padding:4px 8px;border-radius:999px;white-space:nowrap}
 .site-select{display:none;font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:8px;padding:5px 8px}
 @media (max-width:900px){.site-links{display:none}.site-select{display:block;justify-self:start;max-width:100%}}

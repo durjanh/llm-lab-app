@@ -43,7 +43,9 @@ export default function Systolic() {
   }, [playing, done, speed]);
 
   // Running sums after `done` ticks: every k with i + j + k < done has been multiplied in.
-  const acc = A.map((row, i) => B[0].map((_, j) => row.reduce((s, a, k) => (i + j + k < done ? s + a * B[k][j] : s), 0)));
+  const acc = A.map((row, i) =>
+    B[0].map((_, j) => row.reduce((s, a, k) => (i + j + k < done ? s + a * B[k][j] : s), 0)),
+  );
   const now = done - 1; // the tick just completed
   const kAt = (i: number, j: number) => now - i - j;
   const active = (i: number, j: number) => done > 0 && kAt(i, j) >= 0 && kAt(i, j) < N;
@@ -73,19 +75,22 @@ export default function Systolic() {
   }
 
   return (
-    <section className="hw-section">
+    <section id="hw-systolic" className="hw-section">
       <h2>Inside a TPU: the systolic array</h2>
       <p>
-        A TPU multiplies matrices with a grid of tiny multiply-add cells. Numbers are read from memory once, then passed from
-        cell to neighbouring cell on every clock tick, like a heartbeat ("systolic"). Here a 4×4 grid computes C = A × B: rows of
-        A enter from the left, columns of B from the top, each shifted one tick so the right pairs meet. Every cell keeps its own
-        running sum, which ends as one entry of C.
+        A TPU multiplies matrices with a grid of tiny multiply-add cells. Numbers are read from memory once, then passed
+        from cell to neighbouring cell on every clock tick, like a heartbeat ("systolic"). Here a 4×4 grid computes C =
+        A × B: rows of A enter from the left, columns of B from the top, each shifted one tick so the right pairs meet.
+        Every cell keeps its own running sum, which ends as one entry of C.
       </p>
       <div className="hw-controls">
         <button className="btn small" disabled={finished} onClick={() => setDone((d) => Math.min(TICKS, d + 1))}>
           Step
         </button>
-        <button className="btn small primary" onClick={() => (finished ? (setDone(0), setPlaying(true)) : setPlaying((p) => !p))}>
+        <button
+          className="btn small primary"
+          onClick={() => (finished ? (setDone(0), setPlaying(true)) : setPlaying((p) => !p))}
+        >
           {playing ? 'Pause' : finished ? 'Play again' : 'Play'}
         </button>
         <button className="btn small" onClick={() => reset()}>
@@ -96,12 +101,24 @@ export default function Systolic() {
         </button>
         <label>
           Speed
-          <input type="range" min={150} max={1500} step={50} value={1650 - speed} onChange={(e) => setSpeed(1650 - +e.target.value)} />
+          <input
+            type="range"
+            min={150}
+            max={1500}
+            step={50}
+            value={1650 - speed}
+            onChange={(e) => setSpeed(1650 - +e.target.value)}
+          />
         </label>
       </div>
 
       <div className="sy-wrap">
-        <svg className="sy-svg" viewBox="0 0 480 480" role="img" aria-label={`Systolic array after tick ${done} of ${TICKS}`}>
+        <svg
+          className="sy-svg"
+          viewBox="0 0 480 480"
+          role="img"
+          aria-label={`Systolic array after tick ${done} of ${TICKS}`}
+        >
           <text x={GX} y={14} className="sy-label">
             columns of B enter from the top ↓
           </text>
@@ -113,7 +130,12 @@ export default function Systolic() {
             B[0].map((__, j) => (
               <g key={`c${i}${j}`} className={`sy-cell ${active(i, j) ? 'on' : ''} ${finished ? 'done' : ''}`}>
                 <rect x={GX + j * CELL + 2} y={GY + i * CELL + 2} width={CELL - 4} height={CELL - 4} rx={8} />
-                <text x={GX + j * CELL + CELL / 2} y={GY + i * CELL + CELL / 2 + 10} textAnchor="middle" className="sy-acc">
+                <text
+                  x={GX + j * CELL + CELL / 2}
+                  y={GY + i * CELL + CELL / 2 + 10}
+                  textAnchor="middle"
+                  className="sy-acc"
+                >
                   {acc[i][j]}
                 </text>
               </g>
@@ -126,7 +148,13 @@ export default function Systolic() {
               if (c >= N) return null; // passed out of the grid
               const inside = c >= 0;
               return (
-                <g key={`a${i}${k}`} className={`sy-val sy-a ${inside ? 'in' : ''}`} style={{ transform: `translate(${pos(c) + (inside ? 12 : 4)}px, ${GY + i * CELL + (inside ? 22 : 38)}px)` }}>
+                <g
+                  key={`a${i}${k}`}
+                  className={`sy-val sy-a ${inside ? 'in' : ''}`}
+                  style={{
+                    transform: `translate(${pos(c) + (inside ? 12 : 4)}px, ${GY + i * CELL + (inside ? 22 : 38)}px)`,
+                  }}
+                >
                   <text textAnchor="middle">{v}</text>
                 </g>
               );
@@ -139,7 +167,13 @@ export default function Systolic() {
               if (r >= N) return null;
               const inside = r >= 0;
               return (
-                <g key={`b${k}${j}`} className={`sy-val sy-b ${inside ? 'in' : ''}`} style={{ transform: `translate(${GX + j * CELL + (inside ? 50 : 32)}px, ${pos(r) + (inside ? 18 : 18)}px)` }}>
+                <g
+                  key={`b${k}${j}`}
+                  className={`sy-val sy-b ${inside ? 'in' : ''}`}
+                  style={{
+                    transform: `translate(${GX + j * CELL + (inside ? 50 : 32)}px, ${pos(r) + (inside ? 18 : 18)}px)`,
+                  }}
+                >
                   <text textAnchor="middle">{v}</text>
                 </g>
               );
@@ -186,16 +220,18 @@ export default function Systolic() {
       </div>
 
       <p className="small">
-        <b>Why it saves memory traffic.</b> For a 4×4 product the array reads each of the 32 input values once ({2 * N * N}), then
-        reuses every A value across its row and every B value down its column. A multiplier that fetched both operands for each of
-        the 64 multiply-adds would read {2 * N * N * N}. The saving grows with size: a 256×256 grid reads {(2 * 256 * 256).toLocaleString('en-GB')}{' '}
-        values instead of {(2 * 256 * 256 * 256).toLocaleString('en-GB')}, 256 times fewer. Reading memory, not multiplying, is what
-        costs time and energy.
+        <b>Why it saves memory traffic.</b> For a 4×4 product the array reads each of the 32 input values once (
+        {2 * N * N}), then reuses every A value across its row and every B value down its column. A multiplier that
+        fetched both operands for each of the 64 multiply-adds would read {2 * N * N * N}. The saving grows with size: a
+        256×256 grid reads {(2 * 256 * 256).toLocaleString('en-GB')} values instead of{' '}
+        {(2 * 256 * 256 * 256).toLocaleString('en-GB')}, 256 times fewer. Reading memory, not multiplying, is what costs
+        time and energy.
       </p>
       <p className="small muted">
-        A TPU's matrix unit is a large version of this grid (128×128 cells in earlier generations, 256×256 in recent ones), fed by
-        high-bandwidth memory. NVIDIA's tensor cores apply a similar idea at a smaller scale: each multiplies small matrix tiles in
-        one step and reuses values held in registers and shared memory rather than re-reading them.
+        A TPU's matrix unit is a large version of this grid (128×128 cells in earlier generations, 256×256 in recent
+        ones), fed by high-bandwidth memory. NVIDIA's tensor cores apply a similar idea at a smaller scale: each
+        multiplies small matrix tiles in one step and reuses values held in registers and shared memory rather than
+        re-reading them.
       </p>
     </section>
   );

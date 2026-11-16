@@ -1,0 +1,6 @@
+# Qdrant server for the scale test. Local only, no API key, so bind to 127.0.0.1.
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.15.5
+    container_name: stack-vector-dbs-qdrant
+    ports: ["127.0.0.1:18740:6333"]

@@ -1,0 +1,26 @@
+# n8n on 127.0.0.1:18801. The key is passed through from the host's environment at run time; it is never written here.
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.47.7
+    container_name: stack-automation-n8n
+    ports: ["127.0.0.1:18801:5678"]
+    mem_limit: 1g
+    environment:
+      - ANTHROPIC_API_KEY
+      - STACK_CLAUDE_MODEL
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+  crm:
+    image: docker.n8n.io/n8nio/n8n:2.47.7
+    container_name: stack-automation-n8n-crm
+    entrypoint: ["node", "/fake_crm.js"]
+    mem_limit: 128m
+    volumes:
+      - ./fake_crm.js:/fake_crm.js:ro
+volumes:
+  n8n_data:

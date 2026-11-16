@@ -1,0 +1,127 @@
+# The triage workflow as a Kestra flow. Python script tasks run in Kestra's own process runner (no Docker-in-Docker).
+# The key is a Kestra secret: the container gets it as SECRET_ANTHROPIC_API_KEY (base64), never in this file.
+id: triage
+namespace: stack
+description: Classify customer emails with Claude, then escalate, drop or draft a reply.
+
+inputs:
+  - id: emails
+    type: JSON
+    description: The emails as an object keyed by id.
+
+variables:
+  model: claude-haiku-5-5
+  classify_system: >-
+    You triage customer emails. Reply with JSON only, no other text:
+    {"category": "emergency|refund|question|complaint|spam", "urgency": "high|normal|low"}.
+    urgency is high only when someone's health or safety is at risk (for example no heating with a baby).
+    Refunds, ordinary questions and complaints about service are normal or low. Spam is low.
+  reply_system: >-
+    You write short, polite customer replies, three sentences at most, in plain British English.
+    Use only the facts in the email and the FAQ. Do not invent policies.
+    FAQ: Annual leave: you can carry up to 5 unused days into the next year; the rest are lost on 31 March.
+
+tasks:
+  - id: each_email
+    type: io.kestra.plugin.core.flow.Loop
+    values: "{{ inputs.emails | keys }}"
+    concurrencyLimit: 1
+    tasks:
+      - id: classify
+        type: io.kestra.plugin.scripts.python.Script
+        taskRunner:
+          type: io.kestra.plugin.core.runner.Process
+        env:
+          ANTHROPIC_API_KEY: "{{ secret('ANTHROPIC_API_KEY') }}"
+          MODEL: "{{ vars.model }}"
+          SYSTEM: "{{ vars.classify_system }}"
+          EMAIL: "{{ inputs.emails[item.value] | toJson }}"
+        retry:
+          type: constant
+          interval: PT2S
+          maxAttempts: 3
+        script: |
+          import json, os, re, urllib.request
+
+          email = json.loads(os.environ["EMAIL"])
+          text = "From: %s\nSubject: %s\n\n%s" % (email["from"], email["subject"], email["body"])
+          body = json.dumps({"model": os.environ["MODEL"], "max_tokens": 200, "thinking": {"type": "disabled"},
+                             "system": os.environ["SYSTEM"], "messages": [{"role": "user", "content": text}]})
+          req = urllib.request.Request("https://api.anthropic.com/v1/messages", body.encode(), {
+              "x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01",
+              "content-type": "application/json"})
+          reply = json.load(urllib.request.urlopen(req, timeout=60))
+          answer = "".join(b.get("text", "") for b in reply["content"] if b["type"] == "text")
+          found = re.search(r"\{.*?\}", answer, re.S)
+          c = json.loads(found.group(0)) if found else {}
+          category, urgency = str(c.get("category", "")).lower(), str(c.get("urgency", "")).lower()
+          route = "drop" if category == "spam" else "escalate" if urgency == "high" else "reply"
+          print("::" + json.dumps({"outputs": {"category": category, "urgency": urgency, "route": route}}) + "::")
+
+      - id: route
+        type: io.kestra.plugin.core.flow.Switch
+        value: "{{ outputs.classify.vars.route }}"
+        cases:
+          drop:
+            - id: drop
+              type: io.kestra.plugin.core.log.Log
+              message: "Dropping spam {{ item.value }}"
+          escalate:
+            - id: escalate
+              type: io.kestra.plugin.core.log.Log
+              level: WARN
+              message: "ESCALATE to on-call team: {{ inputs.emails[item.value].subject }} ({{ inputs.emails[item.value].from }})"
+          reply:
+            - id: draft
+              type: io.kestra.plugin.scripts.python.Script
+              taskRunner:
+                type: io.kestra.plugin.core.runner.Process
+              env:
+                ANTHROPIC_API_KEY: "{{ secret('ANTHROPIC_API_KEY') }}"
+                MODEL: "{{ vars.model }}"
+                SYSTEM: "{{ vars.reply_system }}"
+                EMAIL: "{{ inputs.emails[item.value] | toJson }}"
+              retry:
+                type: constant
+                interval: PT2S
+                maxAttempts: 3
+              script: |
+                import json, os, urllib.request
+
+                email = json.loads(os.environ["EMAIL"])
+                text = "From: %s\nSubject: %s\n\n%s" % (email["from"], email["subject"], email["body"])
+                body = json.dumps({"model": os.environ["MODEL"], "max_tokens": 150, "thinking": {"type": "disabled"},
+                                   "system": os.environ["SYSTEM"], "messages": [{"role": "user", "content": text}]})
+                req = urllib.request.Request("https://api.anthropic.com/v1/messages", body.encode(), {
+                    "x-api-key": os.environ["ANTHROPIC_API_KEY"], "anthropic-version": "2023-06-01",
+                    "content-type": "application/json"})
+                reply = json.load(urllib.request.urlopen(req, timeout=60))
+                answer = "".join(b.get("text", "") for b in reply["content"] if b["type"] == "text").strip()
+                print("::" + json.dumps({"outputs": {"reply": answer}}) + "::")
+
+      - id: record
+        type: io.kestra.plugin.core.output.OutputValues
+        values:
+          id: "{{ item.value }}"
+          subject: "{{ inputs.emails[item.value].subject }}"
+          category: "{{ outputs.classify.vars.category }}"
+          urgency: "{{ outputs.classify.vars.urgency }}"
+          action: "{{ outputs.classify.vars.route }}"
+          escalation: "{% if outputs.classify.vars.route == 'escalate' %}ESCALATE to on-call team: {{ inputs.emails[item.value].subject }} ({{ inputs.emails[item.value].from }}){% endif %}"
+          reply: "{{ outputs.draft.vars.reply ?? '' }}"
+    outputs:
+      - id: record
+        type: JSON
+        value: "{{ outputs.record.values }}"
+
+  # The CRM service fails its first call, so Kestra retries. It keeps what it receives; run.py reads that back.
+  - id: log_to_crm
+    type: io.kestra.plugin.core.http.Request
+    uri: http://crm:3000/log
+    method: POST
+    contentType: application/json
+    body: "{{ outputs.each_email.outputs | toJson }}"
+    retry:
+      type: constant
+      interval: PT1S
+      maxAttempts: 3

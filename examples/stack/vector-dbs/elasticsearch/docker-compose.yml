@@ -1,0 +1,12 @@
+# Single-node Elasticsearch with security OFF. For this local test only: 127.0.0.1, no password, never expose it.
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.5
+    container_name: stack-vector-dbs-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      ES_JAVA_OPTS: -Xms768m -Xmx768m
+    mem_limit: 1536m
+    ports: ["127.0.0.1:18770:9200"]

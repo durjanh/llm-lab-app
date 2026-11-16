@@ -1,6 +1,6 @@
 # The five tasks
 
-Every SDK folder implements the same five tasks with the same tools, data and prompts (all in `shared/`), so the code can be compared line for line. Each script prints its answer and a `PASS` or `FAIL` line from `shared.checks`.
+Every SDK folder implements the same five tasks with the same tools, data and prompts (all in `shared/`), so the code can be compared line for line. Each script prints its answer and a `PASS` or `FAIL` line from `shared.checks` (`bedrock-agents` prints `SKIP <task>` instead when the machine has no AWS account).
 
 | # | Script | What it shows | Check |
 |---|---|---|---|

@@ -27,11 +27,12 @@ class SpendTracker:
     def remaining_usd(self) -> float:
         return max(0.0, self.budget_usd - self.spent_usd)
 
-    def charge(self, message: Any, model: str) -> float | None:
+    def charge(self, message: Any, model: str, price: dict[str, float] | None = None) -> float | None:
+        """Charges a reply. `price` is the caller's own price for a model that PRICES does not list."""
         # The model that answered, which differs from the one asked when a rate-limited request fell back.
         served = getattr(message, "model", None)
         asked, model = model, served if isinstance(served, str) and served in PRICES else model
-        cost = cost_usd(message.usage, model)
+        cost = cost_usd(message.usage, model, price)
         with self._lock:
             self.calls += 1
             self.spent_usd += cost or 0

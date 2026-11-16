@@ -1,0 +1,28 @@
+{
+  "compact_model": "claude-haiku-5-5",
+  "models": [
+    {
+      "name": "claude-sonnet-5-5",
+      "model": "claude-sonnet-5-5",
+      "provider": "anthropic",
+      "context_window": 200000,
+      "note": "primary",
+      "enabled": true
+    },
+    {
+      "name": "claude-haiku-5-5",
+      "model": "claude-haiku-5-5",
+      "provider": "anthropic",
+      "context_window": 200000,
+      "note": "same family, cheaper",
+      "enabled": true
+    },
+    {
+      "model": "$GPT_DEPLOYMENTS",
+      "provider": "azure-openai",
+      "context_window": 128000,
+      "note": "other provider (every configured GPT deployment)",
+      "enabled": true
+    }
+  ]
+}

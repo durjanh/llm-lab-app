@@ -1,0 +1,7 @@
+langgraph>=1.2,<2                   # the graph, RetryPolicy and BaseCheckpointSaver
+langchain-anthropic>=1.0            # Claude
+langchain-openai>=1.0               # Azure OpenAI (GPT)
+azure-identity~=1.26
+azure-storage-blob~=12.25
+azure-data-tables~=12.7
+pytest>=8,<10

@@ -1,0 +1,9 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+llama-index-core==0.14.26
+llama-index-workflows==2.26.1
+llama-index-llms-azure-openai==0.7.0
+llama-index-tools-mcp==0.7.0
+openai==3.51.0
+mcp==2.3.0
+pydantic==2.14.3
+azure-identity==1.27.0

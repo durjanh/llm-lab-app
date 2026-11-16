@@ -1,23 +1,29 @@
-import { useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { EVENT_BY_NAME, HOOK_EVENTS, eventHtml, lifecycleSvg } from './hookEvents';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { CAN_BLOCK, EVENT_BY_NAME, HOOK_EVENTS, eventHtml, lifecycleSvg } from './hookEvents';
 
 /* The full hook lifecycle as a clickable chart: pick an event to see when it fires and what a hook on it can do, or
-   light up every event that can block. Its own state only, so the page around it never re-renders. */
+   light up every event that can stop or change what happens. Its own state only, so the page around it never
+   re-renders. The drawing is made once; picking only changes classes, so keyboard focus stays on the box. */
 
-const CAN_BLOCK = HOOK_EVENTS.filter((e) => !/^(Cannot|Ignored|The original)/.test(e.exit2)).map((e) => e.name);
+const OBSERVE = HOOK_EVENTS.map((e) => e.name).filter((n) => !CAN_BLOCK.includes(n));
 
 type View = { kind: 'event'; name: string } | { kind: 'block' } | { kind: 'observe' };
 
 export function HookLifecycle() {
   const [view, setView] = useState<View>({ kind: 'event', name: 'PreToolUse' });
-  const lit =
-    view.kind === 'event'
-      ? [view.name]
-      : view.kind === 'block'
-        ? CAN_BLOCK
-        : HOOK_EVENTS.map((e) => e.name).filter((n) => !CAN_BLOCK.includes(n));
+  const chart = useRef<HTMLDivElement>(null);
+  const svg = useMemo(() => lifecycleSvg(), []);
+  const lit = view.kind === 'event' ? [view.name] : view.kind === 'block' ? CAN_BLOCK : OBSERVE;
 
-  // A box can hold two events (PostToolUse / PostToolUseFailure): a second click moves to the second one.
+  useEffect(() => {
+    chart.current?.querySelectorAll<SVGGElement>('.hl-node').forEach((g) => {
+      const on = (g.dataset.ev || '').split(' ').some((e) => lit.includes(e));
+      g.classList.toggle('on', on);
+      g.classList.toggle('dim', !on);
+    });
+  }, [lit]);
+
+  // A box can hold two events (PostToolUse / PostToolUseFailure): a second pick moves to the second one.
   const pick = (target: EventTarget) => {
     const g = (target as Element).closest?.('[data-ev]');
     if (!g) return;
@@ -36,9 +42,10 @@ export function HookLifecycle() {
     <div className="hl-wrap">
       <div className="hl-chart">
         <div
+          ref={chart}
           onClick={(e: MouseEvent) => pick(e.target)}
           onKeyDown={onKey}
-          dangerouslySetInnerHTML={{ __html: lifecycleSvg(lit) }}
+          dangerouslySetInnerHTML={{ __html: svg }}
         />
       </div>
       <div className="hl-panel card">
@@ -49,7 +56,7 @@ export function HookLifecycle() {
             aria-pressed={view.kind === 'block'}
             onClick={() => setView({ kind: 'block' })}
           >
-            Can block ({CAN_BLOCK.length})
+            Can block or change ({CAN_BLOCK.length})
           </button>
           <button
             type="button"
@@ -57,7 +64,7 @@ export function HookLifecycle() {
             aria-pressed={view.kind === 'observe'}
             onClick={() => setView({ kind: 'observe' })}
           >
-            Observe only ({HOOK_EVENTS.length - CAN_BLOCK.length})
+            Observe only ({OBSERVE.length})
           </button>
         </div>
         {view.kind === 'event' ? (
@@ -67,8 +74,8 @@ export function HookLifecycle() {
             <h4>{view.kind === 'block' ? 'Events a hook can stop or change' : 'Events a hook can only observe'}</h4>
             <p className="small muted">
               {view.kind === 'block'
-                ? 'Exit code 2, or a JSON decision, stops or changes what happens next. Pick one for the details.'
-                : 'Exit code 2 does not stop anything here. Use them to log, notify, add context or clean up.'}
+                ? 'Exit code 2 or a JSON decision stops or changes what happens next. Pick one for the details.'
+                : 'These can log, notify or add context, but cannot stop or change what happens.'}
             </p>
             <ul className="hl-list">
               {lit.map((n) => (
@@ -83,7 +90,7 @@ export function HookLifecycle() {
           </div>
         )}
         <p className="small muted hl-hint">
-          Pick any box in the chart. A box with two events shows the second on a second click.
+          Pick any box in the chart. A box with two events shows the second on a second pick.
         </p>
       </div>
     </div>

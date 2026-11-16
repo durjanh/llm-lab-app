@@ -1,0 +1,2 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+ragflow-sdk==0.26.0

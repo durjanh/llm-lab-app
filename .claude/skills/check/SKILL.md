@@ -20,6 +20,8 @@ Run only the checks that cover the changed files above. Run them all from the re
 | `examples/medassist/clinic.py` | `pytest backend` and `dotnet test`, because a .NET test pins the database to Python's |
 | `examples/agent-framework/` | `.venv/bin/python -m pytest examples/agent-framework -q` |
 | `examples/mcp/` | `.venv/bin/python -m pytest examples/mcp -q` |
+| `examples/claude-code/hook-lifecycle/` | `.venv/bin/python -m pytest examples/claude-code/hook-lifecycle -q` |
+| `examples/stack/run_all.py` | `.venv/bin/python -m pytest examples/stack/test_run_all.py -q` (the tool examples themselves run with `run_all.py`, and cost a little) |
 
 Rules:
 

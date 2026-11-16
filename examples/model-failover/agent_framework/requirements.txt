@@ -1,0 +1,8 @@
+agent-framework-core==1.23.0       # Microsoft Agent Framework: BaseChatClient, HistoryProvider, AgentSession
+agent-framework-openai==1.17.0     # the Azure OpenAI chat client (GPT, signed in with DefaultAzureCredential)
+anthropic>=1.9,<3                   # Claude (the example's small chat client for it is text only)
+azure-identity~=1.26
+azure-storage-blob~=12.25
+azure-data-tables~=12.7
+pytest>=8,<10
+pytest-asyncio>=0.24,<2

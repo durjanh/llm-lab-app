@@ -14,6 +14,7 @@ Copyable examples for the Claude Code setup lab (`/claude-code`). They are store
 | `dot-claude/agents/code-reviewer.md` | `.claude/agents/code-reviewer.md` | A read-only reviewer subagent |
 | `dot-claude/settings.json` | `.claude/settings.json` | Hooks: block edits to protected files, format after edits |
 | `dot-claude/hooks/protect-files.sh` | `.claude/hooks/protect-files.sh` | The script behind the blocking hook; run `chmod +x` on it |
+| `hook-lifecycle/` | see its README | Every advanced hook event wired up with a working script, a logger on all 33 events and `trace.py` to show the order they fired in |
 | `my-first-plugin/` | anywhere | A minimal plugin; try it with `claude --plugin-dir ./my-first-plugin` |
 | `ci/claude-review.yml` | `.github/workflows/claude-review.yml` | Reviews every pull request with `claude -p` |
 | `ci/review.sh`, `ci/review-schema.json` | `.github/claude/` | The review: print mode with `--output-format json` and `--json-schema`, findings read from `structured_output`, earlier findings passed in so re-runs report only new or still-open issues, then one pull request comment |

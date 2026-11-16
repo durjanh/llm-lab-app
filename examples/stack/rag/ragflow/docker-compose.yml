@@ -1,0 +1,40 @@
+# RAGFlow reference setup (about 8 GB RAM). The official file is docker/docker-compose.yml in infiniflow/ragflow;
+# this is its shape, cut down to the services RAGFlow needs, bound to 127.0.0.1 and to this area's ports (18100-18199).
+# Start it with: docker compose -f examples/stack/rag/ragflow/docker-compose.yml up -d
+# Stop it with:  docker compose -f examples/stack/rag/ragflow/docker-compose.yml down -v
+# Then make an API key in the web UI (http://127.0.0.1:18100, sign up, avatar > API) and set RAGFLOW_API_KEY.
+name: stack-rag-ragflow
+services:
+  ragflow:
+    container_name: stack-rag-ragflow
+    image: infiniflow/ragflow:v0.20.5-slim   # slim: no embedded embedding models; use an external embedder
+    ports: ["127.0.0.1:18100:80", "127.0.0.1:18101:9380"]  # web UI, API
+    environment:
+      DOC_ENGINE: elasticsearch
+      ES_HOST: es01
+      ELASTIC_PASSWORD: lab
+      MYSQL_HOST: mysql
+      MYSQL_PASSWORD: lab
+      MINIO_HOST: minio
+      MINIO_USER: lab
+      MINIO_PASSWORD: labpassword
+      REDIS_HOST: redis
+      REDIS_PASSWORD: lab
+    depends_on: [es01, mysql, minio, redis]
+  es01:
+    container_name: stack-rag-ragflow-es
+    image: elasticsearch:8.11.3
+    environment: {discovery.type: single-node, ELASTIC_PASSWORD: lab, ES_JAVA_OPTS: "-Xms1g -Xmx1g", xpack.security.enabled: "true"}
+  mysql:
+    container_name: stack-rag-ragflow-mysql
+    image: mysql:8.0.39
+    environment: {MYSQL_ROOT_PASSWORD: lab, MYSQL_DATABASE: rag_flow}
+  minio:
+    container_name: stack-rag-ragflow-minio
+    image: quay.io/minio/minio:RELEASE.2023-12-20T01-00-02Z
+    command: server --console-address ":9001" /data
+    environment: {MINIO_ROOT_USER: lab, MINIO_ROOT_PASSWORD: labpassword}
+  redis:
+    container_name: stack-rag-ragflow-redis
+    image: valkey/valkey:8
+    command: redis-server --requirepass lab

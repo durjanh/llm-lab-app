@@ -1,0 +1,7 @@
+# Redis 8 (the query engine, with vector search, is built in). Local only, no password: 127.0.0.1.
+services:
+  redis:
+    image: redis:8.2
+    container_name: stack-vector-dbs-redis
+    mem_limit: 512m
+    ports: ["127.0.0.1:18780:6379"]

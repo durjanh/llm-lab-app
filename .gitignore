@@ -5,6 +5,7 @@ __pycache__/
 .DS_Store
 .env
 .env.*
+!.env.example
 node_modules/
 frontend/dist/
 skill_outputs/
@@ -17,6 +18,7 @@ casework/
 # Per-SDK virtual environments for the SDK comparison
 examples/sdks/*/.venv/
 examples/sdks/logs/
+examples/stack/logs/
 
 # MedAssist example: its dummy patient database
 examples/medassist/data/

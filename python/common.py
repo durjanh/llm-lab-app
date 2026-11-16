@@ -69,6 +69,8 @@ TOOL_PRICES = {
     "cu_context_per_1k_tokens": 0.001,  # contextualization tokens; the model tokens are billed by the model
     "cu_audio_per_hour": 0.36,
     "cu_video_per_hour": 1.00,
+    "tts_neural_per_1m_chars": 15.00,  # Azure neural text to speech, Standard, per million characters
+    "stt_realtime_per_hour": 1.00,  # Azure speech to text, real-time and fast transcription, Standard
 }
 
 
@@ -132,12 +134,13 @@ def cache_tokens(usage) -> tuple[int, int]:
             getattr(usage, "cache_read_input_tokens", None) or 0)
 
 
-def cost_usd(usage, model: str) -> float | None:
+def cost_usd(usage, model: str, price: dict[str, float] | None = None) -> float | None:
     """Estimated cost of one response at list prices. None when the model's price is unknown.
 
-    If a fallback model served the request, the real bill uses that model's prices.
+    If a fallback model served the request, the real bill uses that model's prices. `price` is the caller's own price
+    (input, output, cache_read per million tokens), used only when the model is not in PRICES.
     """
-    price = PRICES.get(model)
+    price = PRICES.get(model) or price
     if price is None:
         return None
     cache_write, cache_read = cache_tokens(usage)

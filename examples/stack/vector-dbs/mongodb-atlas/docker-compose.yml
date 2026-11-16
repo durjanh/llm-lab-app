@@ -1,0 +1,8 @@
+# MongoDB Atlas Local: community mongod plus mongot (the search engine behind $vectorSearch) in one container.
+# No credentials, local only (127.0.0.1).
+services:
+  mongodb:
+    image: mongodb/mongodb-atlas-local:8.0
+    container_name: stack-vector-dbs-mongodb-atlas
+    hostname: mongodb
+    ports: ["127.0.0.1:18790:27017"]

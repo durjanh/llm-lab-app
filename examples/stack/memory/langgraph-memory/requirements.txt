@@ -1,0 +1,6 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+anthropic==2.8.0
+langgraph==1.2.22
+langgraph-checkpoint-postgres==3.2.1
+psycopg[binary,pool]==3.3.9
+fastembed==0.9.1

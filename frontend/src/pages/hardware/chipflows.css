@@ -1,0 +1,183 @@
+/* The six processors, animated on one clock. Each card sets --chip to its own colour. */
+.page-hardware .hw-cpu {
+  --chip: var(--s1);
+}
+.page-hardware .hw-gpu {
+  --chip: var(--s3);
+}
+.page-hardware .hw-tpu {
+  --chip: var(--s2);
+}
+.page-hardware .hw-npu {
+  --chip: var(--s4);
+}
+.page-hardware .hw-lpu {
+  --chip: var(--s5);
+}
+.page-hardware .hw-dpu {
+  --chip: var(--brand);
+}
+.page-hardware .hw-moves {
+  color: var(--ink2);
+  min-height: 3.6em;
+}
+.page-hardware .hw-flow {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 4px 0 8px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.page-hardware .hw-flow text {
+  fill: var(--ink2);
+  font-size: 10px;
+}
+.page-hardware .hw-flow .lbl {
+  fill: var(--muted);
+  font-size: 9px;
+}
+.page-hardware .hw-flow .mid {
+  text-anchor: middle;
+}
+.page-hardware .hw-flow .sm {
+  font-size: 8.5px;
+}
+.page-hardware .hw-flow .big {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+.page-hardware .hw-flow .em {
+  fill: var(--chip);
+  font-weight: 700;
+}
+.page-hardware .hw-flow .dim {
+  fill: var(--faint);
+}
+.page-hardware .hw-flow .box {
+  fill: var(--surface);
+  stroke: var(--line2);
+  stroke-width: 1;
+  transition:
+    fill var(--hw-step, 400ms),
+    stroke var(--hw-step, 400ms);
+}
+.page-hardware .hw-flow .box.strong {
+  stroke: var(--ink2);
+}
+.page-hardware .hw-flow .box.hot {
+  stroke: var(--chip);
+}
+.page-hardware .hw-flow .box.chip {
+  stroke: var(--chip);
+  stroke-opacity: 0.55;
+}
+.page-hardware .hw-flow .box.on {
+  fill: var(--chip);
+  fill-opacity: 0.28;
+  stroke-opacity: 1;
+  stroke-width: 1.5;
+}
+.page-hardware .hw-flow .phone {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 1.5;
+}
+.page-hardware .hw-flow .wire {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 1;
+}
+.page-hardware .hw-flow .wire.on {
+  stroke: var(--chip);
+  stroke-width: 1.5;
+}
+.page-hardware .hw-flow .track {
+  fill: var(--soft);
+}
+.page-hardware .hw-flow .fill {
+  fill: var(--chip);
+}
+.page-hardware .hw-flow .w {
+  fill: var(--ink2);
+}
+.page-hardware .hw-flow .core {
+  fill: var(--chip);
+  opacity: 0.35;
+}
+.page-hardware .hw-flow .hbm,
+.page-hardware .hw-flow .sram {
+  fill: var(--chip);
+  opacity: 0.7;
+}
+.page-hardware .hw-flow .stream {
+  fill: none;
+  stroke: var(--chip);
+  stroke-width: 2;
+  stroke-dasharray: 3 4;
+}
+.page-hardware .hw-flow .dot {
+  stroke: var(--surface);
+  stroke-width: 1;
+}
+.page-hardware .hw-flow .dot.k0 {
+  fill: var(--chip);
+}
+.page-hardware .hw-flow .dot.k1 {
+  fill: var(--ink);
+}
+.page-hardware .hw-flow .dot.k2 {
+  fill: var(--muted);
+}
+.page-hardware .hw-flow .nocloud path {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.2;
+}
+.page-hardware .hw-flow .nocloud .cross {
+  stroke: var(--bad);
+  stroke-width: 1.8;
+}
+/* Values glide from one stop to the next within a tick. */
+.page-hardware .hw-flow .mv {
+  transition: transform var(--hw-step, 400ms) ease-in-out;
+}
+.page-hardware .hw-flow .mvw {
+  transition: width var(--hw-step, 400ms) ease-out;
+}
+/* The GPU grid is redrawn every tick, so this replays: every core lights at once. */
+.page-hardware .hw-flow .flash .core {
+  animation: hw-flash var(--hw-step, 400ms) ease-out;
+}
+@keyframes hw-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+.page-hardware .hw-flows.playing .hw-flow .stream {
+  animation: hw-stream 0.8s linear infinite;
+}
+@keyframes hw-stream {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-hardware .hw-flow .mv,
+  .page-hardware .hw-flow .mvw,
+  .page-hardware .hw-flow .box {
+    transition: none;
+  }
+  .page-hardware .hw-flow .flash .core,
+  .page-hardware .hw-flows.playing .hw-flow .stream {
+    animation: none;
+  }
+}
+.page-hardware .hw-section {
+  scroll-margin-top: 72px;
+}

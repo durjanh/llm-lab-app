@@ -16,7 +16,14 @@ TURN = {"UserPromptSubmit", "UserPromptExpansion", "Stop", "StopFailure", "Notif
 
 def main(path: str = ".claude/hook-log.jsonl") -> None:
     """Read the log the async logger wrote and print one indented line per event."""
-    rows = [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+    rows = []
+    for line in Path(path).read_text().splitlines():
+        try:  # many hooks append at once, so a line can be half-written
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict) and isinstance(row.get("t"), (int, float)) and row.get("event"):
+            rows.append(row)
     rows.sort(key=lambda r: r["t"])  # async hooks can finish out of order; the start time is in the line
     if not rows:
         print("The log is empty.")

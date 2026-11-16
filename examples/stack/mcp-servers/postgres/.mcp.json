@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "DATABASE_URI", "crystaldba/postgres-mcp:0.3.0", "--access-mode=restricted"],
+      "env": { "DATABASE_URI": "postgresql://user:password@host.docker.internal:5432/dbname" }
+    }
+  }
+}

@@ -1,0 +1,2 @@
+# No packages: promptfoo runs through npx (pinned in run.py). Create the venv only so run_all.py can start run.py:
+# python3.12 -m venv .venv
