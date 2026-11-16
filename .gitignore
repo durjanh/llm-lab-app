@@ -36,3 +36,6 @@ generated/
 
 # Claude Code: personal settings for this project, never shared
 .claude/settings.local.json
+
+# Downloaded Python packages: installed into each example's own .venv, never committed (a 132 MB wheel blocked a push)
+*.whl
