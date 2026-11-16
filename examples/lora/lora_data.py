@@ -163,3 +163,127 @@ def memory(arch: dict[str, Any], r: int = 16, targets: list[str] | None = None) 
     return {"label": arch["label"], "params": p, "adapter_params": a, "adapter_share": round(a / p, 6),
             "full_gb": round(full / GB, 2), "lora_gb": round(lora / GB, 2), "qlora_gb": round(qlora / GB, 2),
             "adapter_mb": round(a * 2 / 1e6, 1)}
+
+
+# ----- publishing an adapter to Hugging Face -----
+
+BASE_LICENCES = {"HuggingFaceTB/SmolLM2-135M-Instruct": "apache-2.0", "HuggingFaceTB/SmolLM2-360M-Instruct": "apache-2.0"}
+REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
+UPLOADED = ("adapter_model.safetensors", "adapter_config.json")  # and README.md, the card; never result.json
+FIELD_NAMES = {"customer": "Customer name", "order_id": "Order id", "product": "Product", "issue": "Issue",
+               "wants": "What they want"}
+
+
+def suggested_repo(user: str, model_id: str) -> str:
+    """<user>/<base model>-order-email-json-lora, lower case."""
+    return f"{user}/{model_id.split('/')[-1].lower().removesuffix('-instruct')}-order-email-json-lora"
+
+
+def model_card(result: dict[str, Any], repo_id: str) -> str:
+    """The model card for an adapter, from its saved result: what it does, its scores before and after on held-out
+    emails, how it was trained, how to use it and where it stops working. Every number comes from the result."""
+    model_id, cfg, before, after = result["model_id"], result["config"], result["before"]["metrics"], result["after"]["metrics"]
+    pct = lambda v: f"{round(v * 100)}%"  # noqa: E731
+    rows = [("Valid JSON", "valid_json"), ("Exactly the right keys", "right_keys")]
+    table = "\n".join(f"| {label} | {pct(before[key])} | {pct(after[key])} |" for label, key in rows)
+    table += "\n" + "\n".join(f"| {FIELD_NAMES[f]} right | {pct(before['fields'].get(f, 0))} | "
+                              f"{pct(after['fields'].get(f, 0))} |" for f in FIELDS)
+    table += f"\n| **Every field right** | **{pct(before['all_fields'])}** | **{pct(after['all_fields'])}** |"
+    params, size = result.get("params") or {}, (result.get("sizes") or {}).get("adapter_bytes")
+    train, test = dataset()
+    # An adapter saved by an older version of the lab may lack a setting: its line is left out, never guessed.
+    lora = ", ".join(f"{k} {cfg[k]}" for k in ("r", "alpha", "dropout") if k in cfg).replace("r ", "rank ", 1)
+    run = ", ".join(f"{label} {cfg[k]}" for label, k in (("steps", "steps"), ("batch", "batch"),
+                                                          ("learning rate", "lr"), ("seed", "seed")) if k in cfg)
+    training = [f"- **Data**: {len(train)} invented emails written by code, with their right answers. Names, products, "
+                f"order numbers\n  and wording are all made up. {len(test)} more were held out for scoring."]
+    if lora or cfg.get("targets"):
+        training.append(f"- **LoRA**: {lora}" + (f", on {', '.join(cfg['targets'])}." if cfg.get("targets") else "."))
+    if run:
+        training.append(f"- **Run**: {run}" + (f", in {result['train_s']:.0f} s." if "train_s" in result else "."))
+    if {"trainable", "total", "share"} <= params.keys():
+        training.append(f"- **Size**: {params['trainable']:,} trained parameters, {params['share'] * 100:.1f}% of the "
+                        f"model's {params['total']:,}." + (f" The adapter file is {size / 1e6:.1f} MB" if size else "")
+                        + "; the base model is not included.")
+    return f"""---
+base_model: {model_id}
+library_name: peft
+license: {BASE_LICENCES.get(model_id, "other")}
+language:
+- en
+pipeline_tag: text-generation
+tags:
+- lora
+- peft
+- json
+- information-extraction
+---
+
+# {repo_id.split("/")[-1]}
+
+A LoRA adapter for [{model_id}](https://huggingface.co/{model_id}) that reads a customer's email about an order and
+answers with one JSON object: `customer`, `order_id`, `product`, `issue` (damaged, late, wrong_item or missing_part)
+and `wants` (refund, replacement or update).
+
+## Results
+
+Scored by code, not by a model, on {after["n"]} emails the adapter never saw in training:
+
+| | {model_id.split("/")[-1]} | With this adapter |
+|---|---|---|
+{table}
+
+## Training
+
+{chr(10).join(training)}
+
+## Use
+
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("{model_id}")
+model = PeftModel.from_pretrained(AutoModelForCausalLM.from_pretrained("{model_id}"), "{repo_id}")
+
+system = {json.dumps(SYSTEM)}
+email = "Hi, my kettle came broken (order NW-12345). I'd like a refund. Thanks, Ben Jones"
+prompt = tokenizer.apply_chat_template([{{"role": "system", "content": system}}, {{"role": "user", "content": email}}],
+                                       tokenize=False, add_generation_prompt=True)
+inputs = tokenizer(prompt, return_tensors="pt")
+output = model.generate(**inputs, max_new_tokens=96, do_sample=False)
+print(tokenizer.decode(output[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True))
+```
+
+Use the same system prompt: the adapter was trained with it.
+
+## Limits
+
+- It learned from short, invented, English emails that follow a small set of patterns. Real emails are messier, so
+  test it on your own before relying on it.
+- `issue` and `wants` can only take the values listed above.
+- It is a small model. Parse the JSON and check the keys and values before using an answer.
+"""
+
+
+class PrivatePath(ValueError):
+    """A file about to be published names a folder on this machine."""
+
+
+def stage(adapter_dir: Any, stage_dir: Any, model_id: str, card: str, private: list[str]) -> list[str]:
+    """Copies what is published into stage_dir: the weights, the config with the base model named by its Hugging Face
+    id (PEFT writes the local folder it loaded it from, which names this machine's user and stops anyone else loading
+    it), and the card as README.md. Refuses if any file still contains one of the `private` strings."""
+    from pathlib import Path
+
+    src, dst = Path(adapter_dir), Path(stage_dir)
+    (dst / UPLOADED[0]).write_bytes((src / UPLOADED[0]).read_bytes())
+    config = json.loads((src / UPLOADED[1]).read_text())
+    config["base_model_name_or_path"] = model_id
+    (dst / UPLOADED[1]).write_text(json.dumps(config, indent=2))
+    (dst / "README.md").write_text(card)
+    names = [*UPLOADED, "README.md"]
+    leaks = [n for n in names for p in private if p and p.encode() in (dst / n).read_bytes()]
+    if leaks:
+        raise PrivatePath(f"Not published: {', '.join(sorted(set(leaks)))} would show a folder on this machine.")
+    return names

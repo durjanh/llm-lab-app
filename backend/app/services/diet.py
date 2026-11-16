@@ -16,7 +16,7 @@ from typing import Any, Callable, Iterator
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, diet_rules as rules
+from ..shared import DEFAULT_MODEL, diet_rules as rules
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
@@ -33,17 +33,17 @@ class DietService:
 
     def info(self) -> dict[str, Any]:
         return {"tools": [{"name": t["name"], "description": t["description"]} for t in rules.TOOLS],
-                "samples": rules.samples(), "model": CLAUDE_MODEL, "floors": rules.FLOOR,
+                "samples": rules.samples(), "model": DEFAULT_MODEL, "floors": rules.FLOOR,
                 "files": {k: v[0] for k, v in rules.FILES.items()}}
 
     def start(self, model: str | None, user: str, consent: bool) -> dict[str, Any]:
         chat = rules.new_chat(self.memory_root, user, consent)
         chat_id = uuid.uuid4().hex
         with self._lock:
-            self.chats[chat_id] = (chat, model or CLAUDE_MODEL)
+            self.chats[chat_id] = (chat, model or DEFAULT_MODEL)
             while len(self.chats) > MAX_CHATS:
                 self.chats.popitem(last=False)
-        return {"chat_id": chat_id, "model": model or CLAUDE_MODEL, "user": chat.user, "consent": consent,
+        return {"chat_id": chat_id, "model": model or DEFAULT_MODEL, "user": chat.user, "consent": consent,
                 "memory": self.memory(chat.user)}
 
     def _chat(self, chat_id: str) -> tuple[Any, str]:

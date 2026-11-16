@@ -24,7 +24,7 @@ def set_values() -> dict[str, str]:
 
 
 def test_every_variable_settings_reads_is_listed() -> None:
-    read = set(re.findall(r'get\("([A-Z][A-Z0-9_]+)"', SETTINGS.read_text(encoding="utf-8")))
+    read = set(re.findall(r'(?:get|num)\("([A-Z][A-Z0-9_]+)"', SETTINGS.read_text(encoding="utf-8")))
     listed = {m.group(1) for line in lines() if (m := re.match(r"^#?\s*([A-Z][A-Z0-9_]+)=", line))}
     assert read - listed == set(), "add these to .env.example"
     assert listed - read - NOT_IN_SETTINGS == set(), "these are listed but python/settings.py does not read them"
@@ -38,7 +38,8 @@ def test_the_set_lines_are_the_local_defaults() -> None:
 
 def test_no_real_key_or_address_is_set() -> None:
     values = set_values()
-    assert values["ANTHROPIC_API_KEY"] == "sk-ant-your-key-here"
+    # A key, even a made-up one, is a placeholder: set, it would be sent and fail with 401 instead of "no key".
+    assert "ANTHROPIC_API_KEY" not in values and "# ANTHROPIC_API_KEY=sk-ant-your-key-here" in lines()
     for key, value in values.items():
         assert "<" not in value, f"{key}: a placeholder must be commented out, or it is read as a real value"
         assert not re.search(r"azure\.com|windows\.net|azure\.net|devtunnels|\+\d{6,}", value), f"{key} looks real"

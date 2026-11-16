@@ -118,6 +118,31 @@ export interface LoraTryResult {
   model_id: string;
 }
 
+export interface HubAccount {
+  signed_in: boolean;
+  name?: string;
+  orgs?: string[];
+  reason?: string;
+  sign_in: string; // the command that signs the LoRA environment in
+  suggested?: string; // a repo name to start from, for the model asked about
+}
+
+export interface AdapterCard {
+  repo_id: string;
+  card: string;
+  files: string[];
+  base_model: string;
+  existing: { private: boolean } | null; // the repo is already there: an upload replaces its README and files
+}
+
+export interface Published {
+  url: string;
+  private: boolean;
+  commit: string;
+  files: string[];
+  account: string;
+}
+
 /** Fine-tuning with LoRA on this machine: train, score before and after, and try an adapter. */
 export class LoraService {
   constructor(private readonly client: ApiClient = api) {}
@@ -136,6 +161,26 @@ export class LoraService {
 
   tryEmail(email: string, adapterId: string | null): Promise<LoraTryResult> {
     return this.client.post('/api/lora/try', { email, adapter_id: adapterId });
+  }
+
+  /** Who the LoRA environment is signed in to Hugging Face as. The token stays in that environment. */
+  account(modelId: string): Promise<HubAccount> {
+    return this.client.get(`/api/lora/account?model_id=${encodeURIComponent(modelId)}`);
+  }
+
+  card(adapterId: string, repoId: string): Promise<AdapterCard> {
+    return this.client.post(`/api/lora/adapters/${encodeURIComponent(adapterId)}/card`, { repo_id: repoId });
+  }
+
+  /** Uploads to Hugging Face. The page calls it only after the person has confirmed. */
+  publish(adapterId: string, repoId: string, isPrivate: boolean, card: string, replace: boolean): Promise<Published> {
+    return this.client.post(`/api/lora/adapters/${encodeURIComponent(adapterId)}/publish`, {
+      repo_id: repoId,
+      private: isPrivate,
+      card,
+      replace_existing: replace,
+      confirm: true,
+    });
   }
 
   remove(adapterId: string): Promise<{ deleted: string }> {

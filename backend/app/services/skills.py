@@ -11,7 +11,7 @@ from pathlib import Path
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, sandbox_skills as S, skills_script as K
+from ..shared import CLAUDE_MODEL, DEFAULT_MODEL, sandbox_skills as S, skills_script as K
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
@@ -41,7 +41,8 @@ class SkillsService:
         self.claude, self.spend, self.streamer, self.files = claude, spend, streamer, files
 
     def run(self, skill: str, upto: int, model: str | None) -> Iterator[str]:
-        model = model or CLAUDE_MODEL
+        # The lab's default (the local model when one is set) when the sandbox can run skills; Claude otherwise.
+        model = model or (DEFAULT_MODEL if S.available() else CLAUDE_MODEL)
         task = K.TASKS[skill].format(upto=upto)
         run = Run()
 

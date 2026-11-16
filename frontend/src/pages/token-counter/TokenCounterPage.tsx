@@ -1,3 +1,4 @@
+import { statusService } from '@/services/statusService';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { tokenCounterService, type CounterModel, type CountResult, type Segment } from '@/services/tokenCounterService';
 import { Breakdown } from './Breakdown';
@@ -85,11 +86,13 @@ export default function TokenCounterPage() {
   const compared = useRef(false); // after the first comparison, wait for typing to pause before the next
 
   useEffect(() => {
-    tokenCounterService
-      .models()
-      .then((m) => {
+    Promise.all([tokenCounterService.models(), statusService.status().catch(() => null)])
+      .then(([m, s]) => {
         setModels(m);
-        if (!m.some((x) => x.id === DEFAULT_MODEL) && m[0]) setModel(m[0].id);
+        // The lab's default model (the local one, when it is set up) if the counter knows it.
+        const preferred = s?.default_model && m.some((x) => x.id === s.default_model) ? s.default_model : DEFAULT_MODEL;
+        if (m.some((x) => x.id === preferred)) setModel(preferred);
+        else if (m[0]) setModel(m[0].id);
       })
       .catch((err) => setLoadError(errorText(err)));
   }, []);

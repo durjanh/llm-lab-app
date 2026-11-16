@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, text_of
+from ..shared import DEFAULT_MODEL, text_of
 from .spend import SpendTracker
 
 MAX_CHECKS = 30
@@ -263,7 +263,7 @@ class BrainCheckService:
 
     def info(self) -> dict[str, Any]:
         return {"risks": [{k: r[k] for k in ("id", "factor", "question")} for r in RISKS], "notice": NOTICE,
-                "clock_time": CLOCK_TIME["words"], "model": CLAUDE_MODEL}
+                "clock_time": CLOCK_TIME["words"], "model": DEFAULT_MODEL}
 
     def start(self) -> dict[str, Any]:
         """A new check, with its five words. Nothing is sent to a model yet."""
@@ -296,7 +296,7 @@ class BrainCheckService:
     def clock(self, check_id: str, image_b64: str, model: str | None) -> dict[str, Any]:
         """The model says what the drawn clock shows; code scores it."""
         check = self._check(check_id)
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         try:
             raw = base64.b64decode(image_b64, validate=True)
         except ValueError:
@@ -315,7 +315,7 @@ class BrainCheckService:
     def finish(self, check_id: str, body: dict[str, Any]) -> dict[str, Any]:
         """Scores everything, compares with earlier checks, decides the outcome, and saves it if the person agreed."""
         check = self._check(check_id)
-        model = body.get("model") or CLAUDE_MODEL
+        model = body.get("model") or DEFAULT_MODEL
         today = self.today()
         try:
             theirs = date.fromisoformat(body.get("today") or "")

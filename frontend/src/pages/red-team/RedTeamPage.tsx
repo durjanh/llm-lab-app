@@ -159,7 +159,7 @@ export default function RedTeamPage() {
         const def = s.default_model || offered[0] || '';
         setTarget(def);
         setJudgeModel(def);
-        setAttacker(s.claude_models?.[0] && offered.includes(s.claude_models[0]) ? s.claude_models[0] : def);
+        setAttacker(def);
       })
       .catch((err) => setError(errorText(err)));
     loadSuites();

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VoiceComposer } from '@/components/voice/VoiceComposer';
-import { isLocalModel } from '@/lib/models';
+import { isLocalModel, startingModel } from '@/lib/models';
 import {
   codeGraphService,
   type CodeGraph,
@@ -102,7 +102,7 @@ export default function CodeGraphPage() {
       .status()
       .then((s) => {
         setModels(s.models || []);
-        setModel(s.claude_model || s.models?.[0] || '');
+        setModel(startingModel(s.default_model, s.models ?? []));
       })
       .catch((err) => setError(errorText(err)));
     void open(() => codeGraphService.analyseLab(), 'Reading this lab’s code…');

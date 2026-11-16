@@ -33,7 +33,7 @@ from typing import Any, Callable
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, ROOT, text_of
+from ..shared import DEFAULT_MODEL, ROOT, text_of
 from .spend import SpendTracker
 
 LANGS = {".py": "python", ".ts": "ts", ".tsx": "tsx", ".js": "js", ".jsx": "jsx", ".mjs": "js", ".cjs": "js"}
@@ -654,7 +654,7 @@ class CodeGraphService:
                     sources.append(json.loads(meta.read_text()))
                 except (OSError, json.JSONDecodeError):
                     pass
-        return {"sources": sources, "model": CLAUDE_MODEL, "tools": [{"name": t["name"], "description": t["description"]} for t in TOOLS],
+        return {"sources": sources, "model": DEFAULT_MODEL, "tools": [{"name": t["name"], "description": t["description"]} for t in TOOLS],
                 "limits": {"files": MAX_FILES, "archive_mb": MAX_ARCHIVE_BYTES // 2**20}}
 
     def _save(self, graph_id: str, label: str, graph: dict) -> dict[str, Any]:
@@ -726,7 +726,7 @@ class CodeGraphService:
     def ask(self, graph_id: str, question: str, history: list[dict], model: str | None) -> dict[str, Any]:
         """The question answered by a model that explores the graph through its tools."""
         idx = self.index(graph_id)
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         messages: list[dict] = []
         for h in history[-6:]:
             messages += [{"role": "user", "content": str(h.get("q", ""))[:2000]},

@@ -25,7 +25,7 @@ from typing import Any
 from ..core.errors import ApiError
 from ..gateways.claude import ClaudeGateway
 from ..settings import MODELS
-from ..shared import CLAUDE_MODEL, DEFAULT_MODEL, ROOT, coding_script as C, is_local
+from ..shared import DEFAULT_MODEL, ROOT, coding_script as C, is_local
 from .runs import Run, RunRegistry, RunStreamer
 from .spend import SpendTracker
 
@@ -214,7 +214,7 @@ class CodingService:
         if not self.sdk_python.exists():
             raise ApiError(503, "sdk_missing", "The Agent SDK example is not installed. In examples/claude-agent-sdk run: "
                                                "python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt")
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         if C.is_gpt(model) or is_local(model):
             raise ApiError(400, "invalid_request", "The Agent SDK runs Claude Code, which uses Claude models only. "
                                                    "Use the hand-built harness for GPT or the local model.")

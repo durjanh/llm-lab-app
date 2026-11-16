@@ -9,6 +9,7 @@ The task, the scoring and the memory arithmetic live in examples/lora/lora_data.
 """
 from __future__ import annotations
 
+import functools
 import importlib.util
 import json
 import platform
@@ -22,6 +23,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
+from ..core.child_env import HF, child_env
 from ..core.errors import ApiError
 from ..shared import ROOT
 from .runs import Run, RunStreamer
@@ -29,11 +31,14 @@ from .runs import Run, RunStreamer
 FOLDER = ROOT / "examples" / "lora"
 SETUP = "cd examples/lora && python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt"
 RUN_TIMEOUT_S = 1200
+PUBLISH_TIMEOUT_S = 300
+SIGN_IN = "examples/lora/.venv/bin/hf auth login"
 TRY_TIMEOUT_S = 180
 MODELS = {
     "HuggingFaceTB/SmolLM2-135M-Instruct": "SmolLM2 135M Instruct (Apache 2.0, 270 MB)",
     "HuggingFaceTB/SmolLM2-360M-Instruct": "SmolLM2 360M Instruct (Apache 2.0, 720 MB)",
 }
+TRAINING_BUSY = "A training run is already going. Wait for it, or cancel it."
 ADAPTER_ID = re.compile(r"^[0-9a-f]{12}$")
 
 Runner = Callable[[list[str], str, Callable[[dict], None], threading.Event, float], int]
@@ -56,10 +61,11 @@ data = _load_data()
 
 
 def subprocess_runner(argv: list[str], job: str, on_line: Callable[[dict], None], cancelled: threading.Event,
-                      timeout_s: float) -> int:
+                      timeout_s: float, extra_env: tuple[str, ...] = ()) -> int:
     """Runs the script, feeding it the job and passing each JSON line on. Cancelling or the time limit kills it."""
     proc = subprocess.Popen(argv, cwd=FOLDER, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL, text=True, bufsize=1)
+                            stderr=subprocess.DEVNULL, text=True, bufsize=1,
+                            env=child_env(*extra_env))  # third-party packages: none of our keys
     deadline = time.monotonic() + timeout_s
 
     def watch() -> None:
@@ -82,13 +88,20 @@ def subprocess_runner(argv: list[str], job: str, on_line: Callable[[dict], None]
     return proc.wait()
 
 
+# Publishing is the only job that needs the person's Hugging Face login; training and trying download public models.
+hub_runner = functools.partial(subprocess_runner, extra_env=HF)
+
+
 class LoraService:
     def __init__(self, root: Path, streamer: RunStreamer | None = None, venv_python: Path | None = None,
                  runner: Runner | None = None):
         self.root, self.streamer = root, streamer
         self.python = venv_python or FOLDER / ".venv" / "bin" / "python"
         self.script = FOLDER / "run_lora.py"
+        self.publisher = FOLDER / "publish_adapter.py"
+        self._publishing = threading.Lock()
         self.runner = runner or subprocess_runner
+        self.hub_runner = runner or hub_runner
         self._busy = threading.Lock()
         self._current: Run | None = None
 
@@ -157,16 +170,21 @@ class LoraService:
             raise ApiError(400, "invalid_request", f"Choose one of: {', '.join(MODELS)}.")
         if not config.get("targets") or any(t not in data.TARGETS for t in config["targets"]):
             raise ApiError(400, "invalid_request", f"Target modules must come from: {', '.join(data.TARGETS)}.")
-        if not self._busy.acquire(blocking=False):
-            raise ApiError(409, "busy", "A training run is already going. Wait for it, or cancel it.")
+        if self._busy.locked():  # a quick answer; the lock itself is taken by the work, below
+            raise ApiError(409, "busy", TRAINING_BUSY)
         run = Run()
-        self._current = run
         adapter_id = uuid.uuid4().hex[:12]
         out_dir = self.adapters_dir / adapter_id
         job = json.dumps({"action": "train", **config, "models_dir": str(self.models_dir), "out_dir": str(out_dir),
                           "eval_n": 40})
 
         def work() -> None:
+            # Taken here, not before streaming: the stream starts its work only when the response is first read, so a
+            # page gone before that would have left the lock held, and every later request refused, until a restart.
+            if not self._busy.acquire(blocking=False):
+                run.publish({"type": "error", "message": TRAINING_BUSY})
+                return
+            self._current = run
             got: dict[str, Any] = {}
             try:
                 self.models_dir.mkdir(parents=True, exist_ok=True)
@@ -228,3 +246,67 @@ class LoraService:
         if got.get("type") != "result":
             raise ApiError(502, "lora_failed", got.get("message") or "The model did not answer. See the backend log.")
         return {k: got[k] for k in ("base", "adapter", "base_json", "adapter_json")} | {"model_id": job["model_id"]}
+
+    # ----- publishing to Hugging Face -----
+
+    def _hub(self, job: dict[str, Any], timeout_s: float) -> dict[str, Any]:
+        got: dict[str, Any] = {}
+        self.hub_runner([str(self.python), str(self.publisher)], json.dumps(job),
+                    lambda e: got.update(e) if e.get("type") in ("result", "error") else None, threading.Event(),
+                    timeout_s)
+        return got
+
+    def account(self, model_id: str | None = None) -> dict[str, Any]:
+        """Who the LoRA environment is signed in to Hugging Face as (with a repo name to start from), or how to sign
+        in and why it failed. The token stays in that environment."""
+        self._ready()
+        got = self._hub({"action": "whoami"}, 60)
+        if got.get("type") == "result":
+            suggested = data.suggested_repo(got["name"], model_id) if model_id in MODELS else ""
+            return {"signed_in": True, "name": got["name"], "orgs": got.get("orgs", []), "sign_in": SIGN_IN,
+                    "suggested": suggested}
+        return {"signed_in": False, "reason": got.get("message") or "Could not ask Hugging Face.", "sign_in": SIGN_IN}
+
+    def card(self, adapter_id: str, repo_id: str) -> dict[str, Any]:
+        """The model card that would be published, written from the adapter's saved scores (the page can edit it), and
+        whether the repo already exists, so the page can say what an upload would replace before anyone confirms."""
+        repo_id = self._repo(repo_id)
+        try:
+            result = json.loads((self._adapter(adapter_id) / "result.json").read_text())
+            card = data.model_card(result, repo_id)
+        except (KeyError, TypeError, ValueError):
+            raise ApiError(400, "invalid_request", "This adapter was saved without its scores, so no card can be "
+                                                   "written. Train it again to publish it.") from None
+        got = self._hub({"action": "check", "repo_id": repo_id}, 60)
+        if got.get("type") != "result":
+            raise ApiError(502, "hub_failed", got.get("message") or "Could not ask Hugging Face about the repo.")
+        existing = {"private": bool(got.get("private"))} if got.get("exists") else None
+        return {"repo_id": repo_id, "card": card, "files": [*data.UPLOADED, "README.md"],
+                "base_model": result.get("model_id"), "existing": existing}
+
+    def publish(self, adapter_id: str, repo_id: str, private: bool, card: str,
+                replace_existing: bool = False) -> dict[str, Any]:
+        """Uploads the adapter, its config and the card to Hugging Face. Only on the person's explicit request."""
+        self._ready()
+        folder = self._adapter(adapter_id)
+        model_id = json.loads((folder / "result.json").read_text()).get("model_id")
+        if model_id not in MODELS:
+            raise ApiError(400, "invalid_request", "This adapter's base model is not known, so it cannot be named.")
+        if not self._publishing.acquire(blocking=False):
+            raise ApiError(409, "busy", "An adapter is already being published. Wait for it.")
+        try:
+            got = self._hub({"action": "publish", "adapter_dir": str(folder), "model_id": model_id,
+                             "repo_id": self._repo(repo_id), "private": private, "card": card,
+                             "replace_existing": replace_existing}, PUBLISH_TIMEOUT_S)
+        finally:
+            self._publishing.release()
+        if got.get("type") != "result":
+            raise ApiError(502, "publish_failed", got.get("message") or "Publishing stopped. See the backend log.")
+        return {k: got[k] for k in ("url", "private", "commit", "files", "account") if k in got}
+
+    @staticmethod
+    def _repo(repo_id: str) -> str:
+        repo_id = (repo_id or "").strip()
+        if not data.REPO_ID.match(repo_id):
+            raise ApiError(400, "invalid_request", "Name the repo as account/name, with letters, digits, - _ or .")
+        return repo_id

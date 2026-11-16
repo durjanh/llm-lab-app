@@ -13,12 +13,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "python"))
 
+
+def shown_path(path: Path | str) -> str:
+    """A path as a page shows it: relative to the repo (config/model-failover.json), so a page never shows where the repo
+    sits on this machine or whose home folder it is in. A path outside the repo shows only its folder and name."""
+    p = Path(path)
+    try:
+        return p.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return "…/" + "/".join(p.parts[-2:])
+
+
 import importlib  # noqa: E402
 import importlib.util  # noqa: E402
 
-from common import (CLAUDE_MODEL, DEFAULT_MODEL, GPT_MODELS, IMAGE_INPUT_PRICE_PER_M, LANGUAGE_PRICE_PER_1K_RECORDS, LOCAL_MODEL, PRICES,  # noqa: E402
+from common import (CACHE_WRITE_MULTIPLIER, CLAUDE_CONTEXT_TOKENS, CLAUDE_MODEL, DEFAULT_MODEL, GPT_MODELS, IMAGE_INPUT_PRICE_PER_M, LANGUAGE_PRICE_PER_1K_RECORDS, LOCAL_MODEL, MIN_CACHE_TOKENS, PRICES,  # noqa: E402
                     TOOL_PRICES, ModelUnavailable, NeedsClaude, Refused, cost_usd, create, describe_usage, is_local,
-                    make_client, stream, text_of)
+                    make_client, stream, text_of, ensure_answered)
 from local_model import NoVision, local_status  # noqa: E402
 from gpt_model import count_gpt_tokens, gpt_pieces  # noqa: E402  (GPT's exact tokens, for the token counter)
 import translator  # noqa: E402  (live translation: calls and texts)
@@ -30,6 +41,7 @@ harness_script = importlib.import_module("11_harness_loop")
 skills_script = importlib.import_module("12_agent_skills")
 sandbox_skills = importlib.import_module("sandbox_skills")  # skills for GPT and the local model, in the lab's sandbox
 coding_script = importlib.import_module("19_coding_agent")
+memory_script = importlib.import_module("22_memory_agent")  # its privacy guard, for the agent memory page
 
 
 def _load_example(name: str, path: Path):

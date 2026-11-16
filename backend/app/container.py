@@ -30,6 +30,8 @@ from .services.hotel import HotelService
 from .services.brain import BrainCheckService
 from .services.scans import ScanService
 from .services.tabular import TabularService
+from .services.agent_memory import AgentMemoryService
+from .services.image_to_3d import ImageTo3DService
 from .services.lora import LoraService
 from .services.planning_patterns import PlanningPatternsService
 from .services.red_team import RedTeamService
@@ -123,6 +125,8 @@ class Container:
     scans: ScanService
     tabular: TabularService
     lora: LoraService
+    image_to_3d: ImageTo3DService
+    agent_memory: AgentMemoryService
     planning_patterns: PlanningPatternsService
     red_team: RedTeamService
     token_counter: TokenCounterService
@@ -280,6 +284,8 @@ class Container:
             red_team=RedTeamService(claude, spend, settings.generated_dir / "red-team", streamer),
             tabular=TabularService(claude, spend, settings.generated_dir / "tabular", streamer),
             lora=LoraService(settings.generated_dir / "lora", streamer),
+            image_to_3d=ImageTo3DService(settings.generated_dir / "image-to-3d", streamer),
+            agent_memory=AgentMemoryService(claude, spend, settings.generated_dir / "agent-memory-lab"),
             planning_patterns=PlanningPatternsService(claude, spend, streamer),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),

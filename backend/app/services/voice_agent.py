@@ -47,7 +47,7 @@ from ..gateways.azure_speech_rest import SpeechRest
 from ..gateways.claude import MessageSender
 from ..gateways.local_tts import LocalSynth
 from ..settings import MODELS
-from ..shared import CLAUDE_MODEL, HANDBOOK, PRICES, TOOL_PRICES
+from ..shared import CLAUDE_MODEL, DEFAULT_MODEL, HANDBOOK, PRICES, TOOL_PRICES
 from .history import no_reply
 from .spend import SpendTracker
 from .voice_heard import Heard, Piece, split_heard
@@ -70,6 +70,7 @@ MAX_QUEUE = 4000
 TICK_S = 0.025
 JOIN_S = 3.0
 LISTEN_IDLE_S = 900.0
+EVICT_AFTER_S = 60.0  # at the cap, only a conversation unused this long may be closed for a new one
 LISTENER_STALE_S = 15.0  # a listener silent this long has gone; heartbeats keep a live one well inside it
 STT_USD_PER_MS = TOOL_PRICES["stt_realtime_per_hour"] / 3_600_000
 
@@ -129,7 +130,7 @@ class ConvSettings:
     voice: str = "en-GB-SoniaNeural"
     local_voice: str = "bf_emma"
     tts: str = "azure"  # "azure" or "local"
-    model: str = CLAUDE_MODEL
+    model: str = DEFAULT_MODEL
 
     def as_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -501,7 +502,11 @@ class VoiceAgentService:
         now = self.clock()
         with self._lock:
             if len(self.sessions) >= self.max_conversations:
-                idle = sorted((s for s in self.sessions.values() if not s.listener), key=lambda s: s.touched)
+                # Only a conversation nobody is using: no listener, no reply running, and untouched for EVICT_AFTER_S.
+                # A page between creating its conversation and opening its stream has no listener yet, and must not be
+                # pushed out by another tab or a script creating conversations.
+                idle = sorted((s for s in self.sessions.values() if not s.listener and not any(j.alive() for j in s.jobs)
+                               and now - s.touched >= EVICT_AFTER_S * 1000), key=lambda s: s.touched)  # the clock counts ms
                 if not idle:
                     raise ApiError(429, "too_many_conversations", "Too many voice conversations are open.")
                 evicted = idle[0]
@@ -550,9 +555,15 @@ class VoiceAgentService:
             job.join()
 
     def shutdown(self) -> None:
+        """The server is stopping: cancel every reply (they keep paying for model and voice calls otherwise), close the
+        conversations, and stop the local voice server so a reload does not find it still holding the port."""
         self._stop.set()
-        for cid in list(self.sessions):
-            self.close(cid)
+        try:
+            for cid in list(self.sessions):
+                self.close(cid)
+        finally:
+            if self.local is not None:
+                self.local.stop()
 
     def wait_idle(self, cid: str, timeout: float = 5.0) -> bool:
         """Waits for every reply thread of a conversation to stop. True when none is left."""

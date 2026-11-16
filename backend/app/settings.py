@@ -162,7 +162,7 @@ class Settings:
             model_failover_summary_max_tokens=env.model_failover_summary_max_tokens,
             model_failover_max_iterations=env.model_failover_max_iterations,
             model_failover_cooldown_s=env.model_failover_cooldown_s,
-            model_failover_max_cooldown_s=max(env.model_failover_cooldown_s, env.model_failover_max_cooldown_s),
+            model_failover_max_cooldown_s=env.model_failover_max_cooldown_s,  # ModelRouter keeps it at least the cooldown
             model_failover_short_retry_s=env.model_failover_short_retry_s,
             model_failover_catalog=env.model_failover_catalog,
             model_failover_catalog_path=env.model_failover_catalog_path,

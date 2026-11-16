@@ -266,6 +266,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./context-engineering/ContextEngineeringPage')),
   },
   {
+    id: 'agent-memory',
+    path: '/agent-memory',
+    title: 'Agent Memory',
+    label: 'Agent memory',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./agent-memory/AgentMemoryPage')),
+  },
+  {
     id: 'harness',
     path: '/harness',
     title: 'Harness Engineering',
@@ -546,6 +555,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./lora/LoraPage')),
+  },
+  {
+    id: 'image-to-3d',
+    path: '/image-to-3d',
+    title: 'Image to 3D',
+    label: 'Image to 3D',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./image-to-3d/ImageTo3dPage')),
   },
   {
     id: 'code-graph',

@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ..core.errors import ApiError
-from ..shared import PRICES, ROOT, is_local
+from ..shared import PRICES, ROOT, is_local, shown_path
 from ..settings import CLAUDE_MODELS
 from ..settings import MODELS as LAB_MODELS
 from ..shared import GPT_MODELS as LAB_GPT_MODELS
@@ -362,7 +362,7 @@ class JsonFileCatalog(_Cached):
         try:
             st = self.path.stat()
         except OSError:
-            raise CatalogError(f"{self.path} was not found.") from None
+            raise CatalogError(f"{shown_path(self.path)} was not found.") from None
         stamp = (st.st_mtime_ns, st.st_size, st.st_ino)
         if stamp == self._stamp and self._good is not None:
             return None
@@ -373,7 +373,7 @@ class JsonFileCatalog(_Cached):
         except ValueError as exc:
             raise CatalogInvalid([f"The file is not valid JSON: {exc}"]) from None
         stamped = datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(timespec="seconds")
-        return build(document, self.env, version=hash_version(raw.decode("utf-8")), source=str(self.path), updated_at=stamped)
+        return build(document, self.env, version=hash_version(raw.decode("utf-8")), source=shown_path(self.path), updated_at=stamped)
 
     def _disk_version(self) -> str:
         try:
@@ -411,7 +411,7 @@ class JsonFileCatalog(_Cached):
                 return self.get()
 
     def describe(self) -> dict[str, Any]:
-        return {"kind": self.kind, "where": str(self.path), "check_every_s": self.interval_s}
+        return {"kind": self.kind, "where": shown_path(self.path), "check_every_s": self.interval_s}
 
 
 class MemoryCatalog(_Cached):

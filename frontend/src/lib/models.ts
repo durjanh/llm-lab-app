@@ -22,3 +22,9 @@ export function modelNameStart(model: string | undefined): string {
 export function skillsPlace(model: string | undefined): string {
   return !model || model.startsWith('claude-') ? "Claude's container" : "the lab's sandbox";
 }
+
+/** The model a page starts on: the lab's default (the local model, when one is set up) if the page offers it, else
+ * the first it offers. Pages whose work needs Claude-only features offer only Claude models, so they start on Claude. */
+export function startingModel(defaultModel: string | undefined, offered: string[]): string {
+  return defaultModel && offered.includes(defaultModel) ? defaultModel : (offered[0] ?? '');
+}

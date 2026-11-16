@@ -86,6 +86,7 @@ def test_status_reports_models_and_spend(fake: FakeClient, tmp_path: Path) -> No
     assert body["default_model"] == "claude-haiku-5-5"
     assert body["models"][0] == "claude-haiku-5-5"
     assert body["spent_usd"] == 0 and body["calls"] == 0
+    assert body["cache"] == {"write_multiplier": 1.25, "min_tokens": 512, "claude_context_tokens": 1_000_000}
 
 
 def test_messages_uses_standard_endpoint_for_haiku_and_charges(fake: FakeClient, tmp_path: Path) -> None:

@@ -13,9 +13,17 @@ interface StatusResponse {
   local?: LocalModelStatus;
   gpt_models?: string[];
   prices: Record<string, { input: number; output: number; cache_read: number }>;
+  cache?: CacheFacts;
   spent_usd: number;
   budget_usd: number;
   calls: number;
+}
+
+/** Prompt caching on the current Claude models: what a write costs, the shortest prefix cached, the window. */
+export interface CacheFacts {
+  write_multiplier: number;
+  min_tokens: number;
+  claude_context_tokens: number;
 }
 
 /** The open model on this machine (Docker Model Runner), when one is configured. */
@@ -39,13 +47,16 @@ export interface LiveStatus {
   local?: LocalModelStatus;
   gpt_models?: string[]; // Azure OpenAI deployments; offered only on pages that support them
   prices?: StatusResponse['prices'];
+  cache?: CacheFacts;
   spent_usd?: number;
   budget_usd?: number;
   reason?: string;
 }
 
-const NO_FILE = 'Open this page through the lab backend to use live Claude. The Start section of README.md has the one-time setup and the command: python -m backend';
-const NO_SERVER = 'The lab backend is not running. From the project folder, activate the environment with source .venv/bin/activate, then run python -m backend --budget 1. The Start section of README.md has the one-time setup.';
+const NO_FILE =
+  'Open this page through the lab backend to use live Claude. The Start section of README.md has the one-time setup and the command: python -m backend';
+const NO_SERVER =
+  'The lab backend is not running. From the project folder, activate the environment with source .venv/bin/activate, then run python -m backend --budget 1. The Start section of README.md has the one-time setup.';
 const NO_KEY = 'The server is running but has no API credentials. Set ANTHROPIC_API_KEY and restart it.';
 
 /** The backend's status: credentials, models, prices and spend. Cached until refresh(). */
@@ -84,6 +95,7 @@ export class StatusService {
         local: s.local,
         gpt_models: s.gpt_models || [],
         prices: s.prices || {},
+        cache: s.cache,
         spent_usd: s.spent_usd,
         budget_usd: s.budget_usd,
         ...(s.has_credentials ? {} : { reason: NO_KEY }),

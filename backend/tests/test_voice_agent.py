@@ -711,11 +711,12 @@ def test_the_event_stream_has_one_listener_and_ends_when_the_conversation_closes
 
 
 def test_conversations_are_capped_and_the_idle_one_is_evicted() -> None:
-    svc, _, _ = service([])
+    svc, clock, _ = service([])
     svc.max_conversations = 2
     a = svc.create()["id"]
     b = svc.create()["id"]
     svc.claim(b)  # b is being listened to
+    clock.t += va.EVICT_AFTER_S * 1000  # a has been left unused
     svc.create()
     assert a not in svc.sessions and b in svc.sessions
     svc.claim(next(i for i in svc.sessions if i != b))
@@ -945,3 +946,126 @@ def test_an_idle_conversation_is_closed_after_the_idle_time() -> None:
     with pytest.raises(ApiError):
         svc.get(old)
     assert svc.get(fresh)["id"] == fresh
+
+
+# ----- review findings, fourth pass -----
+
+def _installed_tts(tmp_path):
+    from backend.app.gateways import local_tts
+
+    (tmp_path / ".venv" / "bin").mkdir(parents=True)
+    (tmp_path / ".venv" / "bin" / "python").write_text("")
+    for name in local_tts.MODEL_FILES:
+        (tmp_path / name).write_text("")
+    return local_tts, local_tts.LocalTts(tmp_path, tmp_path, 1)
+
+
+class _DeadChild:
+    pid = 1234
+
+    def poll(self):
+        return 1  # exited while starting
+
+    def terminate(self):
+        pass
+
+
+def test_the_local_voice_server_gets_none_of_the_backends_keys(tmp_path, monkeypatch) -> None:
+    """It runs third-party packages from its own .venv, so it must not inherit the API key and Azure settings."""
+    local_tts, tts = _installed_tts(tmp_path)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-for-the-child")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://example.invalid/")
+    envs = []
+    monkeypatch.setattr(local_tts.subprocess, "Popen", lambda *a, **k: envs.append(k.get("env")) or _DeadChild())
+    monkeypatch.setattr(tts, "_answering_pid", lambda: None)
+    with pytest.raises(local_tts.LocalTtsError, match="stopped while starting"):
+        tts.synthesize("Hello.", "af_heart", 1.0)
+    assert envs and envs[0] is not None and "PATH" in envs[0]
+    assert "ANTHROPIC_API_KEY" not in envs[0] and "AZURE_OPENAI_ENDPOINT" not in envs[0]
+
+
+def test_calls_after_a_failed_start_fail_at_once_instead_of_each_trying_again(tmp_path, monkeypatch) -> None:
+    """Every reply queued behind a start that failed tried its own start in turn, each up to 90 s."""
+    local_tts, tts = _installed_tts(tmp_path)
+    starts = []
+    monkeypatch.setattr(local_tts.subprocess, "Popen", lambda *a, **k: starts.append(1) or _DeadChild())
+    monkeypatch.setattr(tts, "_answering_pid", lambda: None)
+    for _ in range(3):
+        with pytest.raises(local_tts.LocalTtsError, match="stopped while starting"):
+            tts.synthesize("Hello.", "af_heart", 1.0)
+    assert len(starts) == 1
+    now = local_tts.time.monotonic()
+    monkeypatch.setattr(local_tts.time, "monotonic", lambda: now + local_tts.RETRY_START_AFTER_S + 1)
+    with pytest.raises(local_tts.LocalTtsError):
+        tts.synthesize("Hello.", "af_heart", 1.0)
+    assert len(starts) == 2  # tried again once the wait was over
+
+
+def test_a_conversation_that_has_just_started_is_not_evicted_at_the_cap() -> None:
+    """A page between creating its conversation and opening its stream has no listener yet. Another tab, or a script
+    creating conversations, could push it out, and its next input got a 404."""
+    svc, clock, _ = service([])
+    svc.max_conversations = 2
+    a = svc.create()["id"]
+    clock.t += 5_000
+    b = svc.create()["id"]
+    with pytest.raises(ApiError) as e:
+        svc.create()
+    assert e.value.status == 429 and {a, b} <= set(svc.sessions)
+    clock.t += va.EVICT_AFTER_S * 1000  # now both have been left unused: the older one goes
+    svc.create()
+    assert a not in svc.sessions and b in svc.sessions
+
+
+def test_an_oversized_recording_is_refused_before_it_is_read(tmp_path: Path) -> None:
+    """The route checked the size only after Starlette had spooled the whole multipart body to disk, so a huge POST was
+    taken in full before its 413. The body limit refuses it first: by its Content-Length, or by counting chunks."""
+    client, svc = make_app(tmp_path)
+    cid = svc.create()["id"]
+    url = f"/api/voice-agent/conversations/{cid}/audio"
+    limit = va.MAX_AUDIO_BYTES + 64 * 1024
+    declared = client.post(url, headers={**LAB, "content-type": "multipart/form-data; boundary=x",
+                                         "content-length": str(limit + 1)}, content=b"")
+    assert declared.status_code == 413 and declared.json()["error"]["type"] == "too_large"
+
+    sent = []
+
+    def chunks():  # no Content-Length: the body arrives in pieces
+        for _ in range(64):
+            sent.append(1)
+            yield b"x" * (64 * 1024)
+
+    chunked = client.post(url, headers={**LAB, "content-type": "multipart/form-data; boundary=x"}, content=chunks())
+    assert chunked.status_code == 413 and chunked.json()["error"]["type"] == "too_large"
+
+    small = client.post(url, headers=LAB, files={"file": ("turn.wav", b"not a wav", "audio/wav")})
+    assert small.status_code not in (413, 500)  # under the limit it reaches the route, which judges the file itself
+
+
+def test_every_route_has_a_body_ceiling(tmp_path: Path) -> None:
+    from backend.app.main import MAX_BODY_BYTES
+
+    client, _ = make_app(tmp_path)
+    got = client.post("/api/voice-agent/normalise", headers={**LAB, "content-type": "application/json",
+                                                              "content-length": str(MAX_BODY_BYTES + 1)}, content=b"")
+    assert got.status_code == 413
+
+
+def test_stopping_the_server_ends_voice_replies_and_the_local_voice(tmp_path: Path) -> None:
+    """Nothing called shutdown: on a reload, reply threads went on paying for model and voice calls, and the local
+    voice server was left only to atexit, so a killed worker could leave it holding the port."""
+    stopped = []
+
+    class Local(FakeLocal):
+        def stop(self) -> None:
+            stopped.append(1)
+
+    settings = Settings(port=8000, budget_usd=1.0, frontend_dist=tmp_path / "dist", models_dir=tmp_path / "no-models",
+                        generated_dir=tmp_path / "generated")
+    app = create_app(settings, client=FakeClient())
+    svc = va.VoiceAgentService(FakeClaude([]), app.state.container.spend, FakeRest(), Local(), clock=Clock(), autopoll=False)
+    object.__setattr__(app.state.container, "voice_agent", svc)
+    with TestClient(app, base_url="http://localhost:8000"):
+        cid = svc.create()["id"]
+        session = svc.sessions[cid]
+    assert session.closed and stopped

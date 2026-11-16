@@ -52,6 +52,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
+from ..shared import shown_path
+
 USER = "lab"  # the lab has no sign-in: one user. A product reads it from the verified session.
 CONTAINER = "model-failover"
 CONVERSATIONS_TABLE = "ModelFailoverConversations"
@@ -441,7 +443,7 @@ class FileStore(_LayeredStore):
             shutil.rmtree(base)
 
     def describe(self) -> dict[str, Any]:
-        return {"kind": self.kind, "where": str(self.root)}
+        return {"kind": self.kind, "where": shown_path(self.root)}
 
 
 class BlobTableStore(_LayeredStore):

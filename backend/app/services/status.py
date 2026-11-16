@@ -5,7 +5,8 @@ from typing import Any
 
 from ..gateways.claude import CredentialChecker
 from ..settings import CLAUDE_MODELS, MODELS
-from ..shared import CLAUDE_MODEL, DEFAULT_MODEL, HANDBOOK, PRICES, local_status, sandbox_skills
+from ..shared import (CACHE_WRITE_MULTIPLIER, CLAUDE_CONTEXT_TOKENS, CLAUDE_MODEL, DEFAULT_MODEL, HANDBOOK,
+                      MIN_CACHE_TOKENS, PRICES, local_status, sandbox_skills)
 from .spend import SpendTracker
 
 
@@ -25,7 +26,10 @@ class StatusService:
         return {"ok": True, "has_credentials": self.credentials.has_credentials(), "default_model": DEFAULT_MODEL,
                 "models": MODELS, "claude_models": CLAUDE_MODELS, "claude_model": CLAUDE_MODEL, "local": local_status(),
                 "skills_models": MODELS if sandbox else CLAUDE_MODELS, "skills_sandbox": sandbox,
-                "gpt_models": self.gpt_models, "prices": PRICES, "spent_usd": round(self.spend.spent_usd, 4),
+                "gpt_models": self.gpt_models, "prices": PRICES,
+                "cache": {"write_multiplier": CACHE_WRITE_MULTIPLIER, "min_tokens": MIN_CACHE_TOKENS,
+                          "claude_context_tokens": CLAUDE_CONTEXT_TOKENS},
+                "spent_usd": round(self.spend.spent_usd, 4),
                 "budget_usd": self.spend.budget_usd, "calls": self.spend.calls}
 
     @staticmethod
