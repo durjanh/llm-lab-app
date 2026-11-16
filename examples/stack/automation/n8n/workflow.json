@@ -1,0 +1,437 @@
+{
+  "id": "stacktriage0001",
+  "name": "Email triage",
+  "active": false,
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "emails",
+      "name": "Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "return [{\"id\": \"e1\", \"from\": \"mara.quinn@example.com\", \"subject\": \"Boiler broken, newborn baby\", \"body\": \"Our boiler stopped working this morning and the house is freezing. We have a six-day-old baby at home and no other heating. Please can an engineer come today?\"}, {\"id\": \"e2\", \"from\": \"tomas.reid@example.com\", \"subject\": \"Refund for order 4471\", \"body\": \"I would like a refund for order 4471. The kettle arrived last week and I have not opened the box. Please tell me how to send it back.\"}, {\"id\": \"e3\", \"from\": \"ines.park@example.com\", \"subject\": \"Carrying over annual leave\", \"body\": \"Quick question: how many unused days of annual leave can I carry into next year?\"}, {\"id\": \"e4\", \"from\": \"promo@win-big-now.example\", \"subject\": \"YOU HAVE WON 1,000,000 POUNDS\", \"body\": \"Click here now to claim your prize. Send your bank details to claim. Limited offer, act fast!!!\"}, {\"id\": \"e5\", \"from\": \"gareth.lowe@example.com\", \"subject\": \"Disappointed with my last visit\", \"body\": \"The engineer was forty minutes late last Tuesday and did not apologise. The repair was fine, but I expected better service. I would like someone to look into it.\"}].map(e => ({json: e}));"
+      }
+    },
+    {
+      "id": "classify",
+      "name": "Classify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {model: $env.STACK_CLAUDE_MODEL, max_tokens: 200, thinking: {type: 'disabled'}, system: \"You triage customer emails. Reply with JSON only, no other text: {\\\"category\\\": \\\"emergency|refund|question|complaint|spam\\\", \\\"urgency\\\": \\\"high|normal|low\\\"}. urgency is high only when someone's health or safety is at risk (for example no heating with a baby). Refunds, ordinary questions and complaints about service are normal or low. Spam is low.\", messages: [{role: 'user', content: `From: ${$json.from}\\nSubject: ${$json.subject}\\n\\n${$json.body}`}]} }}"
+      }
+    },
+    {
+      "id": "parse",
+      "name": "Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const text = $json.content.filter(b => b.type === 'text').map(b => b.text).join('');\nconst m = text.match(/\\{[\\s\\S]*?\\}/);\nconst c = m ? JSON.parse(m[0]) : {};\nconst email = $('Emails').item.json;\nreturn {json: {...email, category: String(c.category || '').toLowerCase(), urgency: String(c.urgency || '').toLowerCase()}};"
+      }
+    },
+    {
+      "id": "route",
+      "name": "Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "drop",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.category }}",
+                    "rightValue": "spam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "escalate",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.urgency }}",
+                    "rightValue": "high",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "reply"
+        }
+      }
+    },
+    {
+      "id": "drop",
+      "name": "Drop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        120
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const e = $json;\nreturn {json: {id: e.id, subject: e.subject, category: e.category, urgency: e.urgency, action: 'drop'}};"
+      }
+    },
+    {
+      "id": "escalate",
+      "name": "Escalate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const e = $json;\nreturn {json: {id: e.id, subject: e.subject, category: e.category, urgency: e.urgency, action: 'escalate', escalation: `ESCALATE to on-call team: ${e.subject} (${e.from})`}};"
+      }
+    },
+    {
+      "id": "draft",
+      "name": "Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        480
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {model: $env.STACK_CLAUDE_MODEL, max_tokens: 150, thinking: {type: 'disabled'}, system: \"You write short, polite customer replies, three sentences at most, in plain British English. Use only the facts in the email and the FAQ. Do not invent policies. FAQ: Annual leave: you can carry up to 5 unused days into the next year; the rest are lost on 31 March.\", messages: [{role: 'user', content: `From: ${$json.from}\\nSubject: ${$json.subject}\\n\\n${$json.body}`}]} }}"
+      }
+    },
+    {
+      "id": "reply-record",
+      "name": "Reply record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const e = $('Route').item.json;\nconst reply = $json.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();\nreturn {json: {id: e.id, subject: e.subject, category: e.category, urgency: e.urgency, action: 'reply', reply}};"
+      }
+    },
+    {
+      "id": "merge",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "numberInputs": 3
+      }
+    },
+    {
+      "id": "collect",
+      "name": "Collect",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const results = $input.all().map(i => i.json).sort((a, b) => a.id.localeCompare(b.id));\nreturn [{json: {results}}];"
+      }
+    },
+    {
+      "id": "crm",
+      "name": "Log to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://crm:3000/log",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {count: $json.results.length} }}"
+      }
+    },
+    {
+      "id": "final",
+      "name": "Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The CRM service fails its first call, so its answer says how many attempts the retry took.\nreturn [{json: {results: $('Collect').first().json.results, flaky_attempts: $json.attempt}}];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emails": {
+      "main": [
+        [
+          {
+            "node": "Classify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify": {
+      "main": [
+        [
+          {
+            "node": "Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Drop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Escalate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft": {
+      "main": [
+        [
+          {
+            "node": "Reply record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drop": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Reply record": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Collect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect": {
+      "main": [
+        [
+          {
+            "node": "Log to CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to CRM": {
+      "main": [
+        [
+          {
+            "node": "Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "00000000-0000-0000-0000-000000000001"
+}

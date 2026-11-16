@@ -98,27 +98,35 @@ export default function CpuGpuBench() {
 
   useEffect(() => {
     if (!('gpu' in navigator) || !navigator.gpu) {
-      setGpuProblem('This browser has no WebGPU, so only the CPU will run. Use a recent Chrome or Edge (WebGPU is on by default), or Safari 26 / Firefox with WebGPU enabled.');
+      setGpuProblem(
+        'This browser has no WebGPU, so only the CPU will run. Use a recent Chrome or Edge (WebGPU is on by default), or Safari 26 / Firefox with WebGPU enabled.',
+      );
       return;
     }
     navigator.gpu
       .requestAdapter({ powerPreference: 'high-performance' })
       .then((adapter) => {
         if (!adapter) {
-          setGpuProblem('WebGPU is present but found no usable GPU (it may be blocked or disabled), so only the CPU will run.');
+          setGpuProblem(
+            'WebGPU is present but found no usable GPU (it may be blocked or disabled), so only the CPU will run.',
+          );
           return;
         }
         const info = adapter.info;
-        setGpuInfo([info?.vendor, info?.architecture, info?.description].filter(Boolean).join(' · ') || 'a WebGPU adapter');
+        setGpuInfo(
+          [info?.vendor, info?.architecture, info?.description].filter(Boolean).join(' · ') || 'a WebGPU adapter',
+        );
       })
       .catch(() => setGpuProblem('WebGPU could not start, so only the CPU will run.'));
     return () => worker.current?.terminate();
   }, []);
 
-  const update = (n: number, change: Partial<Row>) => setRows((rs) => rs.map((r) => (r.n === n ? { ...r, ...change } : r)));
+  const update = (n: number, change: Partial<Row>) =>
+    setRows((rs) => rs.map((r) => (r.n === n ? { ...r, ...change } : r)));
 
   function cpuRun(n: number, keep: boolean): Promise<{ ms: number; result: Float32Array | null }> {
-    if (!worker.current) worker.current = new Worker(URL.createObjectURL(new Blob([WORKER], { type: 'text/javascript' })));
+    if (!worker.current)
+      worker.current = new Worker(URL.createObjectURL(new Blob([WORKER], { type: 'text/javascript' })));
     const w = worker.current;
     return new Promise((resolve, reject) => {
       w.onmessage = (e) => resolve({ ms: e.data.ms, result: e.data.result });
@@ -226,12 +234,12 @@ export default function CpuGpuBench() {
   const crossover = rows.find((r) => r.cpuMs !== undefined && r.gpuMs !== undefined && r.gpuMs < r.cpuMs)?.n;
 
   return (
-    <section className="hw-section">
+    <section id="hw-cpu-gpu" className="hw-section">
       <h2>CPU vs GPU, measured in your browser</h2>
       <p>
         Neural networks are mostly matrix multiplication. This multiplies two square matrices of random numbers on your
-        computer's CPU and then on its GPU, and times both. Multiplying two n×n matrices takes 2n³ arithmetic operations: about
-        half a million at 64×64, and 17 billion at 2048×2048.
+        computer's CPU and then on its GPU, and times both. Multiplying two n×n matrices takes 2n³ arithmetic
+        operations: about half a million at 64×64, and 17 billion at 2048×2048.
       </p>
       <div className="hw-controls">
         <button className="btn primary" disabled={running} onClick={() => void run()}>
@@ -243,17 +251,17 @@ export default function CpuGpuBench() {
         <span className="small muted">{status}</span>
       </div>
       <p className="hw-note">
-        <b>CPU:</b> plain JavaScript, one thread (in a Web Worker so the page stays usable), the straightforward i-k-j loop. A
-        tuned library using every core and vector instructions would be 10 to 100 times faster, but the shape of the result is
-        the same. Skipped at 2048×2048, where it would take tens of seconds. <b>GPU:</b> a WebGPU compute shader with 16×16
-        tiles in fast shared memory.{' '}
+        <b>CPU:</b> plain JavaScript, one thread (in a Web Worker so the page stays usable), the straightforward i-k-j
+        loop. A tuned library using every core and vector instructions would be 10 to 100 times faster, but the shape of
+        the result is the same. Skipped at 2048×2048, where it would take tens of seconds. <b>GPU:</b> a WebGPU compute
+        shader with 16×16 tiles in fast shared memory.{' '}
         {gpuInfo && (
           <>
             Your GPU: <b>{gpuInfo}</b>.
           </>
         )}{' '}
-        GPU times are from submitting the work until the GPU reports it done, the median of several runs after a warm-up;
-        copying the matrices to the GPU and the answer back are timed separately.
+        GPU times are from submitting the work until the GPU reports it done, the median of several runs after a
+        warm-up; copying the matrices to the GPU and the answer back are timed separately.
       </p>
       {gpuProblem && <p className="hw-warn small">{gpuProblem}</p>}
 
@@ -282,7 +290,9 @@ export default function CpuGpuBench() {
                   <td className="num">{fmt(gflops(r.n, r.cpuMs))}</td>
                   <td className="num">{fmt(gflops(r.n, r.gpuMs))}</td>
                   <td className="num">
-                    {r.cpuMs && r.gpuMs ? `${r.cpuMs / r.gpuMs >= 10 ? (r.cpuMs / r.gpuMs).toFixed(0) : (r.cpuMs / r.gpuMs).toFixed(1)}×` : '—'}
+                    {r.cpuMs && r.gpuMs
+                      ? `${r.cpuMs / r.gpuMs >= 10 ? (r.cpuMs / r.gpuMs).toFixed(0) : (r.cpuMs / r.gpuMs).toFixed(1)}×`
+                      : '—'}
                   </td>
                   <td className="num">{r.uploadMs !== undefined ? `${fmt(r.uploadMs)} / ${fmt(r.readMs)}` : '—'}</td>
                 </tr>
@@ -296,16 +306,17 @@ export default function CpuGpuBench() {
         <p className={`small ${check.maxDiff < 1e-2 ? 'hw-good' : 'hw-bad'}`}>
           Checked: at {check.n}×{check.n} the GPU's answer{' '}
           {check.maxDiff === 0
-            ? 'matches the CPU\'s exactly, every one of the 65,536 numbers (both add the products in the same order).'
+            ? "matches the CPU's exactly, every one of the 65,536 numbers (both add the products in the same order)."
             : `matches the CPU's to within ${check.maxDiff.toExponential(1)} (floating-point rounding when sums are added in a different order).`}
         </p>
       )}
       <p className="small">
-        <b>Why the GPU loses at first and then wins.</b> Every GPU job has a fixed cost: the work has to be sent, scheduled and
-        reported back, which takes a fraction of a millisecond whatever the size. Small matrices finish in less time than that
-        overhead, so the CPU wins. As the matrices grow, the arithmetic grows with n³ and the GPU's thousands of cores working in
-        parallel take over.{crossover ? ` On this computer the GPU pulls ahead from ${crossover}×${crossover}.` : ''} The same
-        logic decides real AI systems: tiny models or single short requests can be fine on a CPU, while big models and batches
+        <b>Why the GPU loses at first and then wins.</b> Every GPU job has a fixed cost: the work has to be sent,
+        scheduled and reported back, which takes a fraction of a millisecond whatever the size. Small matrices finish in
+        less time than that overhead, so the CPU wins. As the matrices grow, the arithmetic grows with n³ and the GPU's
+        thousands of cores working in parallel take over.
+        {crossover ? ` On this computer the GPU pulls ahead from ${crossover}×${crossover}.` : ''} The same logic
+        decides real AI systems: tiny models or single short requests can be fine on a CPU, while big models and batches
         need a GPU, TPU or other accelerator.
       </p>
     </section>
@@ -314,18 +325,33 @@ export default function CpuGpuBench() {
 
 /** Time against size on log scales, CPU and GPU, with the crossover marked. */
 function Chart({ rows, crossover }: { rows: Row[]; crossover?: number }) {
-  const W = 420, H = 240, L = 46, R = 24, T = 12, B = 34;
+  const W = 420,
+    H = 240,
+    L = 46,
+    R = 24,
+    T = 12,
+    B = 34;
   const all = rows.flatMap((r) => [r.cpuMs, r.gpuMs]).filter((v): v is number => v !== undefined && v > 0);
-  if (!all.length) return <div className="hw-chart hw-chart-empty small muted">The chart appears as results come in.</div>;
-  const yMin = Math.floor(Math.log10(Math.min(...all))), yMax = Math.ceil(Math.log10(Math.max(...all)));
+  if (!all.length)
+    return <div className="hw-chart hw-chart-empty small muted">The chart appears as results come in.</div>;
+  const yMin = Math.floor(Math.log10(Math.min(...all))),
+    yMax = Math.ceil(Math.log10(Math.max(...all)));
   const xs = GPU_SIZES.map((n) => Math.log2(n));
   const x = (n: number) => L + ((Math.log2(n) - xs[0]) / (xs[xs.length - 1] - xs[0])) * (W - L - R);
   const y = (ms: number) => T + (1 - (Math.log10(ms) - yMin) / Math.max(1, yMax - yMin)) * (H - T - B);
   const line = (key: 'cpuMs' | 'gpuMs') =>
-    rows.filter((r) => r[key] !== undefined).map((r) => `${x(r.n)},${y(r[key]!)}`).join(' ');
+    rows
+      .filter((r) => r[key] !== undefined)
+      .map((r) => `${x(r.n)},${y(r[key]!)}`)
+      .join(' ');
   const decades = Array.from({ length: yMax - yMin + 1 }, (_, i) => yMin + i);
   return (
-    <svg className="hw-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Milliseconds against matrix size for CPU and GPU, log scales">
+    <svg
+      className="hw-chart"
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label="Milliseconds against matrix size for CPU and GPU, log scales"
+    >
       {decades.map((d) => (
         <g key={d}>
           <line x1={L} x2={W - R} y1={y(10 ** d)} y2={y(10 ** d)} className="hw-grid" />
@@ -356,9 +382,13 @@ function Chart({ rows, crossover }: { rows: Row[]; crossover?: number }) {
       ))}
       <g className="hw-legend-svg">
         <circle cx={W - 120} cy={T + 6} r={4} style={{ fill: 'var(--s1)' }} />
-        <text x={W - 112} y={T + 10} className="hw-axis">CPU</text>
+        <text x={W - 112} y={T + 10} className="hw-axis">
+          CPU
+        </text>
         <circle cx={W - 70} cy={T + 6} r={4} style={{ fill: 'var(--s3)' }} />
-        <text x={W - 62} y={T + 10} className="hw-axis">GPU</text>
+        <text x={W - 62} y={T + 10} className="hw-axis">
+          GPU
+        </text>
       </g>
     </svg>
   );

@@ -1,0 +1,6 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+llama-index-core==0.14.26
+llama-index-llms-anthropic==0.13.0
+llama-index-embeddings-huggingface==0.9.0
+sentence-transformers==6.3.0
+anthropic==1.17.0  # llama-index-llms-anthropic 0.13.0 breaks on anthropic 2.x (MessageParam is now a Union)

@@ -1,0 +1,2 @@
+# n8n runs in Docker (docker-compose.yml). run.py needs only the standard library, so any Python 3.12 venv works:
+# python3.12 -m venv .venv

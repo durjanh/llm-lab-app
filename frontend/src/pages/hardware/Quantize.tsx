@@ -48,13 +48,14 @@ export default function Quantize() {
   const bytes = Math.ceil((N * bits) / 8) + groups * 2; // weights, plus one 16-bit scale per group
 
   return (
-    <section className="hw-section">
+    <section id="hw-quantize" className="hw-section">
       <h2>NPUs and quantisation: smaller numbers, smaller models</h2>
       <p>
-        Phones and laptops run models on their NPUs by storing each weight in fewer bits: 8 or 4 instead of 16 or 32. The model
-        gets smaller and faster (less to read from memory, as above), and the NPU's integer maths uses little power. The cost is
-        accuracy: each weight is rounded to one of a few steps, and the step size is set by the largest weight sharing a scale.
-        This model's 64 weights are the heights of 64 bumps; one of them is an outlier, as real models have.
+        Phones and laptops run models on their NPUs by storing each weight in fewer bits: 8 or 4 instead of 16 or 32.
+        The model gets smaller and faster (less to read from memory, as above), and the NPU's integer maths uses little
+        power. The cost is accuracy: each weight is rounded to one of a few steps, and the step size is set by the
+        largest weight sharing a scale. This model's 64 weights are the heights of 64 bumps; one of them is an outlier,
+        as real models have.
       </p>
       <div className="hw-controls">
         <label>
@@ -88,7 +89,11 @@ export default function Quantize() {
             draw={(f) => {
               f.line(XS, FULL, f.c.s1, 2.5);
               f.line(XS, out, f.c.s2, 2);
-              f.dots(CENTRES.map((c, i) => [c, q[i]] as [number, number]), f.c.s2, 2);
+              f.dots(
+                CENTRES.map((c, i) => [c, q[i]] as [number, number]),
+                f.c.s2,
+                2,
+              );
               f.text('outlier weight', CENTRES[OUTLIER] + 0.15, 4.1, f.c.muted);
             }}
           />
@@ -132,15 +137,17 @@ export default function Quantize() {
               </tr>
             </tbody>
           </table>
-          <p className="hw-note">Sizes include one 16-bit scale per group. The output mostly ranges from about −1.4 to 1.4.</p>
+          <p className="hw-note">
+            Sizes include one 16-bit scale per group. The output mostly ranges from about −1.4 to 1.4.
+          </p>
         </div>
       </div>
       <p className="small">
-        <b>What to notice.</b> 8-bit is close to free: the curves overlap. 4-bit drifts and 2-bit loses the shape, because with
-        one scale for all 64 weights, the outlier makes the steps coarse for every other weight. Switch to groups of 16 or 8:
-        each group gets its own scale, so only the outlier's group pays, and the error roughly halves for a few extra bytes.
-        That is what real methods do: GPTQ, AWQ and the formats NPUs use share a scale across small groups (often 32 to 128
-        weights) and keep the most sensitive layers at higher precision.
+        <b>What to notice.</b> 8-bit is close to free: the curves overlap. 4-bit drifts and 2-bit loses the shape,
+        because with one scale for all 64 weights, the outlier makes the steps coarse for every other weight. Switch to
+        groups of 16 or 8: each group gets its own scale, so only the outlier's group pays, and the error roughly halves
+        for a few extra bytes. That is what real methods do: GPTQ, AWQ and the formats NPUs use share a scale across
+        small groups (often 32 to 128 weights) and keep the most sensitive layers at higher precision.
       </p>
     </section>
   );

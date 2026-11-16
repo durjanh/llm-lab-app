@@ -11,7 +11,13 @@ export interface PageDef {
   Component: LazyExoticComponent<ComponentType>;
 }
 
-export const GROUPS = ['Foundations', 'Building', 'Quality and safety', 'Cost and operations'] as const;
+export const GROUPS = [
+  'Foundations',
+  'Building',
+  'Quality and safety',
+  'Cost and operations',
+  'Certification',
+] as const;
 
 /**
  * Columns inside a long menu: each page's id under a heading. A menu with columns opens as a wide panel, so every
@@ -31,14 +37,11 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'workflows',
       'claude-code',
       'claude-code-inside',
-      'claude-associate',
-      'claude-developer',
-      'claude-architect',
-      'claude-professional',
     ],
     'Retrieval, data and models': [
       'embeddings',
       'vector-db',
+      'ai-stack',
       'graphrag',
       'semantic-cache',
       'code-graph',
@@ -58,8 +61,10 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'whiteboard',
       'songbird',
       'fitness-coach',
+      'voice-agent',
       'extraction',
       'support-desk',
+      'model-failover',
       'research-team',
       'review-passes',
       'claude-at-work',
@@ -75,14 +80,16 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'medassist-architecture',
       'reviews',
       'aftercare',
-      'ai103',
-      'ab100',
       'understanding',
       'imagegen',
       'searchlab',
       'translate',
       'video-translate',
     ],
+  },
+  Certification: {
+    'Anthropic (Claude)': ['claude-associate', 'claude-developer', 'claude-architect', 'claude-professional'],
+    Microsoft: ['ai103', 'ab100'],
   },
 };
 
@@ -412,6 +419,16 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./fitness-coach/FitnessCoachPage')),
   },
   {
+    id: 'voice-agent',
+    path: '/voice-agent',
+    title: 'Voice Agent',
+    label: 'Voice agent (turn-taking, barge-in)',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./voice-agent/VoiceAgentPage')),
+  },
+
+  {
     id: 'delivery',
     path: '/delivery',
     title: 'Delivery and governance',
@@ -457,6 +474,16 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./support-desk/SupportDeskPage')),
   },
   {
+    id: 'model-failover',
+    path: '/model-failover',
+    title: 'Model Failover',
+    label: 'Model failover (429)',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./model-failover/ModelFailoverPage')),
+  },
+
+  {
     id: 'extraction',
     path: '/extraction',
     title: 'Structured Extraction',
@@ -474,6 +501,16 @@ export const PAGES: PageDef[] = [
     bodyClass: 'lab',
     Component: lazy(() => import('./vector-db/VectorDbPage')),
   },
+  {
+    id: 'ai-stack',
+    path: '/ai-stack',
+    title: 'AI Tech Stack',
+    label: 'AI tech stack map',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./ai-stack/AiStackPage')),
+  },
+
   {
     id: 'graphrag',
     path: '/graphrag',
@@ -559,8 +596,8 @@ export const PAGES: PageDef[] = [
     id: 'ai103',
     path: '/ai-103',
     title: 'AI-103 Exam Map',
-    label: 'AI-103 exam map',
-    group: 'Building',
+    label: 'AI-103: AI apps and agents',
+    group: 'Certification',
     bodyClass: 'lab',
     Component: lazy(() => import('./ai103/Ai103Page')),
   },
@@ -568,8 +605,8 @@ export const PAGES: PageDef[] = [
     id: 'ab100',
     path: '/ab-100',
     title: 'AB-100 Exam Map',
-    label: 'AB-100 exam map',
-    group: 'Building',
+    label: 'AB-100: Agentic AI architect',
+    group: 'Certification',
     bodyClass: 'lab',
     Component: lazy(() => import('./ab100/Ab100Page')),
   },
@@ -577,8 +614,8 @@ export const PAGES: PageDef[] = [
     id: 'claude-associate',
     path: '/claude-associate',
     title: 'Claude Certified Associate Exam Map',
-    label: 'Claude associate exam map',
-    group: 'Building',
+    label: 'Claude Certified Associate',
+    group: 'Certification',
     bodyClass: 'lab',
     Component: lazy(() => import('./claude-associate/ClaudeAssociatePage')),
   },
@@ -586,8 +623,8 @@ export const PAGES: PageDef[] = [
     id: 'claude-developer',
     path: '/claude-developer',
     title: 'Claude Certified Developer Exam Map',
-    label: 'Claude developer exam map',
-    group: 'Building',
+    label: 'Claude Certified Developer',
+    group: 'Certification',
     bodyClass: 'lab',
     Component: lazy(() => import('./claude-developer/ClaudeDeveloperPage')),
   },
@@ -595,8 +632,8 @@ export const PAGES: PageDef[] = [
     id: 'claude-architect',
     path: '/claude-architect',
     title: 'Claude Certified Architect Exam Map',
-    label: 'Claude architect exam map',
-    group: 'Building',
+    label: 'Claude Certified Architect – Foundations',
+    group: 'Certification',
     bodyClass: 'lab',
     Component: lazy(() => import('./claude-architect/ClaudeArchitectPage')),
   },
@@ -604,8 +641,8 @@ export const PAGES: PageDef[] = [
     id: 'claude-professional',
     path: '/claude-professional',
     title: 'Claude Certified Architect Professional Exam Map',
-    label: 'Claude architect (professional) exam map',
-    group: 'Building',
+    label: 'Claude Certified Architect – Professional',
+    group: 'Certification',
     bodyClass: 'lab',
     Component: lazy(() => import('./claude-professional/ClaudeProfessionalPage')),
   },

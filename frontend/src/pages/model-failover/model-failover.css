@@ -1,0 +1,200 @@
+/* Model failover: the chat, the router panel with its breakers, the memory bar and the storage panel. */
+
+.page-model-failover .card {
+  margin-top: 14px;
+}
+.page-model-failover h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.page-model-failover .mf-bad {
+  color: var(--bad);
+}
+.page-model-failover .mf-bar-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.page-model-failover .mf-grid {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(280px, 380px);
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .page-model-failover .mf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-model-failover .mf-list ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.page-model-failover .mf-list li {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 0;
+}
+.page-model-failover .mf-list li.on .mf-link {
+  font-weight: 700;
+}
+.page-model-failover .mf-link {
+  all: unset;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+.page-model-failover .mf-x {
+  all: unset;
+  cursor: pointer;
+  margin-left: auto;
+  color: var(--muted);
+}
+.page-model-failover textarea,
+.page-model-failover input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+}
+.page-model-failover .mf-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.page-model-failover .mf-trace {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.page-model-failover .mf-trace li,
+.page-model-failover p.mf-switch {
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--line2);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.page-model-failover .mf-trace li.mf-user {
+  border-left-color: var(--muted);
+}
+.page-model-failover .mf-trace li.mf-model {
+  border-left-color: var(--brand);
+}
+.page-model-failover .mf-trace li.mf-tool {
+  border-left-color: var(--good);
+  background: var(--surface2);
+}
+.page-model-failover .mf-trace li.mf-switch,
+.page-model-failover p.mf-switch {
+  border-left-color: var(--warn);
+  background: var(--surface2);
+  font-size: 13px;
+  margin: 0;
+}
+.page-model-failover .mf-trace li.mf-compaction {
+  border-left-color: var(--brand);
+  background: var(--surface2);
+}
+.page-model-failover .mf-who {
+  display: inline-block;
+  min-width: 70px;
+  margin-right: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.page-model-failover .mf-text {
+  white-space: pre-wrap;
+}
+.page-model-failover .mf-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line2);
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+}
+.page-model-failover .mf-c0 {
+  border-color: var(--brand);
+}
+.page-model-failover .mf-c1 {
+  border-color: var(--good);
+}
+.page-model-failover .mf-c2 {
+  border-color: var(--warn);
+}
+.page-model-failover .mf-models td {
+  vertical-align: middle;
+}
+.page-model-failover .mf-models input[type='number'] {
+  width: 96px;
+}
+.page-model-failover .mf-order {
+  white-space: nowrap;
+}
+.page-model-failover .mf-models input[type='checkbox'] {
+  width: auto;
+}
+.page-model-failover .mf-state {
+  font-size: 12px;
+  font-weight: 700;
+}
+.page-model-failover .mf-state.mf-closed {
+  color: var(--good);
+}
+.page-model-failover .mf-state.mf-open {
+  color: var(--bad);
+}
+.page-model-failover .mf-state.mf-half-open {
+  color: var(--warn);
+}
+.page-model-failover .mf-pool {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+}
+.page-model-failover .mf-bar {
+  height: 10px;
+  border-radius: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  margin: 6px 0;
+}
+.page-model-failover .mf-bar > div {
+  height: 100%;
+  background: var(--good);
+}
+.page-model-failover .mf-bar > div.over {
+  background: var(--bad);
+}
+.page-model-failover .mf-settings {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.page-model-failover .mf-paths {
+  margin: 4px 0;
+  padding-left: 16px;
+  overflow-wrap: anywhere;
+}
+.page-model-failover pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 4px 0;
+}
+.page-model-failover .mf-explain h2 {
+  margin-top: 18px;
+}

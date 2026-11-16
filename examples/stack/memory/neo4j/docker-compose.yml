@@ -1,0 +1,16 @@
+# Neo4j Community with a small heap. Local only; the password is a throwaway for 127.0.0.1.
+name: stack-memory-neo4j
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: stack-memory-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/labpassword
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 128m
+    ports: ["127.0.0.1:18610:7687"]
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p labpassword 'RETURN 1' || exit 1"]
+      interval: 3s
+      retries: 40

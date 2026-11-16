@@ -1,0 +1,21 @@
+# NeMo Guardrails config: Claude is both the bot's model and the model that runs the input rail.
+models:
+  - type: main
+    engine: anthropic
+    model: claude-haiku-5-5
+    parameters:
+      max_tokens: 300
+
+instructions:
+  - type: general
+    content: |
+      You answer questions about the Northwind staff handbook. Use only the handbook text you are given in the
+      conversation. If the answer is not there, say you do not know. Keep answers to one or two sentences.
+
+rails:
+  input:
+    flows:
+      - self check input
+
+# This Claude model rejects the temperature parameter; null stops NeMo sending one for the rail.
+lowest_temperature: null

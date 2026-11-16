@@ -1,0 +1,6 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+embedchain==0.1.128
+langchain-anthropic==0.3.22
+langchain-huggingface==0.1.2
+sentence-transformers==5.7.0
+anthropic==0.125.0

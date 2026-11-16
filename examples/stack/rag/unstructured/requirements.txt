@@ -1,0 +1,6 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+unstructured[pdf,docx]==0.27.37
+reportlab==5.1.0
+python-docx==1.2.0
+anthropic==2.8.0
+sentence-transformers==6.3.0

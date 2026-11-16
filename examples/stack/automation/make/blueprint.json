@@ -1,0 +1,307 @@
+{
+  "name": "Email triage (LLM Lab)",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": "REPLACE_WITH_YOUR_HOOK_ID",
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 3,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": true
+      },
+      "mapper": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "post",
+        "headers": [
+          {
+            "name": "x-api-key",
+            "value": "PASTE_KEY_AFTER_IMPORT"
+          },
+          {
+            "name": "anthropic-version",
+            "value": "2023-06-01"
+          }
+        ],
+        "contentType": "json",
+        "bodyType": "raw",
+        "parseResponse": true,
+        "timeout": "40",
+        "data": "{\"model\": \"claude-haiku-5-5\", \"max_tokens\": 200, \"thinking\": {\"type\": \"disabled\"}, \"system\": \"You triage customer emails. Reply with JSON only, no other text: {\\\"category\\\": \\\"emergency|refund|question|complaint|spam\\\", \\\"urgency\\\": \\\"high|normal|low\\\"}. urgency is high only when someone's health or safety is at risk (for example no heating with a baby). Refunds, ordinary questions and complaints about service are normal or low. Spam is low.\", \"messages\": [{\"role\": \"user\", \"content\": \"From: {{1.from}}\\nSubject: {{1.subject}}\\n\\n{{1.body}}\"}]}"
+      },
+      "onerror": [
+        {
+          "id": 93,
+          "module": "builtin:Break",
+          "version": 1,
+          "parameters": {},
+          "mapper": {
+            "count": "3",
+            "interval": "1",
+            "autoResume": true
+          },
+          "metadata": {
+            "designer": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "util:SetVariables",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "category",
+            "value": "{{lower(parseJSON(3.data.content[1].text).category)}}"
+          },
+          {
+            "name": "urgency",
+            "value": "{{lower(parseJSON(3.data.content[1].text).urgency)}}"
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "mapper": null,
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        }
+      },
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 6,
+              "module": "gateway:WebhookRespond",
+              "version": 1,
+              "parameters": {},
+              "mapper": {
+                "status": "200",
+                "body": "id={{1.id}}&category={{encodeURL(4.category)}}&urgency={{encodeURL(4.urgency)}}&action=drop",
+                "headers": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ]
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1200,
+                  "y": -300
+                }
+              },
+              "filter": {
+                "name": "Spam",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{4.category}}",
+                      "b": "spam",
+                      "o": "text:equal"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 7,
+              "module": "gateway:WebhookRespond",
+              "version": 1,
+              "parameters": {},
+              "mapper": {
+                "status": "200",
+                "body": "id={{1.id}}&category={{encodeURL(4.category)}}&urgency={{encodeURL(4.urgency)}}&action=escalate&escalation={{encodeURL(concat(\"ESCALATE to on-call team: \"; 1.subject; \" (\"; 1.from; \")\"))}}",
+                "headers": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ]
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1200,
+                  "y": 0
+                }
+              },
+              "filter": {
+                "name": "Urgent",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{4.category}}",
+                      "b": "spam",
+                      "o": "text:notequal"
+                    },
+                    {
+                      "a": "{{4.urgency}}",
+                      "b": "high",
+                      "o": "text:equal"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 8,
+              "module": "http:ActionSendData",
+              "version": 3,
+              "parameters": {
+                "handleErrors": true
+              },
+              "mapper": {
+                "url": "https://api.anthropic.com/v1/messages",
+                "method": "post",
+                "headers": [
+                  {
+                    "name": "x-api-key",
+                    "value": "PASTE_KEY_AFTER_IMPORT"
+                  },
+                  {
+                    "name": "anthropic-version",
+                    "value": "2023-06-01"
+                  }
+                ],
+                "contentType": "json",
+                "bodyType": "raw",
+                "parseResponse": true,
+                "timeout": "40",
+                "data": "{\"model\": \"claude-haiku-5-5\", \"max_tokens\": 150, \"thinking\": {\"type\": \"disabled\"}, \"system\": \"You write short, polite customer replies, three sentences at most, in plain British English. Use only the facts in the email and the FAQ. Do not invent policies. FAQ: Annual leave: you can carry up to 5 unused days into the next year; the rest are lost on 31 March.\", \"messages\": [{\"role\": \"user\", \"content\": \"From: {{1.from}}\\nSubject: {{1.subject}}\\n\\n{{1.body}}\"}]}"
+              },
+              "onerror": [
+                {
+                  "id": 98,
+                  "module": "builtin:Break",
+                  "version": 1,
+                  "parameters": {},
+                  "mapper": {
+                    "count": "3",
+                    "interval": "1",
+                    "autoResume": true
+                  },
+                  "metadata": {
+                    "designer": {
+                      "x": 0,
+                      "y": 0
+                    }
+                  }
+                }
+              ],
+              "metadata": {
+                "designer": {
+                  "x": 1200,
+                  "y": 300
+                }
+              },
+              "filter": {
+                "name": "Everything else",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{4.category}}",
+                      "b": "spam",
+                      "o": "text:notequal"
+                    },
+                    {
+                      "a": "{{4.urgency}}",
+                      "b": "high",
+                      "o": "text:notequal"
+                    }
+                  ]
+                ]
+              }
+            },
+            {
+              "id": 9,
+              "module": "gateway:WebhookRespond",
+              "version": 1,
+              "parameters": {},
+              "mapper": {
+                "status": "200",
+                "body": "id={{1.id}}&category={{encodeURL(4.category)}}&urgency={{encodeURL(4.urgency)}}&action=reply&reply={{encodeURL(trim(8.data.content[1].text))}}",
+                "headers": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/x-www-form-urlencoded"
+                  }
+                ]
+              },
+              "metadata": {
+                "designer": {
+                  "x": 1500,
+                  "y": 300
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "slots": null,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    }
+  }
+}

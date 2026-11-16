@@ -1,0 +1,9 @@
+{
+  "name": "stack-automation-pipedream",
+  "private": true,
+  "type": "module",
+  "description": "Pipedream triage workflow components, with a local runner",
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0"
+  }
+}

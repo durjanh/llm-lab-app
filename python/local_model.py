@@ -13,6 +13,7 @@ A local model costs nothing per token, so it is priced at zero.
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import uuid
@@ -250,6 +251,20 @@ def fallback_model(model: Any, setting: str | None = None) -> str | None:
     return GPT_MODELS[0] if GPT_MODELS else (LOCAL_MODEL or None)
 
 
+_NO_FALLBACK: contextvars.ContextVar[bool] = contextvars.ContextVar("llm_lab_no_fallback", default=False)
+
+
+@contextmanager
+def without_fallback() -> Iterator[None]:
+    """Inside this block a rate limited or overloaded request raises instead of going to fallback_model(). For code
+    that owns failover itself (the model failover lab's router), so the client does not switch model behind its back."""
+    token = _NO_FALLBACK.set(True)
+    try:
+        yield
+    finally:
+        _NO_FALLBACK.reset(token)
+
+
 def _limited(exc: Exception) -> bool:
     """A 429 (rate limited) or 529 (overloaded) that the SDK's own retries did not get past."""
     return isinstance(exc, anthropic.APIStatusError) and exc.status_code in (429, 529)
@@ -281,7 +296,7 @@ class _Messages:
     def _fallback(self, params: dict, exc: Exception) -> dict | None:
         """The same request for the fallback model, or None when there is none to try."""
         model = params.get("model")
-        alternative = fallback_model(model) if _limited(exc) else None
+        alternative = fallback_model(model) if _limited(exc) and not _NO_FALLBACK.get() else None
         if not alternative or (is_gpt(alternative) and not self._gpt) or (is_local(alternative) and not self._local):
             return None  # nothing configured, or a model this client has no route to
         log.warning("%s answered %s; trying %s instead", model, exc.status_code, alternative)

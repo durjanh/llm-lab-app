@@ -14,6 +14,8 @@ from ..services.songbird import SongbirdService
 from ..services.fitness import FitnessService
 from ..services.extraction import ExtractionService
 from ..services.support_desk import SupportDeskService
+from ..services.model_failover import ModelFailoverService
+from ..services.voice_agent import VoiceAgentService
 from ..services.research_team import ResearchTeamService
 from ..services.review_passes import ReviewPassesService
 from ..services.at_work import AtWorkService
@@ -209,6 +211,14 @@ def extraction(c: Container = Depends(container)) -> ExtractionService:
 
 def support_desk(c: Container = Depends(container)) -> SupportDeskService:
     return c.support_desk
+
+
+def model_failover(c: Container = Depends(container)) -> ModelFailoverService:
+    return c.model_failover
+
+
+def voice_agent(c: Container = Depends(container)) -> VoiceAgentService:
+    return c.voice_agent
 
 
 def research_team(c: Container = Depends(container)) -> ResearchTeamService:

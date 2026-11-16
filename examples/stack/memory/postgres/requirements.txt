@@ -1,0 +1,5 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+anthropic==2.8.0
+psycopg[binary]==3.3.9
+pgvector==0.5.1
+fastembed==0.9.1

@@ -1,0 +1,26 @@
+# Kestra standalone (H2, local storage) on 127.0.0.1:18811 with a 768 MB heap, plus a small flaky CRM for the retry demo.
+# The login is a throwaway local one. The Anthropic key is passed through from the host as a base64 Kestra secret.
+services:
+  kestra:
+    image: kestra/kestra:v2.0.10
+    container_name: stack-automation-kestra
+    command: server local
+    ports: ["127.0.0.1:18811:8080"]
+    mem_limit: 1536m
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx768m"
+      SECRET_ANTHROPIC_API_KEY: ${KESTRA_SECRET_ANTHROPIC_API_KEY:-}
+      KESTRA_CONFIGURATION: |
+        kestra:
+          server:
+            basic-auth:
+              username: lab@example.com
+              password: LabLocal1234
+  crm:
+    image: kestra/kestra:v2.0.10
+    container_name: stack-automation-kestra-crm
+    entrypoint: ["python3", "/fake_crm.py"]
+    ports: ["127.0.0.1:18812:3000"]
+    mem_limit: 128m
+    volumes:
+      - ./fake_crm.py:/fake_crm.py:ro

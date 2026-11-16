@@ -1,0 +1,14 @@
+# Pinecone Local: the official emulator (amd64 only, so it runs under emulation on Apple silicon). It starts one more
+# container for each index it creates, through the Docker socket, on the ports after PORT, so they stay in our range.
+services:
+  pinecone:
+    image: ghcr.io/pinecone-io/pinecone-local:latest
+    container_name: stack-vector-dbs-pinecone
+    platform: linux/amd64
+    environment:
+      PORT: 18710
+      PINECONE_HOST: 127.0.0.1
+    ports:
+      - "127.0.0.1:18710-18715:18710-18715"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

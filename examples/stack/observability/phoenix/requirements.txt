@@ -1,0 +1,10 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+arize-phoenix==21.0.0
+arize-phoenix-evals==3.10.0
+arize-phoenix-client==3.7.0
+arize-phoenix-otel==0.17.3
+openinference-instrumentation-anthropic==3.3.5
+opentelemetry-sdk==1.45.2
+opentelemetry-exporter-otlp==1.45.2
+anthropic==1.17.0
+pandas==3.1.1

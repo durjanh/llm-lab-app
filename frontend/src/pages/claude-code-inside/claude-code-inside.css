@@ -141,7 +141,12 @@ body.present .stage-head h2{font-size:28px}
 }
 
 /* The lifecycle chart beside each step of the advanced hooks chapter (drawing in claude-code/hook-lifecycle.css) */
-.page-claude-code-inside .hl-mini{float:right;width:min(46%,250px);margin:0 0 10px 14px}
-.page-claude-code-inside .hl-mini + pre.code{clear:none}
+/* Text on the left, chart on the right; the empty last row takes the chart's extra height so the text stays together. */
+.page-claude-code-inside .narr:has(.hl-mini){display:grid;grid-template-columns:minmax(0,1fr) 250px;grid-template-rows:repeat(6,auto) 1fr;column-gap:20px;align-items:start}
+.page-claude-code-inside .narr:has(.hl-mini) > *{grid-column:1}
+.page-claude-code-inside .narr:has(.hl-mini) > .hl-mini{grid-column:2;grid-row:1 / 8}
 .page-claude-code-inside #after .hl-svg{max-width:520px}
-@media (max-width:600px){.page-claude-code-inside .hl-mini{float:none;width:100%;max-width:300px;margin:8px auto}}
+@media (max-width:700px){
+  .page-claude-code-inside .narr:has(.hl-mini){display:block}
+  .page-claude-code-inside .hl-mini{max-width:320px;margin:10px auto 0}
+}

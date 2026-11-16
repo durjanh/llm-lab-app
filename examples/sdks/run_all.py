@@ -14,7 +14,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TASKS = ["01_structured", "02_tools", "03_mcp", "04_agent", "05_multi_agent"]
-ORDER = ["openai", "openai-agents", "claude", "agent-framework", "semantic-kernel", "autogen", "langchain", "langgraph", "crewai", "strands", "pydantic-ai"]
+ORDER = ["openai", "openai-agents", "claude", "agent-framework", "semantic-kernel", "autogen", "langchain", "langgraph", "crewai", "strands", "pydantic-ai",
+         "agno", "camel", "llamaindex", "google-adk", "bedrock-agents"]
 
 
 def run(sdk: Path, task: str) -> tuple[str, float]:
@@ -28,9 +29,9 @@ def run(sdk: Path, task: str) -> tuple[str, float]:
         text = out.stdout + out.stderr
     except subprocess.TimeoutExpired:
         return "TIMEOUT", time.time() - start
-    found = re.findall(r"^(PASS|FAIL) " + task, text, flags=re.M)
+    found = re.findall(r"^(PASS|FAIL|SKIP) " + task, text, flags=re.M)  # SKIP: the SDK needs an account this machine lacks
     result = found[-1] if found else "ERROR"
-    if result != "PASS":  # keep the whole output of a failure, to see what the model did
+    if result not in ("PASS", "SKIP"):  # keep the whole output of a failure, to see what the model did
         (HERE / "logs").mkdir(exist_ok=True)
         (HERE / "logs" / f"{sdk.name}-{task}.log").write_text(text)
     return result, time.time() - start
@@ -56,7 +57,7 @@ def main() -> None:
         old[name] = f"| {name} | " + " | ".join(cells) + " |"
     rows = [old[n] for n in sorted(old, key=lambda n: ORDER.index(n) if n in ORDER else 99)]
     table = "| SDK | " + " | ".join(TASKS) + " |\n|---|" + "---|" * len(TASKS) + "\n" + "\n".join(rows)
-    (HERE / "RESULTS.md").write_text(f"# Results\n\nRun on {date.today().isoformat()} with `run_all.py` (task 4 with `--auto-approve`).\n\n{table}\n")
+    (HERE / "RESULTS.md").write_text(f"# Results\n\nLast run on {date.today().isoformat()} with `run_all.py` (task 4 with `--auto-approve`). It replaces only the rows it ran, so older rows keep their earlier dates (the first nine SDKs 2026-10-30, `strands` and `pydantic-ai` 2026-11-13). SKIP means the SDK needs an account this machine lacks.\n\n{table}\n")
     print(f"\nWrote {HERE / 'RESULTS.md'}")
 
 

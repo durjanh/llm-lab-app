@@ -1,0 +1,12 @@
+# Letta server with its own embedded Postgres. Claude comes from ANTHROPIC_API_KEY in the caller's environment, and
+# archival memory embeds through Azure OpenAI with a short-lived Entra token, which Letta reads as OPENAI_API_KEY.
+# run.py passes both through; nothing is written here. Local only.
+name: stack-memory-letta
+services:
+  letta:
+    image: letta/letta:0.16.8
+    container_name: stack-memory-letta
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${LETTA_EMBED_TOKEN:-}
+    ports: ["127.0.0.1:18630:8283"]

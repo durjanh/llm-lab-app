@@ -20,13 +20,76 @@ interface Chip {
 
 // Vendor-published peak figures, rounded. Real systems reach a fraction of these.
 const CHIPS: Chip[] = [
-  { id: 'cpu', name: 'Desktop CPU', kind: 'CPU', bandwidthGBs: 90, memoryGB: 64, tflops: 2, note: 'dual-channel DDR5', cluster: false },
-  { id: 'npu', name: 'Phone NPU', kind: 'NPU', bandwidthGBs: 77, memoryGB: 12, tflops: 45, note: 'LPDDR5X shared memory; INT8 TOPS', cluster: false },
-  { id: 'm4', name: 'Apple M4 Max', kind: 'GPU', bandwidthGBs: 546, memoryGB: 128, tflops: 18, note: 'unified memory', cluster: false },
-  { id: 'tpu', name: 'Google TPU v5e', kind: 'TPU', bandwidthGBs: 819, memoryGB: 16, tflops: 197, note: 'HBM2, BF16', cluster: true },
-  { id: 'h100', name: 'NVIDIA H100 SXM', kind: 'GPU', bandwidthGBs: 3350, memoryGB: 80, tflops: 989, note: 'HBM3, dense BF16', cluster: true },
-  { id: 'b200', name: 'NVIDIA B200', kind: 'GPU', bandwidthGBs: 8000, memoryGB: 192, tflops: 2250, note: 'HBM3e, dense BF16', cluster: true },
-  { id: 'lpu', name: 'Groq LPU', kind: 'LPU', bandwidthGBs: 80000, memoryGB: 0.23, tflops: 188, note: 'on-chip SRAM, FP16', cluster: true },
+  {
+    id: 'cpu',
+    name: 'Desktop CPU',
+    kind: 'CPU',
+    bandwidthGBs: 90,
+    memoryGB: 64,
+    tflops: 2,
+    note: 'dual-channel DDR5',
+    cluster: false,
+  },
+  {
+    id: 'npu',
+    name: 'Phone NPU',
+    kind: 'NPU',
+    bandwidthGBs: 77,
+    memoryGB: 12,
+    tflops: 45,
+    note: 'LPDDR5X shared memory; INT8 TOPS',
+    cluster: false,
+  },
+  {
+    id: 'm4',
+    name: 'Apple M4 Max',
+    kind: 'GPU',
+    bandwidthGBs: 546,
+    memoryGB: 128,
+    tflops: 18,
+    note: 'unified memory',
+    cluster: false,
+  },
+  {
+    id: 'tpu',
+    name: 'Google TPU v5e',
+    kind: 'TPU',
+    bandwidthGBs: 819,
+    memoryGB: 16,
+    tflops: 197,
+    note: 'HBM2, BF16',
+    cluster: true,
+  },
+  {
+    id: 'h100',
+    name: 'NVIDIA H100 SXM',
+    kind: 'GPU',
+    bandwidthGBs: 3350,
+    memoryGB: 80,
+    tflops: 989,
+    note: 'HBM3, dense BF16',
+    cluster: true,
+  },
+  {
+    id: 'b200',
+    name: 'NVIDIA B200',
+    kind: 'GPU',
+    bandwidthGBs: 8000,
+    memoryGB: 192,
+    tflops: 2250,
+    note: 'HBM3e, dense BF16',
+    cluster: true,
+  },
+  {
+    id: 'lpu',
+    name: 'Groq LPU',
+    kind: 'LPU',
+    bandwidthGBs: 80000,
+    memoryGB: 0.23,
+    tflops: 188,
+    note: 'on-chip SRAM, FP16',
+    cluster: true,
+  },
 ];
 
 const MODELS = [
@@ -41,7 +104,14 @@ const PRECISIONS = [
   { label: '4-bit (INT4)', bytes: 0.5 },
 ];
 
-const fmt = (v: number) => (v >= 1e5 ? `${(v / 1000).toFixed(0)}k` : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v >= 10 ? v.toFixed(0) : v.toFixed(1));
+const fmt = (v: number) =>
+  v >= 1e5
+    ? `${(v / 1000).toFixed(0)}k`
+    : v >= 1000
+      ? `${(v / 1000).toFixed(1)}k`
+      : v >= 10
+        ? v.toFixed(0)
+        : v.toFixed(1);
 
 export default function Bandwidth() {
   const [params, setParams] = useState(70);
@@ -69,13 +139,13 @@ export default function Bandwidth() {
   const total = (b: number) => Math.min(b * chip.decode, chip.prefill);
 
   return (
-    <section className="hw-section">
+    <section id="hw-bandwidth" className="hw-section">
       <h2>Why generating text is limited by memory speed (and why LPUs are fast)</h2>
       <p>
-        To produce each new token, the chip must read <b>every weight of the model once</b>. The sums for that token are quick;
-        fetching billions of numbers from memory is the slow part. So for one user, tokens per second can be no higher than{' '}
-        <b>memory bandwidth ÷ model size in bytes</b>. Reading your prompt is different: all its tokens go through together, so
-        that part is limited by compute.
+        To produce each new token, the chip must read <b>every weight of the model once</b>. The sums for that token are
+        quick; fetching billions of numbers from memory is the slow part. So for one user, tokens per second can be no
+        higher than <b>memory bandwidth ÷ model size in bytes</b>. Reading your prompt is different: all its tokens go
+        through together, so that part is limited by compute.
       </p>
       <div className="hw-controls">
         <label>
@@ -99,7 +169,10 @@ export default function Bandwidth() {
           </select>
         </label>
         <span className="small">
-          Weights: <b>{weightsGB >= 1 ? `${weightsGB.toFixed(weightsGB < 10 ? 1 : 0)} GB` : `${(weightsGB * 1000).toFixed(0)} MB`}</b>
+          Weights:{' '}
+          <b>
+            {weightsGB >= 1 ? `${weightsGB.toFixed(weightsGB < 10 ? 1 : 0)} GB` : `${(weightsGB * 1000).toFixed(0)} MB`}
+          </b>
         </span>
       </div>
 
@@ -118,18 +191,32 @@ export default function Bandwidth() {
             {rows.map((r) => (
               <tr key={r.id} className={r.id === chip.id ? 'hw-picked' : ''} onClick={() => r.fits && setChipId(r.id)}>
                 <td>
-                  <b>{r.name}</b> <span className="hw-note">{r.kind} · {r.note}</span>
+                  <b>{r.name}</b>{' '}
+                  <span className="hw-note">
+                    {r.kind} · {r.note}
+                  </span>
                 </td>
-                <td className="num">{r.bandwidthGBs >= 1000 ? `${r.bandwidthGBs / 1000} TB/s` : `${r.bandwidthGBs} GB/s`}</td>
+                <td className="num">
+                  {r.bandwidthGBs >= 1000 ? `${r.bandwidthGBs / 1000} TB/s` : `${r.bandwidthGBs} GB/s`}
+                </td>
                 <td className="num">
                   {r.fits ? r.chips.toLocaleString('en-GB') : <span className="hw-bad">does not fit</span>}
-                  {r.fits && r.chips > 1 && <span className="hw-note"> ({r.memoryGB < 1 ? `${r.memoryGB * 1000} MB` : `${r.memoryGB} GB`} each)</span>}
+                  {r.fits && r.chips > 1 && (
+                    <span className="hw-note">
+                      {' '}
+                      ({r.memoryGB < 1 ? `${r.memoryGB * 1000} MB` : `${r.memoryGB} GB`} each)
+                    </span>
+                  )}
                   {!r.fits && <span className="hw-note"> ({r.memoryGB} GB)</span>}
                 </td>
                 <td>
                   {r.fits ? (
                     <div className="hw-bar">
-                      <i style={{ width: `${Math.max(1, (Math.log10(r.decode + 1) / Math.log10(maxDecode + 1)) * 100)}%` }} />
+                      <i
+                        style={{
+                          width: `${Math.max(1, (Math.log10(r.decode + 1) / Math.log10(maxDecode + 1)) * 100)}%`,
+                        }}
+                      />
                       <span>{fmt(r.decode)} tokens/s</span>
                     </div>
                   ) : (
@@ -143,12 +230,13 @@ export default function Bandwidth() {
         </table>
       </div>
       <p className="hw-note">
-        Upper bounds from vendor peak figures. Generation: one chip's memory speed ÷ the model's size, since a user's next
-        token needs every weight, layer after layer. That holds when the layers are split across chips. Splitting each layer
-        across chips instead (tensor parallelism) lets every chip read its slice at once, so their combined speed raises the
-        limit, minus the time spent combining results between chips. Prompt reading: peak compute across all the chips, at 2 operations per
-        parameter per token. Real systems reach perhaps 50–80% of bandwidth and less of compute; the KV cache and activations
-        are left out. Bars use a log scale. Click a row to choose it below.
+        Upper bounds from vendor peak figures. Generation: one chip's memory speed ÷ the model's size, since a user's
+        next token needs every weight, layer after layer. That holds when the layers are split across chips. Splitting
+        each layer across chips instead (tensor parallelism) lets every chip read its slice at once, so their combined
+        speed raises the limit, minus the time spent combining results between chips. Prompt reading: peak compute
+        across all the chips, at 2 operations per parameter per token. Real systems reach perhaps 50–80% of bandwidth
+        and less of compute; the KV cache and activations are left out. Bars use a log scale. Click a row to choose it
+        below.
       </p>
 
       <div className="hw-takeaways">
@@ -156,13 +244,15 @@ export default function Bandwidth() {
           <b>What the table shows</b>
           <ul className="small">
             <li>
-              <b>Halving the bytes doubles the speed.</b> Switch 16-bit to 4-bit: generation gets four times faster on every chip,
-              because there is a quarter as much to read. That is the main reason quantised models are quick.
+              <b>Halving the bytes doubles the speed.</b> Switch 16-bit to 4-bit: generation gets four times faster on
+              every chip, because there is a quarter as much to read. That is the main reason quantised models are
+              quick.
             </li>
             <li>
-              <b>The LPU's trick is memory, not maths.</b> On-chip SRAM is about 24 times faster than an H100's HBM, so one user
-              gets about 24 times the tokens per second. But it holds only 230 MB per chip, so a {params}B model at this precision
-              needs about {rows.find((r) => r.id === 'lpu')!.chips.toLocaleString('en-GB')} chips working together.
+              <b>The LPU's trick is memory, not maths.</b> On-chip SRAM is about 24 times faster than an H100's HBM, so
+              one user gets about 24 times the tokens per second. But it holds only 230 MB per chip, so a {params}B
+              model at this precision needs about {rows.find((r) => r.id === 'lpu')!.chips.toLocaleString('en-GB')}{' '}
+              chips working together.
             </li>
             <li>
               <b>Prompts are cheap, outputs are dear.</b> Reading the prompt is far faster than generating, which is why
@@ -181,17 +271,35 @@ export default function Bandwidth() {
             ariaLabel={`Total tokens per second against the number of users on ${chip.name}`}
             draw={(f) => {
               const xs = batches.map((b) => Math.log2(b));
-              f.line(xs, batches.map((b) => Math.log10(b * chip.decode)), f.c.muted, 1.5, [4, 4]);
-              f.line(xs, batches.map(() => Math.log10(chip.prefill)), f.c.muted, 1.5, [4, 4]);
-              f.line(xs, batches.map((b) => Math.log10(total(b))), f.c.brand, 3);
+              f.line(
+                xs,
+                batches.map((b) => Math.log10(b * chip.decode)),
+                f.c.muted,
+                1.5,
+                [4, 4],
+              );
+              f.line(
+                xs,
+                batches.map(() => Math.log10(chip.prefill)),
+                f.c.muted,
+                1.5,
+                [4, 4],
+              );
+              f.line(
+                xs,
+                batches.map((b) => Math.log10(total(b))),
+                f.c.brand,
+                3,
+              );
               if (chip.ridge >= 1 && chip.ridge <= 1024) f.vline(Math.log2(chip.ridge), f.c.s2);
             }}
           />
           <p className="small">
-            One user cannot keep the chip's compute busy: it waits on memory. But the weights read for one user's token can be used
-            for many users' tokens in the same pass, so total throughput rises with the number of users until compute runs out,
-            at about <b>{chip.ridge >= 1 ? `${fmt(chip.ridge)} users` : 'one user'}</b> here (the orange line). This is why
-            GPU serving batches requests, and why per-user speed and total throughput are different numbers.
+            One user cannot keep the chip's compute busy: it waits on memory. But the weights read for one user's token
+            can be used for many users' tokens in the same pass, so total throughput rises with the number of users
+            until compute runs out, at about <b>{chip.ridge >= 1 ? `${fmt(chip.ridge)} users` : 'one user'}</b> here
+            (the orange line). This is why GPU serving batches requests, and why per-user speed and total throughput are
+            different numbers.
           </p>
         </div>
       </div>

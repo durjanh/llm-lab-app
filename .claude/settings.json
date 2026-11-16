@@ -25,9 +25,13 @@
     ],
     "deny": [
       "Read(./.env)",
-      "Read(./.env.*)",
+      "Read(./.env.before-azd)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
       "Edit(./.env)",
-      "Edit(./.env.*)",
+      "Edit(./.env.before-azd)",
+      "Edit(./.env.local)",
+      "Edit(./.env.*.local)",
       "Bash(rm -rf *)",
       "Edit(./python/coding_project/**)"
     ]

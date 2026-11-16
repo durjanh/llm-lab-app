@@ -1,0 +1,5 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+letta-client==1.12.1
+anthropic==2.8.0
+azure-identity==1.27.0
+httpx==0.28.1

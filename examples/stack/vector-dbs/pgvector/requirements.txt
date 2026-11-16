@@ -1,0 +1,4 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+psycopg[binary]==3.3.9
+pgvector==0.5.1
+numpy==2.5.4

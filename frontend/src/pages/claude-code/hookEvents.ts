@@ -326,6 +326,30 @@ export const HOOK_EVENTS: HookEvent[] = [
   ),
 ];
 
+/** Events where exit code 2 or a JSON decision stops or changes what happens next (a block, a decision, a rewritten
+    input or output, a failed worktree step). The others can only observe, notify or add context. */
+export const CAN_BLOCK = [
+  'UserPromptSubmit',
+  'UserPromptExpansion',
+  'PreToolUse',
+  'PermissionRequest',
+  'Elicitation',
+  'ElicitationResult',
+  'PostToolUse',
+  'PostToolBatch',
+  'SubagentStop',
+  'TaskCreated',
+  'TaskCompleted',
+  'Stop',
+  'TeammateIdle',
+  'PreCompact',
+  'ConfigChange',
+  'PreModelSwitch',
+  'WorktreeCreate',
+  'WorktreeRemove',
+  'MessageDisplay',
+];
+
 export const EVENT_BY_NAME = Object.fromEntries(HOOK_EVENTS.map((e) => [e.name, e])) as Record<string, HookEvent>;
 
 /* The chart. Main column: [label, events, x-centre, y, width, colour group]. Side column: [label lines, note, events, y]. */
@@ -378,8 +402,11 @@ const SX = 10,
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const mid = (y: number) => y + H / 2;
 
+let drawn = 0;
+
 /** The lifecycle chart as an SVG string. Events in `on` are lit up; the rest dim when anything is lit. */
 export function lifecycleSvg(on: string[] = [], opts: { title?: string } = {}): string {
+  const id = `hl${++drawn}`; // ids must be unique: a page can hold several charts
   const lit = new Set(on);
   const cls = (events: string[]) => (events.some((e) => lit.has(e)) ? ' on' : lit.size ? ' dim' : '');
   const node = (events: string[]) =>
@@ -387,13 +414,13 @@ export function lifecycleSvg(on: string[] = [], opts: { title?: string } = {}): 
       ? ` data-ev="${events.join(' ')}" tabindex="0" role="button" aria-label="${esc(events.join(' and '))}: show details"`
       : '';
   const arrow = (x1: number, y1: number, x2: number, y2: number, c = 'hl-flow') =>
-    `<line class="${c}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#hl-a)"/>`;
-  let s = `<svg class="hl-svg" viewBox="0 0 600 1280" xmlns="http://www.w3.org/2000/svg" role="group" aria-labelledby="hl-t">
-<title id="hl-t">${esc(opts.title || 'The Claude Code hook lifecycle: 33 events')}</title>
+    `<line class="${c}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" marker-end="url(#${id}-a)"/>`;
+  let s = `<svg class="hl-svg" viewBox="0 0 600 1280" xmlns="http://www.w3.org/2000/svg" role="group" aria-labelledby="${id}-t">
+<title id="${id}-t">${esc(opts.title || 'The Claude Code hook lifecycle: 33 events')}</title>
 <defs>
-  <marker id="hl-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" class="hl-head"/></marker>
-  <marker id="hl-al" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" class="hl-head-loop"/></marker>
-  <marker id="hl-at" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" class="hl-head-turn"/></marker>
+  <marker id="${id}-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" class="hl-head"/></marker>
+  <marker id="${id}-al" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" class="hl-head-loop"/></marker>
+  <marker id="${id}-at" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" class="hl-head-turn"/></marker>
 </defs>
 <rect class="hl-bg" x="0" y="0" width="600" height="1280" rx="14"/>
 <rect class="hl-turnbox" x="160" y="78" width="388" height="770" rx="10"/>
@@ -403,11 +430,11 @@ export function lifecycleSvg(on: string[] = [], opts: { title?: string } = {}): 
   // straight arrows down the main column
   for (let i = 0; i < MAIN.length - 1; i++) s += arrow(CX, MAIN[i][2] + H, CX, MAIN[i + 1][2] - 2);
   // the agentic loop: TaskCompleted back to PreToolUse
-  s += `<path class="hl-back-loop" d="M ${CX + 90} ${mid(686)} H 490 V ${mid(196)} H ${CX + 92}" marker-end="url(#hl-al)"/>`;
+  s += `<path class="hl-back-loop" d="M ${CX + 90} ${mid(686)} H 490 V ${mid(196)} H ${CX + 92}" marker-end="url(#${id}-al)"/>`;
   // each turn: Stop back to UserPromptSubmit
-  s += `<path class="hl-back-turn" d="M ${CX + 90} ${mid(786)} H 528 V ${mid(96)} H ${CX + 92}" marker-end="url(#hl-at)"/>`;
+  s += `<path class="hl-back-turn" d="M ${CX + 90} ${mid(786)} H 528 V ${mid(96)} H ${CX + 92}" marker-end="url(#${id}-at)"/>`;
   // resumed sessions: SessionEnd back to SessionStart
-  s += `<path class="hl-back-resume" d="M ${CX + 90} ${mid(1076)} H 572 V ${mid(20)} H ${CX + 92}" marker-end="url(#hl-a)"/>
+  s += `<path class="hl-back-resume" d="M ${CX + 90} ${mid(1076)} H 572 V ${mid(20)} H ${CX + 92}" marker-end="url(#${id}-a)"/>
 <text class="hl-note" transform="translate(586 ${mid(560)}) rotate(90)" text-anchor="middle">resumed sessions</text>`;
   // side arrows: Setup → SessionStart, UserPromptSubmit → expansion, PermissionRequest → denied, elicitation → tool
   s += arrow(SX + SW, 18 + H / 2, CX - 92, mid(20), 'hl-side-flow');

@@ -1,0 +1,15 @@
+# Weaviate with no vectoriser module: we bring our own vectors. Anonymous access, local only (127.0.0.1).
+services:
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.33.4
+    container_name: stack-vector-dbs-weaviate
+    command: ["--host", "0.0.0.0", "--port", "8080", "--scheme", "http"]
+    environment:
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      ENABLE_MODULES: ""
+      CLUSTER_HOSTNAME: node1
+      GOMEMLIMIT: 600MiB
+    mem_limit: 1g
+    ports: ["127.0.0.1:18750:8080", "127.0.0.1:18751:50051"]

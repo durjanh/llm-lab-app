@@ -58,6 +58,14 @@ export class ApiClient {
     }
   }
 
+  async put<T>(path: string, body: unknown): Promise<T> {
+    try {
+      return (await this.http.put<T>(path, body, { headers: bodyHeaders(body) })).data;
+    } catch (err) {
+      throw await toError(err);
+    }
+  }
+
   async delete<T>(path: string): Promise<T> {
     try {
       return (await this.http.delete<T>(path)).data;

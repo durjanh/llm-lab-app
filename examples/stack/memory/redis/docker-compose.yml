@@ -1,0 +1,8 @@
+# Redis 8 ships the query engine (vector search) in the main image. Local only, no password needed on 127.0.0.1.
+name: stack-memory-redis
+services:
+  redis:
+    image: redis:8.0
+    container_name: stack-memory-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb"]
+    ports: ["127.0.0.1:18600:6379"]

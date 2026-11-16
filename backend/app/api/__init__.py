@@ -96,3 +96,11 @@ router.include_router(support_desk.router)
 from . import extraction  # noqa: E402  (Structured Extraction)
 
 router.include_router(extraction.router)
+
+from . import model_failover  # noqa: E402  (Model Failover)
+
+router.include_router(model_failover.router)
+
+from . import voice_agent  # noqa: E402  (Voice Agent)
+
+router.include_router(voice_agent.router)

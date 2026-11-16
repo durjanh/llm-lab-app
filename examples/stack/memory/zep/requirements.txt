@@ -1,0 +1,6 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+anthropic==2.8.0
+fastembed==0.9.1
+graphiti-core==0.31.2
+neo4j==6.4.1
+zep-cloud==4.1.0

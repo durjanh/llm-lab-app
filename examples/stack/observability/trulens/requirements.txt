@@ -1,0 +1,7 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+trulens-core==2.16.0
+trulens-feedback==2.16.0
+trulens-providers-litellm==2.16.0
+litellm==1.109.1
+anthropic==2.8.0
+numpy==2.5.4

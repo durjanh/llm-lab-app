@@ -1,0 +1,14 @@
+# promptfoo: the same handbook RAG prompt, six gold questions plus one injection check. run.py writes tests.yaml
+# (question, retrieved context, gold pattern) from shared.py, so the config and the other tools use the same data.
+description: Northwind handbook answers
+prompts:
+  - file://prompt.json
+providers:
+  - id: anthropic:messages:claude-haiku-5-5
+    config:
+      max_tokens: 150
+defaultTest:
+  options:
+    provider:
+      id: anthropic:messages:claude-haiku-5-5
+tests: file://tests.yaml

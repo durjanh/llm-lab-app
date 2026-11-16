@@ -1,0 +1,259 @@
+/* Voice agent: the talk bar, the transcript, the latency timeline, the delivery plan, the barge-in log and settings. */
+
+.page-voice-agent {
+  --va-c1: #3b82f6;
+  --va-c2: #8b5cf6;
+  --va-c3: #f59e0b;
+  --va-c4: #10b981;
+  --va-c5: #ef4444;
+}
+.page-voice-agent .card {
+  margin-top: 14px;
+}
+.page-voice-agent h3 {
+  margin: 14px 0 6px;
+  font-size: 15px;
+}
+.page-voice-agent .va-bad {
+  color: var(--bad);
+}
+.page-voice-agent .va-bar {
+  display: grid;
+  gap: 8px;
+}
+.page-voice-agent .va-talk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.page-voice-agent .va-big {
+  font-size: 18px;
+  padding: 14px 26px;
+  touch-action: none;
+}
+.page-voice-agent .va-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 190px;
+}
+.page-voice-agent .va-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--line2);
+}
+.page-voice-agent .va-listening {
+  background: var(--va-c4);
+}
+.page-voice-agent .va-hearing {
+  background: var(--va-c1);
+}
+.page-voice-agent .va-thinking {
+  background: var(--va-c3);
+}
+.page-voice-agent .va-speaking {
+  background: var(--va-c5);
+}
+.page-voice-agent .va-level {
+  width: 80px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+.page-voice-agent .va-level span {
+  display: block;
+  height: 100%;
+  background: var(--va-c4);
+  transition: width 60ms linear;
+}
+.page-voice-agent .va-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.page-voice-agent .va-row input {
+  flex: 1;
+  min-width: 220px;
+}
+.page-voice-agent input[type='text'],
+.page-voice-agent input:not([type]),
+.page-voice-agent textarea,
+.page-voice-agent select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  box-sizing: border-box;
+}
+.page-voice-agent textarea {
+  width: 100%;
+}
+.page-voice-agent .va-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+}
+.page-voice-agent .va-transcript {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+}
+.page-voice-agent .va-line {
+  margin: 6px 0;
+}
+.page-voice-agent .va-line b {
+  margin-right: 6px;
+}
+.page-voice-agent .va-agent b {
+  color: var(--va-c2);
+}
+.page-voice-agent .va-partial {
+  opacity: 0.6;
+}
+.page-voice-agent .va-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.page-voice-agent .va-ev {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  border-left: 5px solid var(--line2);
+  padding: 2px 8px;
+}
+.page-voice-agent .va-ev-StartOfTurn {
+  border-color: var(--va-c1);
+}
+.page-voice-agent .va-ev-EagerEndOfTurn {
+  border-color: var(--va-c3);
+}
+.page-voice-agent .va-ev-TurnResumed {
+  border-color: var(--va-c5);
+}
+.page-voice-agent .va-ev-EndOfTurn {
+  border-color: var(--va-c4);
+}
+.page-voice-agent .va-timeline {
+  position: relative;
+  height: 28px;
+  margin: 10px 0 4px;
+}
+.page-voice-agent .va-axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 13px;
+  height: 2px;
+  background: var(--line2);
+}
+.page-voice-agent .va-mark {
+  position: absolute;
+  top: 5px;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+}
+.page-voice-agent .va-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.page-voice-agent .va-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 5px;
+}
+.page-voice-agent .va-replies {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.page-voice-agent .va-reply {
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--line2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+}
+.page-voice-agent .va-reply.va-speaking,
+.page-voice-agent .va-reply.va-done {
+  border-left-color: var(--va-c4);
+}
+.page-voice-agent .va-reply.va-cancelled {
+  border-left-color: var(--va-c5);
+}
+.page-voice-agent .va-reply-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.page-voice-agent .va-tag {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--va-c2);
+  color: #fff;
+  font-weight: 600;
+}
+.page-voice-agent .va-sentence {
+  margin-top: 4px;
+}
+.page-voice-agent .va-barge {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin: 8px 0;
+  background: var(--surface);
+}
+.page-voice-agent .va-heard {
+  background: color-mix(in srgb, var(--va-c4) 25%, transparent);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.page-voice-agent .va-unheard {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--va-c5);
+}
+.page-voice-agent .va-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px 20px;
+}
+.page-voice-agent .va-settings label {
+  display: grid;
+  gap: 4px;
+}
+.page-voice-agent .va-norm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+.page-voice-agent .va-norm mark {
+  background: color-mix(in srgb, var(--va-c3) 30%, transparent);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+@media (max-width: 600px) {
+  .page-voice-agent .va-big {
+    width: 100%;
+  }
+}

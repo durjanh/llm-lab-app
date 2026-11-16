@@ -1,0 +1,74 @@
+/* The AI tech stack map. Area colours follow the original chart; status dots use the shared status colours. */
+
+.page-ai-stack .as-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+.page-ai-stack .as-legend {
+  display: inline;
+}
+.page-ai-stack .as-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+  margin: 16px 0 28px;
+}
+.page-ai-stack .as-area {
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--as-c);
+  border-radius: 10px;
+  padding: 10px 14px 12px;
+  background: var(--surface);
+}
+.page-ai-stack .as-area h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--as-c);
+}
+.page-ai-stack .as-folder {
+  margin: 2px 0 6px;
+}
+.page-ai-stack .as-area ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.page-ai-stack .as-area li {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.page-ai-stack .as-area li:first-child {
+  border-top: 0;
+}
+.page-ai-stack .as-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+  background: var(--faint);
+}
+.page-ai-stack .as-dot.lab {
+  background: var(--good);
+}
+.page-ai-stack .as-dot.example {
+  background: var(--s1);
+}
+.page-ai-stack .as-dot.needs {
+  background: var(--warn);
+}
+.page-ai-stack .as-dot.explained {
+  background: var(--faint);
+}
+.page-ai-stack .btn .as-dot {
+  margin: 0 2px 0 0;
+  vertical-align: middle;
+}
+.page-ai-stack code {
+  overflow-wrap: anywhere;
+}

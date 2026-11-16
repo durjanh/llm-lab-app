@@ -1,0 +1,5 @@
+# python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+boto3==1.44.3
+mcp==2.3.0   # task 3 only: Bedrock has no client for local MCP servers
+pydantic==2.14.3
+azure-identity==1.27.0   # shared/config imports it; Bedrock itself uses AWS credentials
