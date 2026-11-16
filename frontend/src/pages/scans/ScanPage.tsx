@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { VoiceComposer } from '@/components/voice/VoiceComposer';
-import { isLocalModel } from '@/lib/models';
+import { isLocalModel, startingModel } from '@/lib/models';
 import { scanService, type ScanInfo, type ScanMark, type ScanResult } from '@/services/scanService';
 import { statusService } from '@/services/statusService';
 import './scans.css';
@@ -103,7 +103,7 @@ export default function ScanPage() {
         const offered = s.models || [];
         setInfo(i);
         setModels(offered);
-        setModel(offered.includes(i.model) ? i.model : s.claude_model || offered[0] || '');
+        setModel(offered.includes(i.model) ? i.model : startingModel(s.default_model, offered));
       })
       .catch((err) => setError(errorText(err)));
   }, []);

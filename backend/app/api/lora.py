@@ -2,7 +2,7 @@
 nothing, so there is no budget guard; one run at a time."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -24,6 +24,18 @@ class LoraTrain(BaseModel):
     steps: int = Field(default=80, ge=5, le=600)
     batch: int = Field(default=8, ge=1, le=32)
     seed: int = Field(default=0, ge=0, le=10_000)
+
+
+class LoraCard(BaseModel):
+    repo_id: str = Field(min_length=3, max_length=200)
+
+
+class LoraPublish(BaseModel):
+    repo_id: str = Field(min_length=3, max_length=200)
+    private: bool = True
+    card: str = Field(min_length=20, max_length=50_000)
+    replace_existing: bool = False  # the repo exists: the page showed what an upload replaces, and the person agreed
+    confirm: Literal[True]  # the page asks the person first; without it nothing is sent
 
 
 class LoraTry(BaseModel):
@@ -57,3 +69,21 @@ def try_email(body: LoraTry, service: LoraService = Depends(lora)) -> dict[str, 
 @router.delete("/lora/adapters/{adapter_id}")
 def remove(adapter_id: str, service: LoraService = Depends(lora)) -> dict[str, Any]:
     return service.remove(adapter_id)
+
+
+@router.get("/lora/account")
+def account(model_id: str | None = None, service: LoraService = Depends(lora)) -> dict[str, Any]:
+    """Who the LoRA environment is signed in to Hugging Face as, or how to sign in."""
+    return service.account(model_id)
+
+
+@router.post("/lora/adapters/{adapter_id}/card")
+def card(adapter_id: str, body: LoraCard, service: LoraService = Depends(lora)) -> dict[str, Any]:
+    """The model card that would be published, from the adapter's saved scores."""
+    return service.card(adapter_id, body.repo_id)
+
+
+@router.post("/lora/adapters/{adapter_id}/publish")
+def publish(adapter_id: str, body: LoraPublish, service: LoraService = Depends(lora)) -> dict[str, Any]:
+    """Uploads the adapter and its card to Hugging Face, under the signed-in account. Only when the person confirms."""
+    return service.publish(adapter_id, body.repo_id, body.private, body.card, body.replace_existing)

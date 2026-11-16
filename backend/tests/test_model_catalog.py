@@ -444,7 +444,7 @@ def test_the_catalog_route_shows_models_source_version_and_availability(tmp_path
     api, path = lab(tmp_path)
     got = api.get("/api/model-failover/catalog", headers=LAB).json()
     assert [e["name"] for e in got["entries"]] == [SONNET, HAIKU] and got["compact_model"] == HAIKU
-    assert got["source"]["kind"] == "file" and got["source"]["where"] == str(path)
+    assert got["source"]["kind"] == "file" and got["source"]["where"] == f"…/{path.parent.name}/{path.name}"
     assert got["version"] and got["error"] == "" and all(r["available"] for r in got["resolved"])
     assert SONNET in got["known_models"] and mc.GPT_PLACEHOLDER in got["known_models"]
     info = api.get("/api/model-failover/info", headers=LAB).json()

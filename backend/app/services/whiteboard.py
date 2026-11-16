@@ -19,7 +19,7 @@ from typing import Any
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, text_of
+from ..shared import DEFAULT_MODEL, text_of
 from .spend import SpendTracker
 
 SHAPES = ["cube", "cuboid", "square_pyramid", "tetrahedron", "triangular_prism", "cylinder", "cone", "sphere"]
@@ -335,7 +335,7 @@ class WhiteboardService:
 
     def read(self, image_b64: str, prompt: str, model: str | None) -> dict[str, Any]:
         """What the sketch is, checked. One retry, with the problems, if the first answer cannot be drawn."""
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         self._png(image_b64)
         ask = prompt.strip() or "What is this? Redraw it properly."
         content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_b64}},
@@ -358,7 +358,7 @@ class WhiteboardService:
         raise ApiError(502, "unreadable", "The model's reading could not be drawn: " + "; ".join(tries[-1]["problems"]))
 
     def ask(self, question: str, board: dict, model: str | None) -> dict[str, Any]:
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         context = json.dumps(board, ensure_ascii=False)[:6000]
         text, cost = self._call(model, f"{ASK_SYSTEM}\n\n<board>{context}</board>",
                                 [{"type": "text", "text": question}], None, 1200)
@@ -385,7 +385,7 @@ class WhiteboardService:
     def scene(self, image_b64: str, hints: list[dict], width: float, height: float, prompt: str,
               model: str | None) -> dict[str, Any]:
         """The sketch as bodies for the page's physics engine, checked. One retry with the problems."""
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         self._png(image_b64)
         seen = json.dumps(hints[:60], ensure_ascii=False)[:6000] if hints else "none"
         content = [{"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": image_b64}},

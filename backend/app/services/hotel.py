@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, hotel_rules as rules
+from ..shared import DEFAULT_MODEL, hotel_rules as rules
 from .spend import SpendTracker
 
 MAX_CHATS = 20  # the oldest is dropped when another starts
@@ -43,7 +43,7 @@ class HotelService:
         return {"hotel": rules.HOTEL, "room_types": list(rules.TYPE.values()),
                 "tools": [{"name": t["name"], "description": t["description"]} for t in rules.TOOLS],
                 "instructions": rules.instructions(today), "samples": rules.samples(today),
-                "today": today.isoformat(), "model": CLAUDE_MODEL,
+                "today": today.isoformat(), "model": DEFAULT_MODEL,
                 "delivery": {"email": "real" if getattr(self.notifier, "email", False) else "outbox",
                              "sms": "real" if getattr(self.notifier, "sms", False) else "outbox"}}
 
@@ -53,7 +53,7 @@ class HotelService:
     def start(self, model: str | None) -> dict[str, Any]:
         chat_id, hotel = uuid.uuid4().hex, self.hotel  # read before taking the lock: the property takes it too
         with self._lock:
-            self.chats[chat_id] = (rules.Chat(hotel), model or CLAUDE_MODEL)
+            self.chats[chat_id] = (rules.Chat(hotel), model or DEFAULT_MODEL)
             while len(self.chats) > MAX_CHATS:
                 self.chats.popitem(last=False)
         return {"chat_id": chat_id, "model": self.chats[chat_id][1]}

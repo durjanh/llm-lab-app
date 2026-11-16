@@ -9,7 +9,7 @@ import {
   type ReadResult,
   type WhiteboardInfo,
 } from '@/services/whiteboardService';
-import { isLocalModel } from '@/lib/models';
+import { isLocalModel, startingModel } from '@/lib/models';
 import { Board, type BoardHandle, type Stroke } from './Board';
 import { Graph } from './Graph';
 import { GuessGame, LifePanel, PicturePanel, type GuessRecord, type PictureRecord, type SceneRecord } from './Modes';
@@ -237,7 +237,7 @@ export default function WhiteboardPage() {
       .then((s) => {
         const offered = s.models || [];
         setModels(offered);
-        setModel(s.claude_model || offered[0] || '');
+        setModel(startingModel(s.default_model, offered));
       })
       .catch((err) => setError(errorText(err)));
   }, []);

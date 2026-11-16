@@ -5,10 +5,13 @@ reading os.environ, so this file is the full list of what can be configured.
 """
 from __future__ import annotations
 
+import math
 import os
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 
@@ -171,18 +174,37 @@ class EnvSettings:
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
         get = env.get
+
+        def num(name: str, default: float, low: float | None = None, high: float | None = None) -> Any:
+            """A number in its range. A value that is not one (a typo such as 30s) is reported and the default used,
+            so one bad line in .env does not stop every script and the backend."""
+            raw = (get(name) or "").strip()
+            value = default
+            if raw:
+                try:
+                    value = type(default)(raw)
+                    if not math.isfinite(value):
+                        raise ValueError(raw)
+                except ValueError:
+                    print(f"settings: {name}={raw!r} is not a {'whole ' if isinstance(default, int) else ''}number; "
+                          f"using {default}.", file=sys.stderr)
+                    value = default
+            if low is not None:
+                value = max(type(default)(low), value)
+            return min(type(default)(high), value) if high is not None else value
+
         return cls(
             model=get("LLM_LAB_MODEL") or cls.model,
             local_model=get("LLM_LAB_LOCAL_MODEL", "").strip(),
             local_url=(get("LLM_LAB_LOCAL_URL") or cls.local_url).rstrip("/"),
             local_openai_url=(get("LLM_LAB_LOCAL_OPENAI_URL") or cls.local_openai_url).rstrip("/"),
             rate_limit_fallback=(get("LLM_LAB_RATE_LIMIT_FALLBACK") or cls.rate_limit_fallback).strip(),
-            local_context=int(get("LLM_LAB_LOCAL_CONTEXT") or cls.local_context),
+            local_context=num("LLM_LAB_LOCAL_CONTEXT", cls.local_context, 1024),
             local_embed_model=get("LLM_LAB_LOCAL_EMBED_MODEL", "").strip(),
             pgvector_url=(get("LLM_LAB_PGVECTOR_URL") or cls.pgvector_url).strip(),
-            port=int(get("LLM_LAB_PORT") or cls.port),
-            budget_usd=float(get("LLM_LAB_BUDGET") or cls.budget_usd),
-            dev_port=int(get("LLM_LAB_DEV_PORT") or cls.dev_port),
+            port=num("LLM_LAB_PORT", cls.port, 1, 65535),
+            budget_usd=num("LLM_LAB_BUDGET", cls.budget_usd, 0.0),
+            dev_port=num("LLM_LAB_DEV_PORT", cls.dev_port, 1, 65535),
             chrome_path=get("LLM_LAB_CHROME", ""),
             coding_sandbox=(get("LLM_LAB_SANDBOX") or cls.coding_sandbox).strip().lower(),
             coding_sessions_endpoint=get("LLM_LAB_SESSIONS_ENDPOINT", "").rstrip("/"),
@@ -222,31 +244,25 @@ class EnvSettings:
             model_failover_blob_endpoint=get("MODEL_FAILOVER_BLOB_ENDPOINT", "").strip().rstrip("/"),
             model_failover_table_endpoint=get("MODEL_FAILOVER_TABLE_ENDPOINT", "").strip().rstrip("/"),
             model_failover_storage_connection_string=get("MODEL_FAILOVER_STORAGE_CONNECTION_STRING", "").strip(),
-            model_failover_compact_at=min(0.95, max(0.2, float(get("MODEL_FAILOVER_COMPACT_AT") or cls.model_failover_compact_at))),
-            model_failover_compact_max_tokens=max(4000, int(get("MODEL_FAILOVER_COMPACT_MAX_TOKENS")
-                                                            or cls.model_failover_compact_max_tokens)),
-            model_failover_keep_recent=min(20, max(1, int(get("MODEL_FAILOVER_KEEP_RECENT") or cls.model_failover_keep_recent))),
+            model_failover_compact_at=num("MODEL_FAILOVER_COMPACT_AT", cls.model_failover_compact_at, 0.2, 0.95),
+            model_failover_compact_max_tokens=num("MODEL_FAILOVER_COMPACT_MAX_TOKENS", cls.model_failover_compact_max_tokens, 4000),
+            model_failover_keep_recent=num("MODEL_FAILOVER_KEEP_RECENT", cls.model_failover_keep_recent, 1, 20),
             model_failover_compact_model=get("MODEL_FAILOVER_COMPACT_MODEL", "").strip(),
-            model_failover_max_tokens=min(8192, max(256, int(get("MODEL_FAILOVER_MAX_TOKENS") or cls.model_failover_max_tokens))),
-            model_failover_summary_max_tokens=min(4000, max(200, int(get("MODEL_FAILOVER_SUMMARY_MAX_TOKENS")
-                                                                     or cls.model_failover_summary_max_tokens))),
-            model_failover_max_iterations=min(20, max(1, int(get("MODEL_FAILOVER_MAX_ITERATIONS")
-                                                             or cls.model_failover_max_iterations))),
-            model_failover_cooldown_s=min(600.0, max(1.0, float(get("MODEL_FAILOVER_COOLDOWN_S") or cls.model_failover_cooldown_s))),
-            model_failover_max_cooldown_s=min(3600.0, max(1.0, float(get("MODEL_FAILOVER_MAX_COOLDOWN_S")
-                                                                     or cls.model_failover_max_cooldown_s))),
-            model_failover_short_retry_s=min(30.0, max(0.0, float(get("MODEL_FAILOVER_SHORT_RETRY_S")
-                                                                  or cls.model_failover_short_retry_s))),
+            model_failover_max_tokens=num("MODEL_FAILOVER_MAX_TOKENS", cls.model_failover_max_tokens, 256, 8192),
+            model_failover_summary_max_tokens=num("MODEL_FAILOVER_SUMMARY_MAX_TOKENS", cls.model_failover_summary_max_tokens, 200, 4000),
+            model_failover_max_iterations=num("MODEL_FAILOVER_MAX_ITERATIONS", cls.model_failover_max_iterations, 1, 20),
+            model_failover_cooldown_s=num("MODEL_FAILOVER_COOLDOWN_S", cls.model_failover_cooldown_s, 1, 600),
+            model_failover_max_cooldown_s=num("MODEL_FAILOVER_MAX_COOLDOWN_S", cls.model_failover_max_cooldown_s, 1, 3600),
+            model_failover_short_retry_s=num("MODEL_FAILOVER_SHORT_RETRY_S", cls.model_failover_short_retry_s, 0, 30),
             model_failover_catalog="table" if get("MODEL_FAILOVER_CATALOG", "").strip().lower() == "table" else "file",
             model_failover_catalog_path=(get("MODEL_FAILOVER_CATALOG_PATH") or cls.model_failover_catalog_path).strip(),
-            model_failover_catalog_ttl_s=min(3600.0, max(1.0, float(get("MODEL_FAILOVER_CATALOG_TTL_S")
-                                                                     or cls.model_failover_catalog_ttl_s))),
-            voice_agent_end_silence_ms=min(3000, max(200, int(get("VOICE_AGENT_END_SILENCE_MS") or cls.voice_agent_end_silence_ms))),
-            voice_agent_eager_threshold=min(0.95, max(0.3, float(get("VOICE_AGENT_EAGER_THRESHOLD") or cls.voice_agent_eager_threshold))),
+            model_failover_catalog_ttl_s=num("MODEL_FAILOVER_CATALOG_TTL_S", cls.model_failover_catalog_ttl_s, 1, 3600),
+            voice_agent_end_silence_ms=num("VOICE_AGENT_END_SILENCE_MS", cls.voice_agent_end_silence_ms, 200, 3000),
+            voice_agent_eager_threshold=num("VOICE_AGENT_EAGER_THRESHOLD", cls.voice_agent_eager_threshold, 0.3, 0.95),
             voice_agent_voice=(get("VOICE_AGENT_VOICE") or cls.voice_agent_voice).strip(),
-            voice_agent_expressiveness=min(3, max(0, int(get("VOICE_AGENT_EXPRESSIVENESS") or cls.voice_agent_expressiveness))),
-            voice_agent_local_tts_port=int(get("VOICE_AGENT_LOCAL_TTS_PORT") or cls.voice_agent_local_tts_port),
-            voice_agent_max_conversations=min(100, max(1, int(get("VOICE_AGENT_MAX_CONVERSATIONS") or cls.voice_agent_max_conversations))),
+            voice_agent_expressiveness=num("VOICE_AGENT_EXPRESSIVENESS", cls.voice_agent_expressiveness, 0, 3),
+            voice_agent_local_tts_port=num("VOICE_AGENT_LOCAL_TTS_PORT", cls.voice_agent_local_tts_port, 1024, 65535),
+            voice_agent_max_conversations=num("VOICE_AGENT_MAX_CONVERSATIONS", cls.voice_agent_max_conversations, 1, 100),
         )
 
 

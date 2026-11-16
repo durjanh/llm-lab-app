@@ -16,7 +16,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Protocol
 
+from ..core.child_env import child_env
+
 START_TIMEOUT_S = 90.0
+RETRY_START_AFTER_S = 30.0  # after a failed start, calls fail at once for this long rather than each trying for 90 s
 REQUEST_TIMEOUT_S = 30.0
 MODEL_FILES = ("kokoro-v1.0.onnx", "voices-v1.0.bin")
 SETUP = "See examples/voice-agent/README.md: a Python 3.12 .venv, then the two model files (about 330 MB)."
@@ -39,6 +42,7 @@ class LocalTts:
         self._process: subprocess.Popen | None = None
         self._lock = threading.Lock()
         self._ready = False  # health-checked once at start; after that a live process is enough
+        self._failed: tuple[float, str] | None = None  # (when, why) the last start failed
         atexit.register(self.stop)
 
     @property
@@ -85,23 +89,36 @@ class LocalTts:
             reason = self.installed()
             if reason:
                 raise LocalTtsError(reason)
+            # Callers queued behind a start that failed would each try again for up to START_TIMEOUT_S in turn.
+            if self._failed and time.monotonic() - self._failed[0] < RETRY_START_AFTER_S:
+                raise LocalTtsError(self._failed[1])
             self.stop()
             if self._answering_pid() is not None:  # the new server could not bind: say so rather than use what is there
                 raise LocalTtsError(f"Something else is already answering on port {self.port}. Stop it, or set "
                                     "VOICE_AGENT_LOCAL_TTS_PORT to a free port.")
-            self._process = subprocess.Popen(
-                [str(self.python), str(self.folder / "server.py"), "--models", str(self.models), "--port", str(self.port)],
-                cwd=self.folder, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            deadline = time.monotonic() + START_TIMEOUT_S
-            while time.monotonic() < deadline:
-                if self._process.poll() is not None:
-                    raise LocalTtsError("The local voice stopped while starting. Run examples/voice-agent/server.py by hand to see why.")
-                if self._healthy():
-                    self._ready = True
-                    return
-                time.sleep(0.25)
-            self.stop()
-            raise LocalTtsError("The local voice took too long to start.")
+            try:
+                self._start()
+            except LocalTtsError as exc:
+                self._failed = (time.monotonic(), str(exc))
+                raise
+            self._failed = None
+
+    def _start(self) -> None:
+        self._process = subprocess.Popen(
+            [str(self.python), str(self.folder / "server.py"), "--models", str(self.models), "--port", str(self.port)],
+            cwd=self.folder, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            env=child_env())  # third-party packages: none of the backend's keys
+        deadline = time.monotonic() + START_TIMEOUT_S
+        while time.monotonic() < deadline:
+            if self._process.poll() is not None:
+                self.stop()
+                raise LocalTtsError("The local voice stopped while starting. Run examples/voice-agent/server.py by hand to see why.")
+            if self._healthy():
+                self._ready = True
+                return
+            time.sleep(0.25)
+        self.stop()
+        raise LocalTtsError("The local voice took too long to start.")
 
     def synthesize(self, text: str, voice: str, speed: float) -> bytes:
         self._ensure()

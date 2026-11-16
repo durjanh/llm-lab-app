@@ -60,6 +60,12 @@ class ModelFault(Exception):
         self.kind, self.status_code, self.retry_after, self.injected = kind, status, retry_after, True
 
 
+class PoolWentDown(Exception):
+    """Raised by a send whose own earlier call on this pool (compacting the history before the request) failed and
+    opened the pool's breaker. That failure is already counted, so the router moves on without counting it again, and
+    without sending the request to a pool it has just marked unhealthy."""
+
+
 class AllPoolsFailed(ApiError):
     """Every pool was open or failed. The message lists what each said."""
 
@@ -107,6 +113,8 @@ def classify(exc: BaseException, short_retry_s: float = SHORT_RETRY_S) -> Verdic
         status = exc.status_code
     else:
         status = None
+    if isinstance(exc, PoolWentDown):
+        return Verdict("skip", "breaker opened by this call's own summary")
     if isinstance(exc, ApiError) and getattr(exc, "kind", "") == "context_too_long":
         # The history does not fit this pool's window: another pool may have a bigger one. The pool is healthy, so
         # this skips it for this call without opening its breaker.
@@ -249,6 +257,10 @@ class ModelRouter:
             # A call made inside the probe on the same thread (compacting the history before the probe's request) is
             # part of that probe. Refusing it would send the summary elsewhere, or fail it, while the pool recovers.
             return state == "half-open" and b.probe_owner == threading.get_ident()
+
+    def usable(self, name: str) -> bool:
+        """May this thread still use the pool? False once its breaker opened, including during this thread's own call."""
+        return self._would_allow(name)
 
     def _would_allow(self, name: str) -> bool:
         with self._lock:

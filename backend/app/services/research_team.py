@@ -33,7 +33,7 @@ from typing import Any
 
 from ..core.errors import ApiError, describe, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import DEFAULT_MODEL, text_of
+from ..shared import DEFAULT_MODEL, shown_path, text_of
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
@@ -614,7 +614,7 @@ class Manifest:
 
     def view(self) -> dict[str, Any]:
         return {k: self.data[k] for k in ("run_id", "question", "status", "steps", "subquestions", "model")} | {
-            "folder": str(self.folder), "interrupted": self.data.get("interrupted", [])}
+            "folder": shown_path(self.folder), "interrupted": self.data.get("interrupted", [])}
 
 
 class TeamRun:

@@ -86,8 +86,11 @@ export function mountSkills(life: Life): void {
     const ok = !!(s.available && s.has_credentials);
     $('#skRun').disabled = !ok;
     $('#skStatus').textContent = ok ? 'Live: this spends real credit, and code-execution container time is billed separately.' : s.reason;
-    // Skills run in Anthropic's code-execution container, so only Claude models are offered.
-    $('#skModel').innerHTML = (s.skills_models ?? s.claude_models ?? []).map(m => `<option ${m === s.claude_model ? 'selected' : ''}>${esc(m)}</option>`).join('');
+    // Claude runs skills in Anthropic's container; GPT and the local model run them in the lab's sandbox when it is
+    // there, so skills_models lists only what can run them. The lab's default model is chosen when it is offered.
+    const offered = s.skills_models ?? s.claude_models ?? [];
+    const pick = s.default_model && offered.includes(s.default_model) ? s.default_model : s.claude_model;
+    $('#skModel').innerHTML = offered.map(m => `<option ${m === pick ? 'selected' : ''}>${esc(m)}</option>`).join('');
   });
   render();
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { VoiceComposer } from '@/components/voice/VoiceComposer';
-import { isLocalModel } from '@/lib/models';
+import { isLocalModel, startingModel } from '@/lib/models';
 import { Board, type BoardHandle } from '@/pages/whiteboard/Board';
 import '@/pages/whiteboard/whiteboard.css';
 import {
@@ -86,7 +86,7 @@ export default function BrainCheckPage() {
       .status()
       .then((s) => {
         setModels(s.models || []);
-        setModel(s.claude_model || s.models?.[0] || '');
+        setModel(startingModel(s.default_model, s.models ?? []));
       })
       .catch((err) => setError(errorText(err)));
   }, []);

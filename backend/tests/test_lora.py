@@ -158,3 +158,169 @@ def test_without_the_environment_the_page_is_told_what_to_run(tmp_path: Path) ->
     assert client.get("/api/lora/info", headers=LAB).json()["ready"] is False
     r = client.post("/api/lora/train", headers=LAB, json=CONFIG)
     assert r.status_code == 503 and "pip install -r requirements.txt" in r.json()["error"]["message"]
+
+
+# ----- publishing to Hugging Face (a fake hub runner: nothing leaves the machine) -----
+
+class FakeHub(FakeRunner):
+    """The training fake, plus publish_adapter.py's two jobs."""
+
+    def __init__(self, signed_in: bool = True, fail: str = "", existing: dict | None = None) -> None:
+        super().__init__()
+        self.signed_in, self.hub_fail, self.hub_jobs, self.existing = signed_in, fail, [], existing
+
+    def __call__(self, argv, job, on_line, cancelled, timeout_s):  # type: ignore[override]
+        if not argv[-1].endswith("publish_adapter.py"):
+            return super().__call__(argv, job, on_line, cancelled, timeout_s)
+        j = json.loads(job)
+        self.hub_jobs.append(j)
+        if not self.signed_in:
+            on_line({"type": "error", "message": "Not signed in to Hugging Face.", "signed_in": False})
+            return 1
+        if j["action"] == "whoami":
+            on_line({"type": "result", "name": "durjan-test", "orgs": []})
+            return 0
+        if j["action"] == "check":
+            on_line({"type": "result", "exists": self.existing is not None,
+                     "private": (self.existing or {}).get("private")})
+            return 0
+        if self.hub_fail:
+            on_line({"type": "error", "message": self.hub_fail})
+            return 1
+        on_line({"type": "result", "url": f"https://huggingface.co/{j['repo_id']}", "private": j["private"],
+                 "commit": "abc123", "files": ["adapter_model.safetensors", "adapter_config.json", "README.md"],
+                 "account": "durjan-test"})
+        return 0
+
+
+def trained(client: TestClient) -> str:
+    return events(client.post("/api/lora/train", headers=LAB, json=CONFIG))[-1]["adapter_id"]
+
+
+def saved_result(**over: Any) -> dict[str, Any]:
+    metrics = lambda v: {"n": 40, "valid_json": v, "right_keys": v, "all_fields": v,  # noqa: E731
+                         "fields": {f: v for f in data.FIELDS}}
+    return {"model_id": CONFIG["model_id"], "config": {"r": 16, "alpha": 32, "dropout": 0.05, "targets": ["q_proj"],
+                                                       "lr": 5e-4, "steps": 80, "batch": 8, "seed": 0},
+            "params": {"trainable": 4_884_480, "total": 134_515_008, "share": 0.0363},
+            "sizes": {"adapter_bytes": 19_593_064}, "train_s": 47.2,
+            "before": {"metrics": metrics(0.0)}, "after": {"metrics": metrics(1.0)}, **over}
+
+
+def test_the_card_is_written_from_the_adapters_own_scores() -> None:
+    card = data.model_card(saved_result(), "someone/smollm2-135m-order-email-json-lora")
+    assert card.startswith("---\nbase_model: HuggingFaceTB/SmolLM2-135M-Instruct\nlibrary_name: peft\nlicense: apache-2.0")
+    assert "| **Every field right** | **0%** | **100%** |" in card and "on 40 emails the adapter never saw" in card
+    assert '"someone/smollm2-135m-order-email-json-lora"' in card and "4,884,480 trained parameters" in card
+    assert data.SYSTEM.split(".")[0] in card  # the prompt it was trained with, to use it the same way
+    assert data.suggested_repo("someone", CONFIG["model_id"]) == "someone/smollm2-135m-order-email-json-lora"
+
+
+def test_staging_names_the_base_model_and_never_this_machine(tmp_path: Path) -> None:
+    """PEFT writes the local folder the base model was loaded from into adapter_config.json, which names this
+    machine's user and stops anyone else loading the adapter. It also writes its own README with that path."""
+    adapter, stage = tmp_path / "adapter", tmp_path / "stage"
+    adapter.mkdir()
+    stage.mkdir()
+    home = str(Path.home())
+    (adapter / "adapter_model.safetensors").write_bytes(b"weights")
+    (adapter / "adapter_config.json").write_text(json.dumps({"base_model_name_or_path": f"{home}/lab/models/x", "r": 16}))
+    (adapter / "README.md").write_text(f"base_model: {home}/lab/models/x")
+    (adapter / "result.json").write_text("{}")
+    files = data.stage(adapter, stage, CONFIG["model_id"], "# card", [home])
+    assert sorted(files) == ["README.md", "adapter_config.json", "adapter_model.safetensors"]
+    assert sorted(p.name for p in stage.iterdir()) == sorted(files)  # never result.json or PEFT's README
+    assert json.loads((stage / "adapter_config.json").read_text())["base_model_name_or_path"] == CONFIG["model_id"]
+    assert (stage / "README.md").read_text() == "# card"
+    for leaky in (f"Trained in {home}/lab", "fine"):
+        stage2 = tmp_path / f"s{len(leaky)}"
+        stage2.mkdir()
+        if home in leaky:
+            try:
+                data.stage(adapter, stage2, CONFIG["model_id"], leaky, [home])
+            except data.PrivatePath as exc:
+                assert "README.md" in str(exc)
+            else:
+                raise AssertionError("a card naming this machine's folders was staged")
+
+
+def test_publishing_asks_first_and_sends_what_the_page_showed(tmp_path: Path) -> None:
+    hub = FakeHub()
+    client, _ = make(tmp_path, hub)
+    adapter = trained(client)
+    me = client.get("/api/lora/account", headers=LAB, params={"model_id": CONFIG["model_id"]}).json()
+    assert me["name"] == "durjan-test" and me["suggested"] == "durjan-test/smollm2-135m-order-email-json-lora"
+    preview = client.post(f"/api/lora/adapters/{adapter}/card", headers=LAB, json={"repo_id": "durjan-test/my-lora"})
+    assert preview.status_code == 200 and "durjan-test/my-lora" in preview.json()["card"]
+    assert preview.json()["existing"] is None
+    body = {"repo_id": "durjan-test/my-lora", "card": preview.json()["card"] + "\nEdited.", "private": True}
+    assert client.post(f"/api/lora/adapters/{adapter}/publish", headers=LAB, json=body).status_code in (400, 422)
+    assert [j["action"] for j in hub.hub_jobs] == ["whoami", "check"]  # no confirmation: nothing was sent
+    done = client.post(f"/api/lora/adapters/{adapter}/publish", headers=LAB, json={**body, "confirm": True})
+    assert done.status_code == 200 and done.json()["url"] == "https://huggingface.co/durjan-test/my-lora"
+    job = hub.hub_jobs[-1]
+    assert job["private"] is True and job["card"].endswith("Edited.") and job["adapter_dir"].endswith(adapter)
+    assert job["model_id"] == CONFIG["model_id"] and job["replace_existing"] is False
+    for bad in ("no-slash", "a/b/c", "../x", "me/bad name"):
+        r = client.post(f"/api/lora/adapters/{adapter}/publish", headers=LAB, json={**body, "repo_id": bad, "confirm": True})
+        assert r.status_code == 400
+    assert client.post("/api/lora/adapters/ffffffffffff/publish", headers=LAB,
+                       json={**body, "confirm": True}).status_code == 404
+
+
+def test_not_signed_in_and_a_failed_upload_say_so(tmp_path: Path) -> None:
+    client, _ = make(tmp_path, FakeHub(signed_in=False))
+    got = client.get("/api/lora/account", headers=LAB).json()
+    assert got["signed_in"] is False and "hf auth login" in got["sign_in"]
+    client, _ = make(tmp_path / "b", FakeHub(fail="HfHubHTTPError: 403 Forbidden: no write access"))
+    adapter = trained(client)
+    r = client.post(f"/api/lora/adapters/{adapter}/publish", headers=LAB,
+                    json={"repo_id": "x/y", "card": "# card for x/y adapter", "private": True, "confirm": True})
+    assert r.status_code == 502 and "no write access" in r.json()["error"]["message"]
+
+
+def test_an_existing_repo_is_shown_before_and_replaced_only_when_agreed(tmp_path: Path) -> None:
+    """create_repo(exist_ok=True) then an upload replaced an existing repo's README and files, and put the adapter in
+    a public repo even when private was asked for, with nothing said until afterwards."""
+    hub = FakeHub(existing={"private": False})
+    client, _ = make(tmp_path, hub)
+    adapter = trained(client)
+    preview = client.post(f"/api/lora/adapters/{adapter}/card", headers=LAB, json={"repo_id": "durjan-test/old"}).json()
+    assert preview["existing"] == {"private": False}
+    body = {"repo_id": "durjan-test/old", "card": preview["card"], "private": False, "confirm": True,
+            "replace_existing": True}
+    assert client.post(f"/api/lora/adapters/{adapter}/publish", headers=LAB, json=body).status_code == 200
+    assert hub.hub_jobs[-1]["replace_existing"] is True  # the script refuses an existing repo without it
+
+
+def test_a_card_for_an_adapter_without_its_scores_says_why(tmp_path: Path) -> None:
+    client, service = make(tmp_path, FakeHub())
+    adapter = trained(client)
+    (service.adapters_dir / adapter / "result.json").write_text('{"model_id": "HuggingFaceTB/SmolLM2-135M-Instruct"}')
+    r = client.post(f"/api/lora/adapters/{adapter}/card", headers=LAB, json={"repo_id": "x/y"})
+    assert r.status_code == 400 and "without its scores" in r.json()["error"]["message"]
+
+
+def test_only_publishing_gets_the_hugging_face_login(monkeypatch) -> None:
+    """Training and trying download public models: they need no Hugging Face token, so they do not get one."""
+    from backend.app.services import lora as lora_module
+
+    seen: list[dict] = []
+
+    class Proc:
+        stdin = type("In", (), {"write": lambda s, x: None, "close": lambda s: None})()
+        stdout = iter(())
+
+        def poll(self):
+            return 0
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setenv("HF_TOKEN", "hf_write_token")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-not-for-children")
+    monkeypatch.setattr(lora_module.subprocess, "Popen", lambda *a, **k: seen.append(k["env"]) or Proc())
+    lora_module.subprocess_runner(["python", "run_lora.py"], "{}", lambda e: None, threading.Event(), 5)
+    lora_module.hub_runner(["python", "publish_adapter.py"], "{}", lambda e: None, threading.Event(), 5)
+    assert "HF_TOKEN" not in seen[0] and seen[1]["HF_TOKEN"] == "hf_write_token"
+    assert not any("ANTHROPIC_API_KEY" in env for env in seen)

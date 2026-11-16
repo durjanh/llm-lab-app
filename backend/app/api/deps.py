@@ -30,6 +30,8 @@ from ..services.hotel import HotelService
 from ..services.brain import BrainCheckService
 from ..services.scans import ScanService
 from ..services.tabular import TabularService
+from ..services.agent_memory import AgentMemoryService
+from ..services.image_to_3d import ImageTo3DService
 from ..services.lora import LoraService
 from ..services.whiteboard import WhiteboardService
 from ..services.token_counter import TokenCounterService
@@ -175,6 +177,14 @@ def tabular(c: Container = Depends(container)) -> TabularService:
 
 def lora(c: Container = Depends(container)) -> LoraService:
     return c.lora
+
+
+def image_to_3d(c: Container = Depends(container)) -> ImageTo3DService:
+    return c.image_to_3d
+
+
+def agent_memory(c: Container = Depends(container)) -> AgentMemoryService:
+    return c.agent_memory
 
 
 def video_translate(c: Container = Depends(container)) -> VideoTranslateService:

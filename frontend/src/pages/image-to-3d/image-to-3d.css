@@ -1,0 +1,150 @@
+/* Image to 3D. Scoped to the page, as every page's styles are. */
+.page-image-to-3d .card {
+  margin-top: 20px;
+}
+.page-image-to-3d .i3-error {
+  color: var(--bad);
+  white-space: pre-wrap;
+}
+.page-image-to-3d .i3-setup ol,
+.page-image-to-3d .i3-how {
+  padding-left: 20px;
+}
+.page-image-to-3d .i3-setup li,
+.page-image-to-3d .i3-how li {
+  margin-bottom: 8px;
+}
+.page-image-to-3d .i3-setup code {
+  word-break: break-all;
+}
+.page-image-to-3d .i3-make {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.page-image-to-3d .i3-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border: 2px dashed var(--line2);
+  border-radius: 10px;
+  background: var(--surface2);
+  cursor: pointer;
+  color: var(--muted);
+  overflow: hidden;
+}
+.page-image-to-3d .i3-drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.page-image-to-3d .i3-drop:focus-within {
+  outline: 2px solid var(--brand);
+}
+.page-image-to-3d .i3-drop img {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}
+.page-image-to-3d .i3-settings {
+  display: grid;
+  gap: 10px;
+}
+.page-image-to-3d .i3-settings label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink2);
+}
+.page-image-to-3d .i3-settings select,
+.page-image-to-3d .i3-settings input[type='number'] {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 6px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  max-width: 220px;
+}
+.page-image-to-3d .i3-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.page-image-to-3d .i3-progress {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--soft);
+}
+.page-image-to-3d .i3-progress ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.page-image-to-3d .i3-timings {
+  margin-top: 14px;
+}
+.page-image-to-3d .i3-result {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.page-image-to-3d .i3-canvas {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, var(--surface2), var(--soft));
+  border: 1px solid var(--line);
+}
+.page-image-to-3d .i3-canvas canvas {
+  display: block;
+  touch-action: none;
+}
+.page-image-to-3d .i3-viewer-note {
+  margin: 6px 0 0;
+}
+.page-image-to-3d .i3-side img {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: repeating-conic-gradient(var(--soft) 0% 25%, var(--surface) 0% 50%) 50% / 16px 16px;
+}
+.page-image-to-3d .i3-side p,
+.page-image-to-3d .i3-side label {
+  display: block;
+  margin: 8px 0;
+}
+.page-image-to-3d .i3-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.page-image-to-3d .i3-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.page-image-to-3d .i3-list li.on span:first-child {
+  font-weight: 700;
+}
+@media (max-width: 720px) {
+  .page-image-to-3d .i3-make,
+  .page-image-to-3d .i3-result {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-image-to-3d .card > h2:first-child {
+  margin-top: 0;
+}

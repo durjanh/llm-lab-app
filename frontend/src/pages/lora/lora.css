@@ -170,3 +170,69 @@
 .page-lora .lr-facts li {
   margin: 6px 0;
 }
+
+/* Publishing an adapter to Hugging Face. */
+.page-lora .lr-row-actions {
+  white-space: nowrap;
+}
+.page-lora .lr-row-actions .lr-link + .lr-link {
+  margin-left: 10px;
+}
+.page-lora .lr-publish {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--brand-line);
+  border-radius: 10px;
+  background: var(--brand-soft);
+  display: grid;
+  gap: 10px;
+}
+.page-lora .lr-publish-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.page-lora .lr-publish-head h3 {
+  margin: 0;
+}
+.page-lora .lr-publish p {
+  margin: 0;
+}
+.page-lora .lr-publish-field {
+  display: grid;
+  gap: 4px;
+  color: var(--ink2);
+}
+.page-lora .lr-publish-field input,
+.page-lora .lr-publish-field textarea {
+  font: inherit;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+}
+.page-lora .lr-publish-check {
+  display: block;
+  color: var(--ink2);
+}
+.page-lora .lr-publish .btn {
+  justify-self: start;
+}
+.page-lora .lr-publish-done {
+  color: var(--good);
+}
+.page-lora .lr-publish-error {
+  color: var(--bad);
+  white-space: pre-wrap;
+}
+.page-lora .lr-publish-reason {
+  display: block;
+  margin-top: 6px;
+  white-space: pre-wrap;
+}

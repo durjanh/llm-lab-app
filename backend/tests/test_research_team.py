@@ -266,6 +266,7 @@ def test_a_scripted_coordinator_run_end_to_end(tmp_path: Path) -> None:
         ("search", "done"), ("synthesis", "done"), ("report", "done")]
     assert manifest.data["status"] == "done" and all((manifest.folder / s["findings_file"]).is_file()
                                                       for s in manifest.data["steps"])
+    assert manifest.view()["folder"] == f"…/research-team/{manifest.folder.name}"  # never this machine's full path
 
 
 def test_a_timeout_is_retried_inside_the_subagent_and_an_access_failure_goes_up_structured(tmp_path: Path) -> None:

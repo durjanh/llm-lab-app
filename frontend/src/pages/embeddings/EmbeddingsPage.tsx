@@ -3,6 +3,7 @@ import { useEngine } from '@/lib/useEngine';
 import { mount } from './engine';
 import { CodeBlock } from '@/components/CodeBlock';
 import * as S from './snippets';
+import RagVsCag from './RagVsCag';
 import './embeddings.css';
 
 export default function EmbeddingsPage() {
@@ -181,6 +182,7 @@ export default function EmbeddingsPage() {
         <div className="assembled" id="assembled" />
         <p className="small muted" id="assembledInfo" style={{ marginTop: '6px' }} />
       </section>
+      <RagVsCag />
       <div className="takeaways">
         <h3>Engineering takeaways</h3>
         <ul>

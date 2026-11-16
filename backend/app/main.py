@@ -21,10 +21,13 @@ from .api import router
 from .api.aftercare import CALL_EVENTS
 from .api.medassist import LINE
 from .container import Container
+from .core.body_limit import FORM_OVERHEAD, MB, BodyLimit
 from .core.errors import ApiError, error_response
 from .core.telemetry import RequestContext
 from .services.mcp_lab import PATH as MCP_LAB_PATH
 from .services.sites import TEXT_TYPES, FileProblem
+from .services.image_to_3d import MAX_IMAGE_BYTES as MAX_3D_IMAGE_BYTES
+from .services.voice_agent import MAX_AUDIO_BYTES
 from .settings import Settings
 from .shared import make_client
 
@@ -45,6 +48,10 @@ class _QuietShutdown(logging.Filter):
 logging.getLogger("uvicorn.error").addFilter(_QuietShutdown())
 
 
+MAX_BODY_BYTES = 256 * MB
+SHUTDOWN_WAIT_S = 10
+
+
 def create_app(settings: Settings | None = None, client: Any = None, browser: Any = None,
                speech: Any = None, gpt: Any = None, search: Any = None, foundry: Any = None,
                language: Any = None, agents: Any = None, tools: Any = None, phone: Any = None,
@@ -60,6 +67,12 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
         # Ctrl+C: end deck and harness runs now, so their streams close and the server stops in seconds.
         if ended := app.state.container.runs.end_all():
             logging.info("Stopped %d run(s) still in progress.", ended)
+        # Voice replies run in their own threads, and the local voice is a child process: end both, waiting a bounded
+        # time for a reply that is part way through a call.
+        try:
+            await asyncio.wait_for(asyncio.to_thread(app.state.container.voice_agent.shutdown), SHUTDOWN_WAIT_S)
+        except asyncio.TimeoutError:
+            logging.warning("Voice replies were still finishing after %d s; the server stops without them.", SHUTDOWN_WAIT_S)
 
     app = FastAPI(title="LLM Lab API", version="1.0.0", lifespan=lifespan,
                   description="Proxies Claude API calls for the lab pages, with a spending cap.")
@@ -102,6 +115,12 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
             response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
+    # No body is read past its route's limit. The default sits above the largest upload any page sends (a 200 MB video
+    # to translate); a route with a much smaller limit of its own is listed so it never takes in more than that.
+    app.add_middleware(BodyLimit, default=MAX_BODY_BYTES, routes=[
+        (r"/api/voice-agent/conversations/[0-9a-f]{12}/audio", MAX_AUDIO_BYTES + FORM_OVERHEAD),
+        (r"/api/image-to-3d/generate", MAX_3D_IMAGE_BYTES + FORM_OVERHEAD),
+    ])
     app.add_middleware(RequestContext)  # outermost: names each request's area and trace for the call log
 
     if settings.models_dir.is_dir():

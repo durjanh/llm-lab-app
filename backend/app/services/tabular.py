@@ -25,7 +25,7 @@ from typing import Any, Callable, Iterator
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, ROOT, text_of
+from ..shared import DEFAULT_MODEL, ROOT, text_of
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 
@@ -262,7 +262,7 @@ class TabularService:
 
     def info(self) -> dict[str, Any]:
         return {"samples": [{"id": k, "label": v["label"], "about": v["about"]} for k, v in SAMPLES.items()],
-                "ready": self.python.exists(), "setup": SETUP, "model": CLAUDE_MODEL,
+                "ready": self.python.exists(), "setup": SETUP, "model": DEFAULT_MODEL,
                 "limits": {"upload_mb": MAX_UPLOAD_BYTES // 2**20, "rows": MAX_ROWS, "train_rows": 3000,
                            "columns": MAX_COLUMNS - 1}}
 
@@ -314,7 +314,7 @@ class TabularService:
 
     def suggest(self, table_id: str, model: str | None) -> dict[str, Any]:
         """The model proposes the target from the column summary; code checks it (one retry with the problems)."""
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         columns = self._meta(table_id)["columns"]
         prompt = "Columns:\n" + json.dumps(columns, ensure_ascii=False)
         cost, tries = 0.0, []
@@ -383,7 +383,7 @@ class TabularService:
             raise ApiError(400, "invalid_request", "; ".join(problems))
         if not self.python.exists():
             raise ApiError(503, "not_installed", f"TabPFN is not installed. From the repo root run: {SETUP}")
-        model = model or CLAUDE_MODEL
+        model = model or DEFAULT_MODEL
         run = Run()
 
         def work() -> None:

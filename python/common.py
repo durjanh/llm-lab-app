@@ -34,7 +34,7 @@ FALLBACKS = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default
 # price is an assumption at the usual 0.1x of the input price.
 PRICES: dict[str, dict[str, float]] = {
     "claude-opus-5-5": {"input": 4.00, "output": 20.00, "cache_read": 0.20},
-    "claude-sonnet-5-5": {"input": 2.00, "output": 10.00, "cache_read": 0.20},
+    "claude-sonnet-5-5": {"input": 2.00, "output": 10.00, "cache_read": 0.10},  # cache reads at 0.05x, as for Opus 5.5
     "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "cache_read": 0.01},
     # Earlier models, for the token counter's comparison only (the lab does not generate with them).
     "claude-opus-4-8": {"input": 5.00, "output": 25.00, "cache_read": 0.50},
@@ -57,6 +57,10 @@ PRICES.update(GPT_PRICES)
 if LOCAL_MODEL:
     PRICES[LOCAL_MODEL] = LOCAL_PRICE  # runs on this machine: no charge per token
 CACHE_WRITE_MULTIPLIER = 1.25  # 5-minute cache entries
+# The shortest prompt prefix the current Claude models cache (a shorter one is simply not cached, with no error), and
+# their context window. From Anthropic's prompt caching and models pages; older models differ.
+MIN_CACHE_TOKENS = 512
+CLAUDE_CONTEXT_TOKENS = 1_000_000
 # Azure Language in Foundry Tools, Standard tier, first 500,000 text records a month, from the Azure retail price list
 # (UK South). Each feature bills one text record per started 1,000 characters of each document.
 LANGUAGE_PRICE_PER_1K_RECORDS = 1.00

@@ -1,0 +1,230 @@
+/* Agent memory. Scoped to the page, as every page's styles are. */
+.page-agent-memory .card {
+  margin-top: 16px;
+}
+.page-agent-memory .card > h2:first-child {
+  margin-top: 0;
+}
+.page-agent-memory .am-error {
+  color: var(--bad);
+}
+.page-agent-memory .am-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ink2);
+}
+.page-agent-memory .am-bar label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.page-agent-memory .am-bar select,
+.page-agent-memory .am-input input {
+  font: inherit;
+  padding: 5px 7px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.page-agent-memory .am-day {
+  font-weight: 700;
+  color: var(--ink);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+}
+.page-agent-memory .am-steps {
+  margin: 12px 0 0;
+  padding-left: 22px;
+  max-height: 260px;
+  overflow: auto;
+}
+.page-agent-memory .am-steps li {
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.page-agent-memory .am-steps li.done {
+  color: var(--ink2);
+}
+.page-agent-memory .am-steps li.on {
+  color: var(--ink);
+  font-weight: 700;
+}
+.page-agent-memory .am-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.page-agent-memory .am-log-chat {
+  display: grid;
+  gap: 8px;
+  max-height: 620px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.page-agent-memory .am-msg {
+  padding: 8px 10px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+.page-agent-memory .am-user {
+  justify-self: end;
+  max-width: 85%;
+  background: var(--brand);
+  color: #fff;
+}
+.page-agent-memory .am-assistant {
+  justify-self: start;
+  max-width: 95%;
+  background: var(--soft);
+}
+.page-agent-memory .am-note {
+  justify-self: center;
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+  text-align: center;
+}
+.page-agent-memory .am-turn {
+  margin-top: 6px;
+  white-space: normal;
+}
+.page-agent-memory .am-turn p,
+.page-agent-memory .am-turn ul {
+  margin: 4px 0;
+}
+.page-agent-memory .am-turn pre {
+  white-space: pre-wrap;
+  font-size: 11.5px;
+  max-height: 240px;
+  overflow: auto;
+  background: var(--surface);
+  padding: 6px;
+  border-radius: 6px;
+}
+.page-agent-memory .am-input {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.page-agent-memory .am-input input {
+  flex: 1;
+  min-width: 0;
+}
+.page-agent-memory .am-store-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.page-agent-memory .am-store-head h2 {
+  margin: 0;
+}
+.page-agent-memory .am-memories {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  gap: 8px;
+  max-height: 720px;
+  overflow: auto;
+}
+.page-agent-memory .am-mem {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  transition: box-shadow 0.4s;
+}
+.page-agent-memory .am-mem p {
+  margin: 4px 0;
+}
+.page-agent-memory .am-mem.cited {
+  box-shadow: 0 0 0 2px var(--brand);
+}
+.page-agent-memory .am-mem.am-superseded,
+.page-agent-memory .am-mem.am-forgotten {
+  opacity: 0.55;
+}
+.page-agent-memory .am-mem.am-forgotten p:first-of-type {
+  text-decoration: line-through;
+}
+.page-agent-memory .am-mem-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.page-agent-memory .am-status {
+  margin-left: auto;
+  color: var(--ink2);
+}
+.page-agent-memory .am-kind {
+  font-size: 11.5px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: #fff;
+}
+.page-agent-memory .am-kind-fact,
+.page-agent-memory .am-kind-preference {
+  background: var(--s1);
+}
+.page-agent-memory .am-kind-procedure {
+  background: var(--s3);
+}
+.page-agent-memory .am-kind-episode {
+  background: var(--s2);
+}
+.page-agent-memory .am-strength {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--soft);
+  overflow: hidden;
+}
+.page-agent-memory .am-strength i {
+  display: block;
+  height: 100%;
+  background: var(--good);
+  transition: width 0.5s;
+}
+.page-agent-memory .am-strength i.weak {
+  background: var(--bad);
+}
+.page-agent-memory .am-events {
+  padding-left: 0;
+  list-style: none;
+  max-height: 360px;
+  overflow: auto;
+}
+.page-agent-memory .am-events li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+.page-agent-memory .am-ev {
+  font-weight: 700;
+}
+.page-agent-memory .am-ev-added,
+.page-agent-memory .am-ev-merged,
+.page-agent-memory .am-ev-episode {
+  color: var(--good);
+}
+.page-agent-memory .am-ev-replaced,
+.page-agent-memory .am-ev-kept,
+.page-agent-memory .am-ev-time {
+  color: var(--warn);
+}
+.page-agent-memory .am-ev-refused,
+.page-agent-memory .am-ev-forgotten {
+  color: var(--bad);
+}
+@media (max-width: 900px) {
+  .page-agent-memory .am-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1080,4 +1080,36 @@ def test_the_limits_and_router_timings_come_from_the_environment() -> None:
     status = router.status()
     assert status["cooldown_s"] == 12 and status["max_cooldown_s"] == 60 and status["short_retry_s"] == 0
     assert svc.info()["limits"]["iterations"] == 2 and svc.config(None).keep_recent == 2
-    assert Settings.from_env().model_failover_max_cooldown_s >= Settings.from_env().model_failover_cooldown_s
+    # A ceiling below the cooldown is raised to it, in one place: the router (what its status reports is what it uses).
+    assert ModelRouter(default_pools(), cooldown_s=12, max_cooldown_s=5).status()["max_cooldown_s"] == 12
+
+
+# ----- review findings, fourth pass -----
+
+def test_a_pool_whose_summary_opened_its_breaker_is_not_sent_the_request() -> None:
+    """The summary runs inside the request's call on the same pool. When it fails there and opens that pool's breaker,
+    the request must move on, not go to the pool just marked unhealthy (where a success would close the breaker)."""
+    svc, fake = make({SONNET: [status_error(529), [text("Answered by the pool just marked down.")]],
+                      HAIKU: [[text("They asked about leave.")], [text("Answered by haiku.")]]},
+                     cfg=Compaction(0.7, 2000, 1, SONNET))  # the summary's first choice is the request's pool
+    conv = new_conv(svc)
+    seed(svc, conv, 5, words=300)
+    evs = talk(svc, conv, "One more question")
+    # the summary failed on sonnet and went to haiku; the reply then went to haiku too, not back to sonnet
+    assert kinds(evs, "compaction") and fake.models_called() == [SONNET, HAIKU, HAIKU]
+    sonnet = next(p for p in svc.router.status()["pools"] if p["name"] == SONNET)
+    assert sonnet["state"] == "open" and sonnet["failures"] == 1  # counted once, and left open
+    assert steps_of(svc, conv)[-1].model == HAIKU
+
+
+def test_a_number_typed_wrong_in_env_uses_its_default_instead_of_stopping_everything(capsys) -> None:
+    """int()/float() on a typo such as 30s raised while python/settings.py was imported, which stopped every lesson
+    script and the backend. The bad line is reported and its default used; the range checks still apply."""
+    from backend.app.shared import EnvSettings
+
+    env = EnvSettings.from_env({"MODEL_FAILOVER_COOLDOWN_S": "30s", "VOICE_AGENT_LOCAL_TTS_PORT": "abc",
+                                "LLM_LAB_BUDGET": "nan", "MODEL_FAILOVER_MAX_TOKENS": "99999", "LLM_LAB_PORT": "70000"})
+    assert env.model_failover_cooldown_s == 30.0 and env.voice_agent_local_tts_port == 8098 and env.budget_usd == 2.0
+    assert env.model_failover_max_tokens == 8192 and env.port == 65535
+    err = capsys.readouterr().err
+    assert "MODEL_FAILOVER_COOLDOWN_S='30s'" in err and "VOICE_AGENT_LOCAL_TTS_PORT='abc'" in err and "LLM_LAB_BUDGET" in err

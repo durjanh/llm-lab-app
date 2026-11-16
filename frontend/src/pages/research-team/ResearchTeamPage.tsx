@@ -1,3 +1,4 @@
+import { startingModel } from '@/lib/models';
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { statusService } from '@/services/statusService';
 import {
@@ -188,9 +189,9 @@ export default function ResearchTeamPage() {
     statusService
       .status()
       .then((s) => {
-        const offered = s.claude_models?.length ? s.claude_models : s.models || [];
+        const offered = s.models || [];
         setModels(offered);
-        setModel(offered.includes('claude-haiku-5-5') ? 'claude-haiku-5-5' : s.default_model || offered[0] || '');
+        setModel(startingModel(s.default_model, offered));
       })
       .catch(() => undefined);
     void refreshRuns();

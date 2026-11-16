@@ -12,6 +12,7 @@ import {
   type LoraResult,
   type LoraTryResult,
 } from '@/services/loraService';
+import PublishAdapter from './PublishAdapter';
 import './lora.css';
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -267,6 +268,8 @@ export default function LoraPage() {
     }
   }
 
+  const [publishing, setPublishing] = useState('');
+
   async function remove(a: LoraAdapter) {
     if (!window.confirm('Delete this adapter?')) return;
     try {
@@ -280,6 +283,7 @@ export default function LoraPage() {
 
   const fields = info?.fields ?? [];
   const adapters = info?.adapters ?? [];
+  const publishingAdapter = adapters.find((a) => a.id === publishing);
 
   return (
     <main className="page-lora">
@@ -567,7 +571,10 @@ export default function LoraPage() {
                       {pct(a.before.all_fields)} → <b>{pct(a.after.all_fields)}</b>
                     </td>
                     <td className="mono">{a.sizes.adapter_bytes ? mb(a.sizes.adapter_bytes) : '–'}</td>
-                    <td>
+                    <td className="lr-row-actions">
+                      <button className="lr-link small" onClick={() => setPublishing(a.id)}>
+                        publish
+                      </button>
                       <button className="lr-link small" onClick={() => void remove(a)}>
                         delete
                       </button>
@@ -577,6 +584,9 @@ export default function LoraPage() {
               </tbody>
             </table>
           </div>
+          {publishingAdapter && (
+            <PublishAdapter key={publishingAdapter.id} adapter={publishingAdapter} onClose={() => setPublishing('')} />
+          )}
           <p className="small muted">
             Train again with a smaller rank, fewer layers or fewer steps, and compare: the task is narrow, so a small
             adapter often does as well as a big one.

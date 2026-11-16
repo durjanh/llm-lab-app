@@ -30,7 +30,7 @@ from pathlib import Path
 
 from ..core.errors import ApiError
 from ..gateways.claude import ClaudeGateway
-from ..shared import CLAUDE_MODEL, NoVision, sandbox_skills as S, skills_script as K
+from ..shared import CLAUDE_MODEL, DEFAULT_MODEL, NoVision, sandbox_skills as S, skills_script as K
 from .runs import Run, RunStreamer
 from .skills import SkillsService
 from .spend import SpendTracker
@@ -261,7 +261,8 @@ class DeckService:
                 self._forget(dropped)
         if not chat.busy.acquire(blocking=False):
             raise ApiError(409, "busy", "Claude is still working on this deck. Wait for it, or press Stop.")
-        model = model or CLAUDE_MODEL
+        # The lab's default (the local model when one is set) when the sandbox can run skills; Claude otherwise.
+        model = model or (DEFAULT_MODEL if S.available() else CLAUDE_MODEL)
         sandbox = S.uses_sandbox(model)
         if chat.sandbox is not None and chat.sandbox != sandbox:
             chat.busy.release()

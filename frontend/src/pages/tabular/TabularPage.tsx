@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { isLocalModel } from '@/lib/models';
+import { isLocalModel, startingModel } from '@/lib/models';
 import { statusService } from '@/services/statusService';
 import {
   tabularService,
@@ -156,7 +156,7 @@ export default function TabularPage() {
         setInfo(i);
         const offered = s.models || [];
         setModels(offered);
-        setModel(offered.includes(i.model) ? i.model : s.claude_model || offered[0] || '');
+        setModel(offered.includes(i.model) ? i.model : startingModel(s.default_model, offered));
       })
       .catch((err) => setError(errorText(err)));
     return () => abort.current?.abort();

@@ -51,7 +51,7 @@ from ..gateways.claude import ClaudeGateway
 from .conversation_store import USER, Conflict, ConversationStore, NotFound, Step, key_order
 from .history import assistant_blocks, no_reply
 from .model_catalog import ModelCatalog
-from .model_router import ModelRouter, Pool
+from .model_router import ModelRouter, Pool, PoolWentDown
 from .runs import Run, RunStreamer
 from .spend import SpendTracker
 from ..shared import PRICES, cost_usd
@@ -643,8 +643,10 @@ class ModelFailoverService:
         return {"stop_reason": last.stop_reason, "reply": reply, "model": last.model}
 
     def _send(self, t: _Turn, pool: Pool) -> tuple[Any, int]:
-        return self._create(t, pool, max_tokens=self.limits.max_tokens, system=SYSTEM, tools=TOOLS,
-                            messages=self._prepare(t, pool))
+        messages = self._prepare(t, pool)
+        if not self.router.usable(pool.name):  # the summary just failed on this pool and opened its breaker
+            raise PoolWentDown(f"{pool.name} failed while summarising the history")
+        return self._create(t, pool, max_tokens=self.limits.max_tokens, system=SYSTEM, tools=TOOLS, messages=messages)
 
     # ----- the routes' entry points -----
 
