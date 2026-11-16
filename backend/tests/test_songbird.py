@@ -59,3 +59,36 @@ def test_a_second_bad_score_is_refused(tmp_path: Path) -> None:
     client = TestClient(create_app(settings, client=fake), base_url="http://localhost:8000")
     r = client.post("/api/songbird/compose", headers=LAB, json={"description": "a duet", "model": "claude-haiku-5-5"})
     assert r.status_code == 502 and "second try" in r.json()["error"]["message"]
+
+
+def compose_with(tmp_path: Path, script: list, model: str = "claude-haiku-5-5") -> tuple[object, ScriptedClient]:
+    fake = ScriptedClient(script)
+    settings = Settings(port=8000, budget_usd=1.0, generated_dir=tmp_path, frontend_dist=tmp_path / "dist",
+                        models_dir=tmp_path / "no-models")
+    client = TestClient(create_app(settings, client=fake), base_url="http://localhost:8000")
+    return client.post("/api/songbird/compose", headers=LAB, json={"description": "a duet", "model": model}), fake
+
+
+def test_the_local_model_gets_a_capped_note_list_and_claude_keeps_the_full_one(tmp_path: Path, monkeypatch) -> None:
+    """On a real run the local model's retry kept adding notes until the 8,000-token limit, six minutes later. Its
+    grammar now caps the list; Claude's schema is unchanged."""
+    from backend.app.services import songbird as sb
+
+    monkeypatch.setattr(sb, "is_local", lambda model: True)  # as if the request were for the local model
+    r, fake = compose_with(tmp_path, [[text(json.dumps(GOOD))]])
+    sent = fake.calls[0][1]
+    assert r.status_code == 200
+    assert sent["output_config"]["format"]["schema"]["properties"]["notes"]["maxItems"] == sb.LOCAL_MAX_NOTES
+    assert f"at most {sb.LOCAL_MAX_NOTES} notes" in sent["system"]
+    monkeypatch.setattr(sb, "is_local", lambda model: False)
+    _, fake = compose_with(tmp_path / "b", [[text(json.dumps(GOOD))]])
+    sent = fake.calls[0][1]
+    assert "maxItems" not in sent["output_config"]["format"]["schema"]["properties"]["notes"]
+    assert f"at most {sb.MAX_NOTES} notes" in sent["system"]
+
+
+def test_a_cut_off_score_is_named_and_retried(tmp_path: Path) -> None:
+    r, fake = compose_with(tmp_path, [([text('{"title": "Long", "notes": [{"voice": "L",')], "max_tokens"),
+                                      [text(json.dumps(GOOD))]])
+    assert r.status_code == 200 and "cut off" in r.json()["tries"][0]["problems"][0]
+    assert "cut off" in fake.calls[1][1]["messages"][-1]["content"]

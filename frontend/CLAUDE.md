@@ -1,0 +1,7 @@
+# frontend/
+
+- `pages/registry.ts` is the single list of pages (id, route, title, nav label, group, body class, lazy component). Nav and routes are generated from it. To add a page: create `pages/<id>/<Name>Page.tsx` with a `<main className="page-<id>">` root, then add it to `PAGES`.
+- Many pages keep their interactive parts (simulations, SVG charts, in-browser models) in a plain-JS `engine.js` exporting `mount(root, life)`, started by `useEngine(rootRef, mount)` (`lib/useEngine.ts`, `lib/lifecycle.ts`). These page components never re-render, so React does not redraw over what the script drew. Any listener on `document`/`window` or timer must go through `life.on`, `life.setTimeout` or `life.requestAnimationFrame` so it stops on navigation. New interactive code is TypeScript.
+- Each page's CSS is scoped under `.page-<id>` so pages cannot restyle each other; the transformer page uses `body.tx` instead.
+- All backend calls go through `services/apiClient.ts` (`ApiClient`): it adds the `x-llm-lab` header, turns failures into `ApiError` with the server's message, and reads NDJSON streams. Add a `services/<area>Service.ts` rather than calling axios from a page.
+- Browser models (GPT-2, embedder, reranker in `lib/`) load transformers.js from jsDelivr; the full-internals GPT-2 is served from `models/gpt2-explainer/` (rebuilt by `tools/`).

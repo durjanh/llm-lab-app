@@ -5,17 +5,22 @@ it, and sends the problems back once for a second try.
 """
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 
 from ..core.errors import ApiError, to_api_error
 from ..gateways.claude import ClaudeGateway
-from ..shared import DEFAULT_MODEL, text_of
+from ..shared import DEFAULT_MODEL, is_local, text_of
 from .spend import SpendTracker
 
 RANGES = {"L": (400.0, 5000.0), "R": (1200.0, 10000.0)}  # Hz: the left side sings lower, the right higher
 MAX_SECONDS = 8.0
 MAX_NOTES = 120
+# A local model writes about 20 tokens a second, and on a retry one kept adding notes until the 8,000-token limit cut it
+# off, six minutes later. Its server holds the reply to the schema with a grammar, so a maxItems there makes a runaway
+# list impossible; 60 notes is about two minutes of writing. Claude and GPT keep the synth's own limit, unchanged.
+LOCAL_MAX_NOTES = 60
 MIN_NOTE = 0.008  # seconds
 
 SCHEMA: dict[str, Any] = {
@@ -46,7 +51,7 @@ harmonics of each other sound like a duet), and one sweep can be handed from one
 3.4 kHz. Each side sings one note at a time: notes on the same side must not overlap.
 
 Write the song the person describes as notes. start and duration are seconds (the whole song at most
-{MAX_SECONDS:.0f} seconds, at most {MAX_NOTES} notes; trills are many short notes, 15 to 30 a second). f_start and f_end
+{MAX_SECONDS:.0f} seconds, at most {{max_notes}} notes; trills are many short notes, 15 to 30 a second). f_start and f_end
 are the frequency at the note's start and end (a glide when they differ). amplitude is 0 to 1. harmonics is 0 for a pure
 whistle up to 1 for a buzzy note. trill_rate (Hz) and trill_depth (fraction of the frequency, up to 0.1) add a warble;
 use 0 for none. Leave short gaps between phrases: real birds take mini-breaths there.
@@ -54,14 +59,26 @@ use 0 for none. Leave short gaps between phrases: real birds take mini-breaths t
 Then explain in two or three plain British English sentences how a bird would sing it: which side does what."""
 
 
-def problems(score: dict[str, Any]) -> list[str]:
+def system(max_notes: int) -> str:
+    return SYSTEM.replace("{max_notes}", str(max_notes))
+
+
+def schema(max_notes: int | None = None) -> dict[str, Any]:
+    """The score's JSON schema, with a cap on the notes when one is given (for the local model's grammar)."""
+    out = copy.deepcopy(SCHEMA)
+    if max_notes:
+        out["properties"]["notes"]["maxItems"] = max_notes
+    return out
+
+
+def problems(score: dict[str, Any], max_notes: int = MAX_NOTES) -> list[str]:
     """What is wrong with a score, in words the model can act on. Empty when it can be played."""
     found: list[str] = []
     notes = score.get("notes") or []
     if not notes:
         return ["There are no notes."]
-    if len(notes) > MAX_NOTES:
-        found.append(f"{len(notes)} notes; the limit is {MAX_NOTES}.")
+    if len(notes) > max_notes:
+        found.append(f"{len(notes)} notes; the limit is {max_notes}.")
     for i, n in enumerate(notes):
         low, high = RANGES.get(n.get("voice"), (0, 0))
         for key in ("f_start", "f_end"):
@@ -103,21 +120,27 @@ class SongbirdService:
 
     def compose(self, description: str, model: str | None) -> dict[str, Any]:
         model = model or DEFAULT_MODEL
+        limit = LOCAL_MAX_NOTES if is_local(model) else MAX_NOTES
+        fmt = schema(limit if is_local(model) else None)
         messages: list[dict[str, Any]] = [{"role": "user", "content": description}]
         cost, tries = 0.0, []
         for attempt in (1, 2):
             try:
-                response = self.claude.create(model=model, max_tokens=8000, system=SYSTEM, messages=messages,
-                                              output_config={"format": {"type": "json_schema", "schema": SCHEMA}})
+                response = self.claude.create(model=model, max_tokens=8000, system=system(limit), messages=messages,
+                                              output_config={"format": {"type": "json_schema", "schema": fmt}})
             except Exception as exc:
                 raise to_api_error(exc) from exc
             cost += self.spend.charge(response, model) or 0.0
             raw = text_of(response)
-            try:
-                score = json.loads(raw)
-            except ValueError:
-                score = {"notes": []}
-            found = problems(score)
+            if response.stop_reason == "max_tokens":  # cut off: say so, rather than "no notes"
+                score, found = {"notes": []}, [f"The score was cut off before it ended. Send a shorter one: at most "
+                                               f"{limit} notes."]
+            else:
+                try:
+                    score = json.loads(raw)
+                except ValueError:
+                    score = {"notes": []}
+                found = problems(score, limit)
             tries.append({"attempt": attempt, "problems": found})
             if not found:
                 return {"title": score["title"], "explanation": score["explanation"], "notes": to_page(score),

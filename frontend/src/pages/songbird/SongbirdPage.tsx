@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { modelName } from '@/lib/models';
+import { isLocalModel, modelName } from '@/lib/models';
 import { songbirdService, type ComposedSong } from '@/services/songbirdService';
 import { statusService } from '@/services/statusService';
 import { Bird, type BirdHandle } from './Bird';
@@ -68,6 +68,7 @@ export default function SongbirdPage() {
   const [model, setModel] = useState('');
   const [idea, setIdea] = useState(IDEAS[0]);
   const [busy, setBusy] = useState(false);
+  const [elapsed, setElapsed] = useState(0); // seconds since Compose was pressed
   const [composed, setComposed] = useState<(ComposedSong & { song: Song }) | null>(null);
   const [cost, setCost] = useState(0);
 
@@ -185,7 +186,19 @@ export default function SongbirdPage() {
     };
   }, [selected, press, release]);
 
+  // While composing, count the seconds: a local model can take minutes, and a still label looks stuck.
+  useEffect(() => {
+    if (!busy) return;
+    const started = Date.now();
+    setElapsed(0);
+    const t = window.setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(t);
+  }, [busy]);
+
   async function compose() {
+    // Start the sound now, inside the click. Browsers only let audio start within a moment of a click, and the score
+    // can take minutes to come back, so starting it then left the song silent.
+    void ensure().catch(() => undefined);
     setBusy(true);
     setError('');
     try {
@@ -396,9 +409,16 @@ export default function SongbirdPage() {
             disabled={busy || idea.trim().length < 3 || !model}
             onClick={() => void compose()}
           >
-            {busy ? 'Composing…' : 'Compose and play'}
+            {busy ? `Composing… ${elapsed} s` : 'Compose and play'}
           </button>
         </div>
+        {busy && (
+          <p className="small muted">
+            {isLocalModel(model)
+              ? 'The local model takes about 30 seconds to 2 minutes for each try, and makes a second try if code finds the first score cannot be sung. It plays as soon as it is ready.'
+              : `${modelName(model)} usually takes 10 to 30 seconds. It plays as soon as it is ready.`}
+          </p>
+        )}
         {composed && (
           <div className="sb-composed small">
             <p>
