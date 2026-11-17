@@ -13,6 +13,7 @@ import {
   type Memory,
   type Pool,
   type RouterStatus,
+  type LabFailover,
 } from '@/services/modelFailoverService';
 import './model-failover.css';
 
@@ -308,6 +309,7 @@ function MemoryPanel({ memory, busy, onCompact }: { memory: Memory | null; busy:
 export default function ModelFailoverPage() {
   const [info, setInfo] = useState<FailoverInfo | null>(null);
   const [router, setRouter] = useState<RouterStatus | null>(null);
+  const [lab, setLab] = useState<LabFailover | null>(null);
   const [fetchedAt, setFetchedAt] = useState(Date.now());
   const [now, setNow] = useState(Date.now());
   const [convs, setConvs] = useState<ConversationSummary[]>([]);
@@ -351,6 +353,10 @@ export default function ModelFailoverPage() {
         setRouter(r);
         setFetchedAt(Date.now());
       })
+      .catch(() => undefined);
+    svc
+      .lab()
+      .then(setLab)
       .catch(() => undefined);
   }, []);
   const loadList = useCallback(
@@ -664,6 +670,34 @@ export default function ModelFailoverPage() {
         </section>
 
         <aside className="mf-side">
+          {lab && (
+            <section className="card">
+              <h2>Every other page</h2>
+              {lab.enabled ? (
+                <>
+                  <p className="small">
+                    On: a call to {lab.models.join(', ')} that fails with 429, 529, 5xx or a timeout on any page goes to
+                    the next model in this list, through the same router and breakers as this page. {lab.routed_calls}{' '}
+                    call{lab.routed_calls === 1 ? '' : 's'} routed since the backend started.
+                  </p>
+                  {lab.switches.length ? (
+                    <ul className="small mf-lab-switches">
+                      {lab.switches.slice(0, 8).map((w, i) => (
+                        <li key={i}>
+                          <span className="muted">{new Date(w.at * 1000).toLocaleTimeString()}</span> {w.area}: {w.from}{' '}
+                          → {w.to} ({w.reason})
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="small muted">No switches yet.</p>
+                  )}
+                </>
+              ) : (
+                <p className="small muted">Off (LLM_LAB_FAILOVER=off): other pages call only the model they ask for.</p>
+              )}
+            </section>
+          )}
           <section className="card">
             <h2>Router</h2>
             <p className="small muted">

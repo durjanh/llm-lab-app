@@ -10,8 +10,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..core.errors import ApiError
+from ..services.lab_failover import FailoverGateway
 from ..services.model_failover import MAX_MESSAGE, ModelFailoverService
-from .deps import model_failover, require_budget, require_lab_page
+from .deps import lab_failover, model_failover, require_budget, require_lab_page
 
 router = APIRouter(dependencies=[Depends(require_lab_page)])
 CONV = r"^[0-9a-f]{12}$"
@@ -89,6 +90,12 @@ def reload_catalog(service: ModelFailoverService = Depends(model_failover)) -> d
 def info(service: ModelFailoverService = Depends(model_failover)) -> dict[str, Any]:
     """The pools and their breakers, where history is stored, the tools, the limits and the compaction defaults. Free."""
     return service.info()
+
+
+@router.get("/model-failover/lab")
+def lab(gateway: FailoverGateway = Depends(lab_failover)) -> dict[str, Any]:
+    """Failover on every other page: whether it is on, the models it covers, and the latest switches."""
+    return gateway.report()
 
 
 @router.get("/model-failover/router")

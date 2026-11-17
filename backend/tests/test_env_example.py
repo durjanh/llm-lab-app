@@ -24,7 +24,7 @@ def set_values() -> dict[str, str]:
 
 
 def test_every_variable_settings_reads_is_listed() -> None:
-    read = set(re.findall(r'(?:get|num)\("([A-Z][A-Z0-9_]+)"', SETTINGS.read_text(encoding="utf-8")))
+    read = set(re.findall(r'(?:get|num|switch)\("([A-Z][A-Z0-9_]+)"', SETTINGS.read_text(encoding="utf-8")))
     listed = {m.group(1) for line in lines() if (m := re.match(r"^#?\s*([A-Z][A-Z0-9_]+)=", line))}
     assert read - listed == set(), "add these to .env.example"
     assert listed - read - NOT_IN_SETTINGS == set(), "these are listed but python/settings.py does not read them"

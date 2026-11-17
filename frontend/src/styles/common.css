@@ -148,3 +148,9 @@ body.lab{
 
 /* ---------- React app ---------- */
 .page-loading{display:flex;align-items:center;gap:10px;max-width:1120px;margin:0 auto;padding:40px 24px;color:var(--muted, #6b7280)}
+/* A menu with columns opens across the bar, not hung from its button: five columns from "Building" ran off the screen.
+   Long labels wrap inside their column instead of running into the next. */
+.site-nav{position:relative}
+.nav-menu:has(> .menu.mega.wide){position:static}
+.nav-menu .menu.mega.wide{left:16px;right:16px;max-width:none;grid-auto-columns:minmax(150px,1fr)}
+.site-nav .nav-menu .menu.mega a{white-space:normal;line-height:1.3}

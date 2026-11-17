@@ -5,6 +5,7 @@ import { mount } from './engine';
 import { CodeBlock } from '@/components/CodeBlock';
 import * as S from './snippets';
 import { HookLifecycle } from './HookLifecycle';
+import { McpFlow } from './McpFlow';
 import { HOOK_EVENTS } from './hookEvents';
 import './claude-code.css';
 
@@ -722,6 +723,23 @@ export default function ClaudeCodePage() {
         Every configured server's tools are found when Claude Code connects and are all available at once. Where the
         configuration lives decides who gets it.
       </p>
+      <h3>One tool call, end to end</h3>
+      <p>
+        Claude never talks to an MCP server, and never sees the server's credentials. Claude Code sits in the middle:
+        its MCP client lists the servers' tools when it connects, Claude Code sends them to Claude with your question,
+        and when Claude asks for a tool, Claude Code checks your permissions, has the MCP client call the server, and
+        sends the result back. Step through it to see each message on the wire.
+      </p>
+      <McpFlow />
+      <p className="small muted">
+        Your own agent can be the host in the same way: it runs an MCP client, sends the tools with each Messages API
+        request, and calls the server when Claude asks. With the API's MCP connector (<code>mcp_servers</code> in the
+        request), Anthropic's side is the MCP client instead: it lists the tools and makes the calls itself (steps 1 to
+        4 and 9 to 12), and your app gets one reply with <code>mcp_tool_use</code> and <code>mcp_tool_result</code>{' '}
+        blocks in it. <a href="/mcp">The MCP servers lab</a> builds a server and shows its raw <code>tools/list</code>{' '}
+        and <code>tools/call</code> messages.
+      </p>
+      <h3>Where the configuration lives</h3>
       <div className="table-wrap">
         <table className="t">
           <thead>

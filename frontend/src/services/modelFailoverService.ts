@@ -38,6 +38,13 @@ export interface Pool {
   faults: string[];
 }
 
+export interface LabFailover {
+  enabled: boolean;
+  models: string[];
+  routed_calls: number;
+  switches: { at: number; area: string; asked: string; from: string; to: string; reason: string }[];
+}
+
 export interface RouterStatus {
   pools: Pool[];
   cooldown_s: number;
@@ -187,6 +194,10 @@ export class ModelFailoverService {
   }
   router(): Promise<RouterStatus> {
     return this.client.get(`${base}/router`);
+  }
+  /** Failover on every other page: on or off, the models it covers, the latest switches anywhere in the lab. */
+  lab(): Promise<LabFailover> {
+    return this.client.get(`${base}/lab`);
   }
   resetRouter(): Promise<RouterStatus> {
     return this.client.post(`${base}/router/reset`, {});

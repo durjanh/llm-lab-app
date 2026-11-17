@@ -481,6 +481,13 @@ class ApproveRequest(BaseModel):
     allow: bool
 
 
+class MemoryMount(BaseModel):
+    """A memory store to mount in a coding session, as .memory/<store name>/."""
+    store_id: str = Field(pattern=r"^memstore_[0-9a-f]{16}$")
+    access: Literal["read_write", "read_only"] = "read_write"
+    instructions: str = Field(default="", max_length=4096)
+
+
 class CodingRun(BaseModel):
     """A request for the coding agent. Without a session_id, it starts on a fresh copy of the project. The model is
     a Claude model, the local model or a GPT deployment (gpt-...); the service checks it is one the lab has."""
@@ -488,10 +495,12 @@ class CodingRun(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
     session_id: str | None = Field(default=None, max_length=40)
     mode: Literal["default", "accept_edits", "plan", "bypass", "auto"] = "default"
+    memory: list[MemoryMount] = Field(default_factory=list, max_length=8)  # only when this starts a new session
 
 
 class CodingSession(BaseModel):
     workspace: Literal["practice", "files"] = "practice"
+    memory: list[MemoryMount] = Field(default_factory=list, max_length=8)
 
 
 class CodingSdkRun(ModelChoice):

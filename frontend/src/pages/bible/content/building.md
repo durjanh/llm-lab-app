@@ -316,6 +316,9 @@
 - **Q:** What does it cost to connect many MCP servers to an agent?
   **A:** Each tool's name, description and schema is context, so many servers mean more tokens on every request and a harder choice between similar tools. Keep servers focused and allowlist only the tools an integration needs.
 
+- **Q:** Walk me through one MCP tool call, end to end.
+  **A:** When the host starts, say Claude Code, its MCP client connects to each server, agrees a protocol version with `initialize`, and gets the tools with `tools/list`, once. When you ask a question, the host sends it to Claude with every tool's name, description and schema. Claude doesn't run anything: it replies with a `tool_use` block. The host checks permissions, its MCP client sends `tools/call` to the server, and the server does the real work with its own credentials, for example calling GitHub's API. The result goes back to the host, which sends it to Claude as a `tool_result`, and Claude answers in words. Claude never talks to the server and never sees its token. With the API's MCP connector, Anthropic's side plays the client instead. [Claude Code setup](/claude-code#mcp) steps through every message.
+
 **What I built:** the backend hosts the example server (`examples/mcp/server.py`, MCP Python SDK 2.x) at a real Streamable HTTP endpoint with demo read and write bearer tokens, so the page can send raw `tools/list` and `tools/call` requests, including a bad id and an input that breaks the schema. A small harness gives Claude the same tools in-process, capped at eight turns, and blocks writes unless "Allow writes" is on; `examples/mcp/` also has tests and a connector example with a read-only allowlist.
 
 ## Agent Workflows (`/workflows`)
@@ -374,3 +377,392 @@
   **A:** A completed DPIA and legal advice on the lawful basis, because substantial public interest for shoplifting is contested. Then signage, staff training, a tested provider and a way to handle erasure requests. The simulation enforces the shape of these, but recording a reference doesn't make anything lawful.
 
 **What I built:** an alert desk that runs on scripted people or, in a test mode for people who have agreed, a real webcam. A behaviour model on Azure OpenAI sees frames with faces blurred in the browser and keeps a running account of the visit, and plain code applies the rule that someone left while carrying something unpaid. A face model in the browser makes 128-number templates. The rules are enforced in the service and covered by tests, not the page. It has a score-driven admin alert, held faces that expire, one named reviewer who must confirm having watched the footage, possible matches for staff, retention, removal and an audit log.
+
+## Agent Types (`/agent-types`)
+**In one line:** thirteen kinds of agent, what each is for, when not to use it, and where each is built in the lab with the command that runs it.
+
+**Key terms**
+- **Reflex agent**: fixed rules from input to action, with no model. Fast and predictable.
+- **Planning agent**: writes a plan first, then carries it out step by step.
+- **Memory agent**: keeps what it learns about a person between separate sessions.
+- **Self-improving agent**: reviews its own results and changes its instructions for next time.
+- **Browser and computer use agents**: act on web pages or a whole screen through screenshots, clicks and typing.
+- **Autonomous agent**: runs towards a goal with no human in the loop, which needs the strongest limits.
+
+**Questions they could ask**
+- **Q:** When should you not build an agent?
+  **A:** When the steps are known in advance. A fixed workflow, or even plain code, is cheaper, faster and easier to test. An agent earns its place when the path depends on what it finds along the way.
+- **Q:** What makes an agent risky?
+  **A:** What its tools can change, not how clever it is. Read-only tools are low risk. Tools that send, pay or delete need limits in code and a person's approval.
+
+**What I built:** lesson scripts `python/20` to `25` (reflex, planning, memory, self-improving, browser and computer use, the last two driving headless Chrome through `python/chrome_driver.py`), and the page that maps every type to where it runs.
+
+## Building Agents as Software (`/building-agents`)
+**In one line:** agents explained in developer terms, in the lab's own code: the request and response, a tool's schema, and the same loop written four ways.
+
+**Key terms**
+- **Messages API**: one request holds the model, system prompt, messages and tools; the reply holds content blocks and a `stop_reason`.
+- **Tool schema**: a JSON Schema describing a tool's input, which the model fills in.
+- **Agent loop**: call the model; if it asks for a tool, run it in code and send the result back; stop when it answers.
+- **Rules as code**: limits enforced by the tools, not by the prompt.
+
+**Questions they could ask**
+- **Q:** What is an agent, to a developer?
+  **A:** A loop around a model call. The model chooses the next tool; your code runs it, checks it and returns the result. Everything else (memory, approvals, retries) is ordinary software around that loop.
+- **Q:** Why write the loop four ways?
+  **A:** To show what frameworks hide. By hand with the Claude API, in my harness, in Microsoft Agent Framework and with Foundry's Responses API, it is the same loop. Knowing that makes any framework easy to pick up and debug.
+
+**What I built:** a static page with code from the lab: MedAssist's rules as code, and testing against the database.
+
+## Planning Patterns (`/planning-patterns`)
+**In one line:** one task run four ways at once (a plain tool loop, ReAct, plan and execute, and reflexion), each streamed live and marked against the known right answer.
+
+**Key terms**
+- **ReAct**: the model writes a short thought before each action, then sees the result.
+- **Plan and execute**: plan all steps first, run them, and replan after a failed step.
+- **Reflexion**: a critic reviews the answer, and the agent gets one retry with the critique.
+- **Step cap**: a hard limit on model calls, so a confused agent stops.
+
+**Questions they could ask**
+- **Q:** Which pattern is best?
+  **A:** It depends on the task, which is why the page runs all four on the same one. Modern models do well with a plain tool loop. Plan and execute helps on long tasks where steps are known; reflexion helps when the first answer is often wrong, at twice the cost. The page shows calls, tokens, time and cost for each.
+- **Q:** How do you test agents fairly?
+  **A:** On an invented shop with fixed data and a fixed "today", so every answer has one right value that code checks. One task makes the stock system fail the first time, to see who recovers.
+
+**What I built:** a backend that streams four patterns in parallel against one tool set, with step caps (14 model calls, 24 for plan and execute) and a budget per run.
+
+## Agent Memory (`/agent-memory`)
+**In one line:** an assistant that remembers people across separate sessions, showing all fifteen building blocks of agent memory as they happen, on the local model, Claude or GPT.
+
+**Key terms**
+- **Working memory**: the current conversation.
+- **Episodic memory**: what happened in earlier sessions.
+- **Semantic memory**: facts about the person, such as their job or allergies.
+- **Procedural memory**: how they like things done.
+- **Consolidation**: merging new memories into existing ones instead of piling them up.
+- **Decay and forgetting**: older, unused memories lose weight by a half-life and are dropped.
+- **Provenance**: each memory keeps the quote it came from, checked against what the person really said.
+- **Isolation**: one file per person, so memories never mix.
+
+**Questions they could ask**
+- **Q:** Who decides what to remember, the model or the code?
+  **A:** Both. The model chooses what is worth keeping with `remember` and `forget` tools. Code applies the rules: it checks the quote really appears in what the person said, resolves conflicts, applies decay, and refuses sensitive data through a privacy guard.
+- **Q:** Why not keep the whole conversation history?
+  **A:** It grows without end, costs tokens every turn, and mixes trivial with important. A short profile that is always loaded, plus one-off memories retrieved when relevant, is cheaper and works better.
+- **Q:** How do you test memory?
+  **A:** A scenario plays three sessions for one person with time jumps, then a second person, and checks what is recalled, updated, forgotten and kept apart. On the local model it costs nothing.
+
+**What I built:** `python/22_memory_agent.py` for the rules and the guard; the page streams each step and keeps memory in `generated/agent-memory-lab/`.
+
+## Memory Stores (`/memory-stores`)
+**In one line:** folders of small, versioned text files that a coding agent reads and writes across sessions, as in Claude Managed Agents but kept on this machine.
+
+**Key terms**
+- **Memory store**: a named folder of memories with a description, mounted into an agent's workspace.
+- **Mount**: the store appears as `.memory/<store>/`, read-write or read-only.
+- **Version**: every change to a memory is kept, signed by the session that made it, so it can be restored or redacted.
+- **Redact**: removing a version's content for good (for example a secret) while keeping that a change happened.
+
+**Questions they could ask**
+- **Q:** Why files rather than a vector database?
+  **A:** A coding agent is already good at reading and writing files, and people can read, edit and review them. A small store with an index of its files in the agent's instructions is enough; search can come later.
+- **Q:** How do you make sure the agent actually writes memory?
+  **A:** A Stop hook sends a run back until it has written to a read-write store, at least a session note. Without it, agents often finish without recording anything.
+- **Q:** What stops the agent damaging memory?
+  **A:** Changes to a read-only store are refused and put back. Anything that looks like a key or token is refused. Symlinks are never followed, and non-text files are refused. Each change is a new version, so nothing is lost.
+
+**What I built:** `backend/app/services/memory_stores.py` (stores, versions, restore and redact, in `generated/memory-stores/`), the mounts and sync in the coding agent, and the page to browse, edit and compare versions. It works on the local model, Claude and GPT.
+
+## Code Knowledge Graph (`/code-graph`)
+**In one line:** a codebase read into a graph of files, functions, imports and calls by code, then questioned by a model through tools over the graph.
+
+**Key terms**
+- **Parse, don't guess**: Python is read with `ast`; JavaScript and TypeScript with a real parser, so the graph comes from the code's structure.
+- **Approximate call graph**: calls are joined to functions by name, so each edge says how it was matched.
+- **Graph tools**: the model asks the graph (find, neighbours, path, code of a node) instead of reading every file.
+
+**Questions they could ask**
+- **Q:** Why a graph rather than embeddings for code?
+  **A:** Questions about code are often about structure: who calls this, what breaks if I change it, how does a request get from A to B. A graph answers those exactly; similarity search does not. The model uses graph tools and the nodes it used light up.
+- **Q:** Is it safe to load someone's repository?
+  **A:** Nothing is run. Archives are unpacked with checks on paths, links, size and file count, and the code is only parsed.
+
+**What I built:** a four-pass indexer (files, parsing, imports, calls), seven graph tools for the model, a force-laid graph with filters and focus, cached in `generated/code-graph/`.
+
+## Vector Database (`/vector-db`)
+**In one line:** PostgreSQL with pgvector, run yourself: chunks searched by meaning, by words and both fused, with the SQL shown and access enforced by row-level security.
+
+**Key terms**
+- **Embedding**: a vector for a piece of text, so similar meanings are close together.
+- **HNSW index**: an approximate nearest-neighbour index that makes vector search fast.
+- **Full-text search**: Postgres's own word search, good at exact names and codes.
+- **Reciprocal rank fusion (RRF)**: combines two ranked lists by adding 1 / (k + rank), so items high in either list rise.
+- **Row-level security**: a database policy that hides rows the reader is not allowed to see, whatever the query.
+
+**Questions they could ask**
+- **Q:** Why hybrid search?
+  **A:** Vectors find meaning but miss exact terms such as product codes; words find exact terms but miss paraphrases. Fusing both is more reliable than either, and in SQL it is one query.
+- **Q:** How do you stop RAG showing documents a user should not see?
+  **A:** Enforce it in the database, not the prompt. Every search runs as an unprivileged role with the reader's groups, and a row-level security policy hides every other chunk. Superusers skip such policies, so searches never run as one.
+- **Q:** Why record the embedding model on each row?
+  **A:** Vectors from two different models cannot be compared, so a change of model means re-embedding.
+
+**What I built:** `tools/vector-db.sh` (pgvector in Docker on `127.0.0.1:5433`), chunking under headings, the local embedding model, three search modes with their plans, and cited answers whose citations code checks.
+
+## GraphRAG (`/graphrag`)
+**In one line:** a knowledge graph built from documents by a model, stored beside the chunks in PostgreSQL, and one question answered three ways: plain RAG, local graph search and global search.
+
+**Key terms**
+- **Entity and relationship extraction**: a model lists the people, teams, products and how they relate, from each chunk.
+- **Community**: a group of closely linked entities, found with the Louvain method and summarised by a model.
+- **Local search**: start from the entities nearest the question and walk up to two relationships.
+- **Global search**: map the question over every community summary, then reduce to one answer.
+
+**Questions they could ask**
+- **Q:** When is GraphRAG worth it over plain RAG?
+  **A:** For questions that need connections across documents ("who works with the team that owns X?") or the big picture ("what are the main themes?"). Plain RAG only sees the few chunks closest to the question. GraphRAG costs a model pass over every chunk to build, so it is not worth it for simple look-ups.
+- **Q:** How do you keep the extraction trustworthy?
+  **A:** Structured output for the extraction, code to merge mentions by normalised name, a cap of 40 chunks a build with the cost shown first, and every answer citing what it was given.
+
+**What I built:** extraction, merging, Louvain communities and summaries stored in PostgreSQL tables beside the chunks; local search as one recursive SQL query; the three answers side by side, lit up on a drawing of the graph.
+
+## Semantic Cache (`/semantic-cache`)
+**In one line:** answers stored with the question's vector, so a close enough question skips the model, and the page shows why similarity alone is not safe.
+
+**Key terms**
+- **Semantic cache**: look up a new question by meaning among questions already answered.
+- **Similarity threshold**: how close a question must be to reuse an answer.
+- **False hit**: a near-identical question with a different meaning ("carry over 5 days" against "10 days").
+- **Scoping**: entries belong to an answering model, a prompt version and a user, and expire.
+
+**Questions they could ask**
+- **Q:** Is a semantic cache a good idea?
+  **A:** With care. The page's preset pairs show questions that differ in one number or verb scoring higher than true paraphrases, so no threshold is safe. A candidate must also pass a code check (the numbers match) and a yes-or-no check by a small model before it is served.
+- **Q:** How does it differ from prompt caching?
+  **A:** Prompt caching reuses the computation for an identical prefix and still calls the model; the answer is always fresh. A semantic cache skips the model entirely and returns a stored answer, which is cheaper but can be wrong or stale.
+
+**What I built:** an HR help desk on the invented handbook, the cache in the same pgvector database, the two checks, scoping and expiry, and a comparison of KV, prompt and semantic caching.
+
+## Local Model Setup (`/local-model`)
+**In one line:** how to run an open model on this machine with Docker Model Runner and point the whole lab at it, with a live line showing whether it is configured, running and pulled.
+
+**Key terms**
+- **Docker Model Runner**: Docker Desktop's built-in server for open models (llama.cpp, with the GPU on a Mac).
+- **`LLM_LAB_LOCAL_MODEL`**: the one setting that makes the local model the default everywhere.
+- **NeedsClaude**: the error raised when a request needs a Claude-only feature, instead of silently dropping it.
+
+**Questions they could ask**
+- **Q:** What changes in the code when you switch to a local model?
+  **A:** Nothing in the pages. One client, `LabClient`, sends each request to the right place by model name, and the local server speaks the Anthropic API.
+
+**What I built:** `tools/local-model.sh` to provision it, and the page with the daily commands and troubleshooting. The essentials section "Running an open model locally" has the full answers.
+
+## Support Desk Agent (`/support-desk`)
+**In one line:** a customer support agent with four tools and a loop driven by `stop_reason`, where every safety mechanism runs and can be switched off to see what breaks.
+
+**Key terms**
+- **Gate in code**: no refund or order look-up until the customer is verified, whatever the model asks.
+- **Pre-tool hook**: checks a call before it runs: refunds over $500 are blocked and sent to escalation.
+- **Post-tool hook**: tidies a result before the model sees it, such as turning Unix, ISO and `03/11/2026` dates into one format.
+- **Structured error**: a tool error with a category and whether it is worth retrying, so the agent reacts correctly.
+- **Capability bloat**: giving an agent tools it does not need, such as `delete_account`, which it may then use.
+- **Structured handoff**: the facts a person needs when the case is escalated, not the whole transcript.
+
+**Questions they could ask**
+- **Q:** Where do you enforce business rules: the prompt or the code?
+  **A:** The code. The prompt explains the rules so the model behaves well, but a gate and a hook make sure they hold even when it does not. Switching a mechanism off on the page shows the failure it prevents.
+- **Q:** How should a tool report errors?
+  **A:** With a category and whether to retry. A transient outage is retried; a closed refund window is explained to the customer; "no orders" is a valid empty result, not an error. Mixing those up makes agents retry hopeless calls or give up on good ones.
+- **Q:** How do you measure a support agent?
+  **A:** From what the tools did, not what the agent said. "Run all" plays eight scripted customers and scores each outcome, then reports first-contact resolution.
+
+**What I built:** an invented shop with `get_customer`, `lookup_order`, `process_refund` and `escalate_to_human`, our own loop, each mechanism with a switch, and the same agent on the Agent SDK in `examples/claude-agent-sdk/support_agent_sdk.py`.
+
+## Research Team (`/research-team`)
+**In one line:** a coordinator splits a question, delegates to four subagents in parallel, checks coverage and re-delegates, with every finding carrying its evidence and source.
+
+**Key terms**
+- **Coordinator**: plans the sub-questions and chooses which subagent to call.
+- **Subagent**: starts with an empty context and gets only what it needs in its prompt, with only its own tools.
+- **Coverage check**: after synthesis, finding what is still unanswered and sending targeted searches (two rounds at most).
+- **Manifest**: a record of each run's steps, so it can be resumed.
+
+**Questions they could ask**
+- **Q:** Why give subagents an empty context?
+  **A:** So each sees only what its job needs, which keeps it focused and cheap. The catch is that it knows nothing you do not pass on, so earlier findings go into its prompt in full, and the page shows exactly what each one got.
+- **Q:** How do you deal with conflicting sources?
+  **A:** Keep them apart rather than averaging. Each finding has claim, evidence, source and date; code checks them, and older or conflicting figures are reported as such.
+
+**What I built:** a coordinator and four subagents over an invented 14-source corpus about heat pumps, with retries inside subagents, structured errors upwards, and a resumable manifest in `generated/research-team/`.
+
+## Structured Extraction (`/extraction`)
+**In one line:** invoices, receipts and purchase orders in varied layouts read into a fixed schema, with validation, retries, batches, confidence routing and accuracy measured against labels.
+
+**Key terms**
+- **Extraction as a tool**: the schema is a tool's input, so the reply is structured by construction.
+- **Required against nullable**: a field that must be there against one that may honestly be empty. Making everything required invites made-up values.
+- **`tool_choice`**: auto (the model may answer in text), any (it must call a tool) or a forced tool.
+- **Semantic validation**: checks a schema cannot express, such as line items adding up to the total.
+- **Message Batches API**: many requests sent at once for half the price, collected later.
+- **Calibration**: whether the model's confidence matches how often it is right, used to route low-confidence documents to a person.
+
+**Questions they could ask**
+- **Q:** What do you do when validation fails?
+  **A:** Retry once with the specific errors, but stop if the fact is not in the document. A retry cannot find what is not there; it can only invent it.
+- **Q:** How do you know the extraction is good enough?
+  **A:** Measure on labelled documents: accuracy by document type and by field, not one overall number. Then route by calibrated confidence, and spot-check a stratified sample of the confident ones.
+
+**What I built:** 24 invented, labelled documents, the schema as a tool, validation with a retry, few-shot examples, batches with custom ids and resubmitting only failures, and an A/B comparison of two models on accuracy, latency and cost.
+
+## Review Passes (`/review-passes`)
+**In one line:** code review run several ways on one change set with six seeded problems, each scored against an answer key for what it found, missed and wrongly flagged.
+
+**Key terms**
+- **Explicit criteria**: telling the reviewer exactly what to look for, against a vague "review this".
+- **Per-file and integration passes**: one pass per file, then one across files for problems no single file shows.
+- **Independent reviewer**: a fresh context, not the one that wrote the code.
+- **Precision**: the share of reported findings that are real.
+
+**Questions they could ask**
+- **Q:** Why not ask the model that wrote the code to review it?
+  **A:** It shares its own assumptions, so it misses the same things. An independent reviewer with a fresh context finds more. The page measures the difference.
+- **Q:** How do you stop a CI reviewer repeating itself on every push?
+  **A:** Pass in the earlier findings and report only new or still-open ones, in a fixed schema.
+
+**What I built:** an invented refunds change set (5 files, one problem visible only across files, plus style noise), scored modes, confidence routing with dismissed findings grouped by pattern, and a CI re-run in `examples/claude-code/ci/review-schema.json`'s schema.
+
+## Hotel Booking Agent (`/hotel`)
+**In one line:** guests book, change and cancel rooms by chat, while prices, availability, refunds and privacy are enforced in the tools.
+
+**Key terms**
+- **Two-turn confirmation**: the agent states the booking and its price, and only books after the guest says yes.
+- **One row per room per night**: the database makes double-booking impossible, not the model.
+- **Card number scrubbing**: a card number typed into the chat is removed before the model sees it.
+
+**Questions they could ask**
+- **Q:** How do you stop an agent selling the same room twice?
+  **A:** With the database, not the prompt. Each room-night is a row with a unique key, so the second booking fails. A front-desk button tries it.
+- **Q:** Should a chat agent take payments?
+  **A:** No. It hands off to a payment page, and card numbers in the chat are removed before the model sees them. Here the payment page is pretend.
+
+**What I built:** `examples/hotel/hotel.py` (the hotel, rules, tools and loop), shared with the page and a command line, with confirmations written by code and sent as a real email and text when configured.
+
+## Diet Planner Agent (`/diet`)
+**In one line:** a planner that asks a few questions, lets code work out safe targets, has the model design a week of meals, and checks the plan before giving it as a PDF, shopping list and spreadsheet.
+
+**Key terms**
+- **Targets in code**: calories and protein are calculated, and unsafe cases refused, before the model is involved.
+- **Plan check**: allergies, diet, targets and cooking time checked by code after the model designs the week.
+- **Consent for health data**: health details are kept for next time only with the person's agreement.
+
+**Questions they could ask**
+- **Q:** What is the model trusted to do?
+  **A:** The creative part: choosing meals people will like. The numbers and the safety rules are code, because a model can be confidently wrong about either.
+
+**What I built:** `examples/diet/diet.py` (targets, checks, tools, loop and files), shared with the page and a command line; runs on Claude, GPT or the local model.
+
+## Closed-Deal Agents (`/deal-close`)
+**In one line:** marking a deal won starts eight steps that find look-alike accounts and draft outreach, with the rules enforced by code and nothing sent without a person.
+
+**Key terms**
+- **Look-alikes**: accounts similar to the one just won, found and scored by code.
+- **Model and code split**: the model reads the win notes, rates accounts and drafts emails; code finds, scores, prioritises and enforces.
+- **Checked again at send time**: each rule is re-checked when the person approves, because things may have changed.
+
+**Questions they could ask**
+- **Q:** Which rules did you put in code?
+  **A:** Only contacts who agreed to email, never the won customer's name, at most three emails a day, and nothing sent without approval. Each is checked again at the moment of sending.
+
+**What I built:** an invented SQLite CRM, an eight-step chain shown as a graph that lights up as it streams, on Claude, GPT or the local model. Sending is simulated.
+
+## Voice Agent (`/voice-agent`)
+**In one line:** a conversation-native voice agent built from readable parts: our own turn detection, speculative replies, clause-by-clause speech, barge-in and a latency timeline.
+
+**Key terms**
+- **Turn detection**: deciding when the person has finished, from voice activity, silence timing and whether the sentence sounds finished.
+- **Eager end of turn**: a likely end, on which the reply starts with its audio held back; if the person carries on, it is thrown away unspoken.
+- **Barge-in**: the person talks over the agent; playback stops at once and the model and voice are cancelled.
+- **Prosody**: speaking style, rate and pauses, written as SSML.
+- **Text normalisation**: making card numbers, phone numbers, dates, money and postcodes read properly aloud.
+
+**Questions they could ask**
+- **Q:** What makes a voice agent feel slow?
+  **A:** Waiting for silence to be sure the person has finished, then waiting for the whole reply before speaking. Starting the reply on a likely end of turn, and speaking clause by clause as it streams, removes most of that. The page shows each turn's timeline and the median and p95.
+- **Q:** What happens to the history when someone interrupts?
+  **A:** It keeps what was actually heard and marks what was not, so the agent does not assume the person heard the rest.
+
+**What I built:** Azure Speech in the browser, a turn detector and prosody planner in our code, an Azure neural voice or Kokoro-82M running locally (`examples/voice-agent/`), and a tested normaliser.
+
+## AI Whiteboard (`/whiteboard`)
+**In one line:** a drawing board with four modes, where a vision model reads sketches as data and code checks and acts on them: maths, a guessing game, physics and sketch to picture.
+
+**Key terms**
+- **Sketch as data**: the model returns an equation, shapes or objects as structured output, not prose.
+- **Whitelist check**: maths expressions are checked against allowed functions before they are plotted.
+- **Code decides the match**: in the guessing game, code compares the guess to the word and a synonym list.
+
+**Questions they could ask**
+- **Q:** Why not let the model decide whether its guess is right?
+  **A:** It would be marking its own work. Code compares the guess with the word and its synonyms, keeps the score, and limits how often the model looks (at most 12 times a round, only when the board changed).
+- **Q:** How do you make a sketch move with physics?
+  **A:** The model reads the sketch into balls, boxes and lines, given the page's exact shapes as hints. Code checks sizes and positions, and a physics engine (matter-js) runs gravity, collisions and bounce.
+
+**What I built:** pen, shapes, undo and history; maths plotted with sliders or turned into 3D solids; the guessing game; physics; and sketch to picture with gpt-image-2 when an image deployment is set.
+
+## Fitness Coach (`/fitness-coach`)
+**In one line:** a pose model in the browser finds 33 points on the body, code checks the form for three holds, and a model answers "How's my form?" from the measurements.
+
+**Key terms**
+- **Pose landmarks**: points on the body (shoulders, hips, knees and so on) found in each camera frame.
+- **Joint angle**: the angle at a joint from three points, the basis of every form rule.
+- **Fixed cues**: spoken corrections chosen by code when a fault lasts, not written by a model.
+
+**Questions they could ask**
+- **Q:** What does the model see?
+  **A:** What you choose: the measurements as text, a photo, or both, and the page shows exactly what it got. Measurements alone are cheaper and private; the photo adds context.
+- **Q:** Why are the form checks in code?
+  **A:** They need to run many times a second and be the same every time. A model is too slow and too variable for that, so it is only used for the spoken answer.
+
+**What I built:** MediaPipe's pose landmarker in the browser, rules for a plank, a wall sit and a lunge stretch, a timer, spoken cues, a "your own pose" mode, and a drawn figure that stands in for the camera.
+
+## Hands-free Pointer (`/gaze-pointer`)
+**In one line:** the webcam follows the eyes and head to move a pointer, and a face movement the person chooses clicks, all in the browser.
+
+**Key terms**
+- **Face landmarks**: hundreds of points on the face, found in each frame.
+- **Calibration**: looking at nine points so a least-squares fit maps face position to the screen.
+- **One Euro filter**: smooths the pointer when still and keeps it quick when moving.
+- **Personal threshold**: the click level set from the person's own resting and clicking movements.
+
+**Questions they could ask**
+- **Q:** Why is there no model call?
+  **A:** It is a control problem, not a language one. It must run every frame with no delay and no camera images leaving the browser, so it is all code.
+
+**What I built:** calibration, filtering, four click movements, an accuracy check and a practice task. A web page cannot move the system cursor, so the pointer is on the page.
+
+## Brain Health Check (`/brain-check`)
+**In one line:** five short thinking tasks and 14 risk-factor questions, scored by code with a fixed outcome and a PDF to take to a GP: a screening demonstration, not a medical test.
+
+**Key terms**
+- **Clock drawing**: a classic screening task; a model reads the drawing and code scores it.
+- **Risk factors**: from the 2024 Lancet Commission on dementia.
+- **Fixed outcomes**: one of four set messages chosen by code, never wording written by a model.
+
+**Questions they could ask**
+- **Q:** How do you use a model safely in a health setting?
+  **A:** Only for perception, such as reading a drawing or picking animal names out of speech. Code scores, compares with earlier checks, and chooses one of four fixed outcomes. The page says plainly that the thresholds are illustrative.
+
+**What I built:** the five tasks, code scoring, earlier checks kept only with agreement in `generated/brain-check/`, and the PDF.
+
+## Scan Explainer (`/scan-explainer`)
+**In one line:** upload a picture of a scan and a model fills in a fixed form about what it can see, while code blocks anything that sounds like a diagnosis or treatment.
+
+**Key terms**
+- **Fixed form**: what it sees, where, how sure, what the picture cannot tell, what it could be consistent with, and questions for the doctor.
+- **Wording check**: code rejects text that states a diagnosis or suggests treatment; one retry, then nothing is shown.
+
+**Questions they could ask**
+- **Q:** How do you stop a model giving medical advice?
+  **A:** Constrain the output to a form designed to inform, check the wording in code, and show nothing rather than something unsafe. The notices and the urgent message are written by code, not the model. Nothing uploaded is stored.
+
+**What I built:** file checks, the form as structured output (Opus by default), the wording check with one retry, and code-written notices.

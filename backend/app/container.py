@@ -31,6 +31,8 @@ from .services.brain import BrainCheckService
 from .services.scans import ScanService
 from .services.tabular import TabularService
 from .services.agent_memory import AgentMemoryService
+from .services.lab_failover import FailoverGateway
+from .services.memory_stores import MemoryStores
 from .services.image_to_3d import ImageTo3DService
 from .services.lora import LoraService
 from .services.planning_patterns import PlanningPatternsService
@@ -127,6 +129,8 @@ class Container:
     lora: LoraService
     image_to_3d: ImageTo3DService
     agent_memory: AgentMemoryService
+    memory_stores: MemoryStores
+    failover: FailoverGateway  # every page's model calls, failing over across the catalog
     planning_patterns: PlanningPatternsService
     red_team: RedTeamService
     token_counter: TokenCounterService
@@ -167,14 +171,20 @@ class Container:
               history: ConversationStore | None = None) -> "Container":
         # Every model call is timed by the client wrapper and written to the call log when it is charged.
         calls = CallLog(settings.generated_dir / "observability" / "calls.jsonl")
-        claude = ClaudeGateway(TimedClient(client, calls))
+        direct = ClaudeGateway(TimedClient(client, calls))  # straight to the model asked for
         spend = SpendTracker(settings.budget_usd, calls)
         local_embeddings = LocalEmbeddings(settings.local_embed_model, settings.local_openai_url)
         registry = RunRegistry()
         env = catalog_env(settings)
         failover_models = ModelCatalog(repository_from_settings(settings, env), env)
+        # One router for the whole lab: /model-failover and every other page share its circuit breakers.
+        router = ModelRouter(source=failover_models.source, cooldown_s=settings.model_failover_cooldown_s,
+                             max_cooldown_s=settings.model_failover_max_cooldown_s,
+                             short_retry_s=settings.model_failover_short_retry_s)
+        claude = FailoverGateway(direct, router, enabled=settings.failover)
         streamer = RunStreamer(registry, settings.heartbeat_s)
         skills = SkillsService(claude, spend, streamer, MadeFiles())
+        memory_stores = MemoryStores(settings.generated_dir / "memory-stores")  # shared: the page and the coding agent
         if gpt is None and settings.azure_openai_endpoint and settings.azure_openai_deployments:
             gpt = AzureOpenAI(settings.azure_openai_endpoint, list(settings.azure_openai_deployments),
                               settings.azure_openai_embedding_deployment, calls)
@@ -260,10 +270,8 @@ class Container:
                              expressiveness=settings.voice_agent_expressiveness),
                 settings.voice_agent_max_conversations, heartbeat_s=settings.heartbeat_s),
             model_failover=ModelFailoverService(
-                claude, spend, streamer, history or store_from_settings(settings),
-                ModelRouter(source=failover_models.source, cooldown_s=settings.model_failover_cooldown_s,
-                            max_cooldown_s=settings.model_failover_max_cooldown_s,
-                            short_retry_s=settings.model_failover_short_retry_s),
+                direct, spend, streamer, history or store_from_settings(settings),  # it routes its own calls
+                router,
                 Compaction.from_settings(settings), TicketDesk(settings.generated_dir / "model-failover" / "tickets.json"),
                 run_budget_usd=settings.run_budget_usd, models=failover_models, limits=Limits.from_settings(settings)),
             research_team=ResearchTeamService(claude, spend, settings.generated_dir, streamer),
@@ -286,6 +294,8 @@ class Container:
             lora=LoraService(settings.generated_dir / "lora", streamer),
             image_to_3d=ImageTo3DService(settings.generated_dir / "image-to-3d", streamer),
             agent_memory=AgentMemoryService(claude, spend, settings.generated_dir / "agent-memory-lab"),
+            memory_stores=memory_stores,
+            failover=claude,
             planning_patterns=PlanningPatternsService(claude, spend, streamer),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),
@@ -295,6 +305,7 @@ class Container:
             foundryops=FoundryOpsService(tools, search, spend),
             dataagent=DataAgentService(claude, spend, streamer, settings.generated_dir / "data-agent"),
             coding=CodingService(claude, spend, registry, streamer, settings.generated_dir / "coding-agent", gpt=gpt,
+                                 memory=memory_stores,
                                  run_budget_usd=settings.run_budget_usd, approval_timeout_s=settings.approval_timeout_s),
             searchlab=SearchLabService(tools, search, understanding, spend, settings.generated_dir / "search"),
             imagegen=imagegen,

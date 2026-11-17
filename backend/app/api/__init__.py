@@ -57,10 +57,12 @@ router.include_router(red_team.router)
 from . import lora  # noqa: E402  (fine-tuning with LoRA on this machine, before and after)
 from . import image_to_3d  # noqa: E402  (one photo to a 3D object made of Gaussian splats, with Idol)
 from . import agent_memory  # noqa: E402  (an assistant that remembers people, with every memory rule shown)
+from . import memory_stores  # noqa: E402  (versioned folders of lessons a coding agent reads and writes)
 
 router.include_router(lora.router)
 router.include_router(image_to_3d.router)
 router.include_router(agent_memory.router)
+router.include_router(memory_stores.router)
 
 from . import songbird  # noqa: E402  (a two-voice syrinx synth; a model composes, code checks)
 

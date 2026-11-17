@@ -32,6 +32,8 @@ from ..services.scans import ScanService
 from ..services.tabular import TabularService
 from ..services.agent_memory import AgentMemoryService
 from ..services.image_to_3d import ImageTo3DService
+from ..services.lab_failover import FailoverGateway
+from ..services.memory_stores import MemoryStores
 from ..services.lora import LoraService
 from ..services.whiteboard import WhiteboardService
 from ..services.token_counter import TokenCounterService
@@ -185,6 +187,14 @@ def image_to_3d(c: Container = Depends(container)) -> ImageTo3DService:
 
 def agent_memory(c: Container = Depends(container)) -> AgentMemoryService:
     return c.agent_memory
+
+
+def memory_stores(c: Container = Depends(container)) -> MemoryStores:
+    return c.memory_stores
+
+
+def lab_failover(c: Container = Depends(container)) -> FailoverGateway:
+    return c.failover
 
 
 def video_translate(c: Container = Depends(container)) -> VideoTranslateService:

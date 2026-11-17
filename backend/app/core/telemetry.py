@@ -22,6 +22,11 @@ MAX_CALLS = 2000  # kept in memory and in the file; older calls are dropped
 MATCH_WINDOW_S = 30.0  # a stream's latency is paired with a charge made this soon after, on the same thread
 
 _area: contextvars.ContextVar[str] = contextvars.ContextVar("llm_lab_area", default="background")
+
+
+def current_area() -> str:
+    """The page area of the request this code is serving, or "background"."""
+    return _area.get()
 _route: contextvars.ContextVar[str] = contextvars.ContextVar("llm_lab_route", default="")
 _trace: contextvars.ContextVar[str] = contextvars.ContextVar("llm_lab_trace", default="")
 _pending = threading.local()  # the last call this thread finished, waiting for its charge

@@ -26,7 +26,8 @@ def info(service: CodingService = Depends(coding)) -> dict[str, Any]:
 @router.post("/coding/run", dependencies=[Depends(require_budget)])
 def run(body: CodingRun, service: CodingService = Depends(coding)) -> StreamingResponse:
     """One request to the agent; every call, diff, prompt and to-do list is streamed as it happens."""
-    return StreamingResponse(service.run(body.prompt.strip(), body.session_id, body.mode, body.model), **NDJSON)
+    return StreamingResponse(service.run(body.prompt.strip(), body.session_id, body.mode, body.model,
+                                         [m.model_dump() for m in body.memory]), **NDJSON)
 
 
 @router.post("/coding/sdk-run", dependencies=[Depends(require_budget)])
@@ -44,7 +45,7 @@ def approve(body: ApproveRequest, service: CodingService = Depends(coding)) -> d
 @router.post("/coding/sessions")
 def create(body: CodingSession, service: CodingService = Depends(coding)) -> dict[str, Any]:
     """A session before its first request: the practice project, or an empty workspace for your own files."""
-    return service.create(body.workspace)
+    return service.create(body.workspace, [m.model_dump() for m in body.memory])
 
 
 @router.post("/coding/sessions/{session_id}/files")

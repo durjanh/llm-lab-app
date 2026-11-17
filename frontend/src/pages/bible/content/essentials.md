@@ -1,7 +1,24 @@
 ## The 60-second project pitch
-*Pages to open: [Home](/) · [Coding agent](/coding-agent) · [Harness engineering](/harness) · [Foundry operations](/foundry-operations)*
+*Pages to open: [Home](/) · [Architecture](/architecture) · [Coding agent](/coding-agent) · [Model failover](/model-failover) · [Foundry operations](/foundry-operations)*
 
-"I built LLM Lab, about 50 interactive pages on how LLMs work and how to build with them. The backend is FastAPI in layers: thin routers, services, and gateways that are the only code touching the Anthropic and Azure SDKs, all wired in one composition root so tests can swap in fakes and run with no keys and no cost. The frontend is React and TypeScript with one route per lab. Every paid call goes through a spending cap and a guard that only accepts requests from the lab page. Long jobs, such as the coding agent, the harness and the site builder, run in the background and stream events to the page as NDJSON. Agents that run commands do it in a sandbox, and actions that change things wait for a human to approve them. On Azure it is all keyless with Entra ID, provisioned with Bicep through azd, and deployed by a GitHub Actions pipeline that signs in with OIDC and stops the release if the evaluation score drops."
+"I built LLM Lab, about 95 interactive pages on how LLMs work and how to build with them. The backend is FastAPI in layers: thin routers, services, and gateways that are the only code touching the Anthropic and Azure SDKs, all wired in one composition root so tests can swap in fakes and run with no keys and no cost. The frontend is React and TypeScript with one route per lab. Every paid call goes through a spending cap and a guard that only accepts requests from the lab page. Long jobs, such as the coding agent, the harness and the site builder, run in the background and stream events to the page as NDJSON. Agents that run commands do it in a sandbox, and actions that change things wait for a human to approve them. Every page runs on Claude, a GPT deployment or an open model on my own machine through one client, and a shared router fails a call over to the next model when one is rate limited or down. On Azure it is all keyless with Entra ID, provisioned with Bicep through azd, and deployed by a GitHub Actions pipeline that signs in with OIDC and stops the release if the evaluation score drops."
+
+## The Lab's Architecture (`/architecture`)
+**In one line:** the whole lab on one diagram: pages, backend, the model client, Foundry, the Azure services and the local machine, with where each part runs and its files.
+
+**Key terms**
+- **Composition root**: one place (`container.py`) that builds every service once, so tests swap in fakes.
+- **Gateway**: the only code that touches an outside SDK; services depend on its small interface.
+- **Guards**: a paid route needs the lab page's header and a spending budget.
+- **Model client**: `LabClient` sends each request to Claude, a GPT deployment or the local model by name.
+
+**Questions they could ask**
+- **Q:** Walk me through what happens when a page calls a model.
+  **A:** The page calls the API with the lab header. The router checks the guards and calls a service. The service calls the gateway, which goes through failover and the model client to the right provider. The reply is charged to the spend tracker by the model that answered, and the call is logged for observability.
+- **Q:** What runs where?
+  **A:** The backend and the pages run on my machine. Claude runs at Anthropic; GPT, speech, search and the Foundry agents in Azure; the local model, the vector database and the sandbox in Docker on my machine. Select a component on the page to see it.
+
+**What I built:** the diagram with the official Azure icons; each component links to its files, and choosing a path follows its requests through the parts.
 
 ## A. Temperature, top-p, top-k: how the model picks the next token
 *Pages to open: [Sampling](/sampling) · [Transformer explainer](/transformer) · [Reasoning models](/reasoning-models) · [Confidence](/confidence)*

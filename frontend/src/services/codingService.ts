@@ -1,4 +1,5 @@
 import { api, type ApiClient } from './apiClient';
+import type { MemoryMount } from './memoryStoresService';
 
 export type CodingMode = 'default' | 'accept_edits' | 'plan' | 'bypass' | 'auto';
 export type CodingWorkspace = 'practice' | 'files';
@@ -30,6 +31,12 @@ export interface ShotImage {
 export type CodingEvent =
   | { type: 'run'; run_id: string }
   | { type: 'session'; session_id: string | null; mode: CodingMode; model: string; sdk?: boolean }
+  | {
+      type: 'memory';
+      store: string;
+      store_id: string;
+      changes: { path: string; operation: string; reason?: string; conflict?: boolean }[];
+    }
   | { type: 'init'; tools: string[]; model: string; mode: string }
   | {
       type: 'turn';
@@ -98,7 +105,7 @@ export class CodingService {
     return this.client.get('/api/coding/info');
   }
   run(
-    body: { prompt: string; session_id?: string; mode: CodingMode; model?: string },
+    body: { prompt: string; session_id?: string; mode: CodingMode; model?: string; memory?: MemoryMount[] },
     onEvent: (e: CodingEvent) => void,
     signal?: AbortSignal,
   ): Promise<void> {
@@ -123,8 +130,9 @@ export class CodingService {
   ): Promise<{ path: string; content: string; original: string | null; image?: string }> {
     return this.client.get(`/api/coding/sessions/${sessionId}/file`, { params: { path } });
   }
-  create(workspace: CodingWorkspace): Promise<CodingState> {
-    return this.client.post('/api/coding/sessions', { workspace });
+  /** A session before its first request. Memory stores attach here, at the start of a session only. */
+  create(workspace: CodingWorkspace, memory: MemoryMount[] = []): Promise<CodingState> {
+    return this.client.post('/api/coding/sessions', { workspace, memory });
   }
   addFile(sessionId: string, file: File): Promise<CodingState> {
     const form = new FormData();

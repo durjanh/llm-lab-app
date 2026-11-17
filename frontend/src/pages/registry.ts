@@ -32,6 +32,8 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'building-agents',
       'agent-types',
       'context-engineering',
+      'agent-memory',
+      'memory-stores',
       'harness',
       'mcp',
       'workflows',
@@ -47,6 +49,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'code-graph',
       'tabular',
       'lora',
+      'image-to-3d',
     ],
     'Agents to try': [
       'coding',
@@ -62,6 +65,9 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'songbird',
       'fitness-coach',
       'voice-agent',
+    ],
+    // Business-style agents, split from the demos above so neither column runs the length of the screen.
+    'Agents at work': [
       'extraction',
       'support-desk',
       'model-failover',
@@ -273,6 +279,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./agent-memory/AgentMemoryPage')),
+  },
+  {
+    id: 'memory-stores',
+    path: '/memory-stores',
+    title: 'Memory Stores',
+    label: 'Memory stores',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./memory-stores/MemoryStoresPage')),
   },
   {
     id: 'harness',

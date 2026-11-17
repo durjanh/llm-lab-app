@@ -10,6 +10,8 @@ import {
   type CodingWorkspace,
   type ShotImage,
 } from '@/services';
+import { Link } from 'react-router';
+import { memoryStoresService, type MemoryMount, type MemoryStoreSummary } from '@/services/memoryStoresService';
 import './coding.css';
 
 const MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']; // until /info says which GPT deployments exist
@@ -161,6 +163,9 @@ export default function CodingAgentPage() {
   const [error, setError] = useState('');
   const [todos, setTodos] = useState<CodingTodo[]>([]);
   const [state, setState] = useState<CodingState | null>(null);
+  // Memory stores to mount when the next session starts (they attach at the start of a session only).
+  const [stores, setStores] = useState<MemoryStoreSummary[]>([]);
+  const [mounts, setMounts] = useState<MemoryMount[]>([]);
   const [sdkDiff, setSdkDiff] = useState('');
   const [tab, setTab] = useState<'changes' | 'files'>('changes');
   const [file, setFile] = useState<{ path: string; content: string; image?: string } | null>(null);
@@ -190,8 +195,35 @@ export default function CodingAgentPage() {
   const updateTool = (id: string, change: (t: Extract<Item, { kind: 'tool' }>) => Partial<Item>) =>
     setItems((xs) => xs.map((x) => (x.kind === 'tool' && x.id === id ? ({ ...x, ...change(x) } as Item) : x)));
 
+  useEffect(() => {
+    memoryStoresService
+      .list()
+      .then(setStores)
+      .catch(() => undefined); // no stores, or no backend: the page works without them
+  }, []);
+
+  /** The ticked stores that still exist: one may have been deleted on the memory page since this page loaded. */
+  async function liveMounts(): Promise<MemoryMount[]> {
+    if (!mounts.length) return [];
+    const now = await memoryStoresService.list().catch(() => null);
+    if (!now) return mounts;
+    setStores(now);
+    const kept = mounts.filter((m) => now.some((st) => st.id === m.store_id));
+    if (kept.length < mounts.length) setMounts(kept);
+    return kept;
+  }
+
   function onEvent(e: CodingEvent, viaSdk: boolean, started: number) {
     switch (e.type) {
+      case 'memory': {
+        const said = e.changes.map((c) =>
+          c.operation === 'refused'
+            ? `refused ${c.path} (${c.reason})`
+            : `${c.operation} ${c.path}${c.conflict ? ' (it had changed since this session began; the earlier text is in its history)' : ''}`,
+        );
+        setItems((xs) => [...xs, { kind: 'note', depth: 0, text: `Memory · ${e.store}: ${said.join('; ')}` }]);
+        break;
+      }
       case 'run':
         runId.current = e.run_id;
         break;
@@ -335,10 +367,11 @@ export default function CodingAgentPage() {
     const started = performance.now();
     toolCount.current = 0;
     try {
+      const memory = viaSdk || session.current ? undefined : await liveMounts();
       if (viaSdk) await svc.sdkRun({ prompt, mode, model }, (e) => onEvent(e, true, started), ctl.signal);
       else
         await svc.run(
-          { prompt, mode, model, session_id: session.current },
+          { prompt, mode, model, session_id: session.current, memory },
           (e) => onEvent(e, false, started),
           ctl.signal,
         );
@@ -353,7 +386,7 @@ export default function CodingAgentPage() {
   /** The session for Your files is made before the first request, so files can go into it. */
   async function sessionForFiles(): Promise<string> {
     if (session.current) return session.current;
-    const st = await svc.create('files');
+    const st = await svc.create('files', await liveMounts());
     session.current = st.session_id;
     setState(st);
     return st.session_id;
@@ -516,6 +549,57 @@ export default function CodingAgentPage() {
           New session
         </button>
       </div>
+      {stores.length > 0 && (
+        <div className="cg-bar cg-memory small">
+          <span>
+            Memory{' '}
+            <Link to="/memory-stores" className="muted">
+              (stores)
+            </Link>
+            :
+          </span>
+          {stores.map((st) => {
+            const on = mounts.find((m) => m.store_id === st.id);
+            const locked = !!state || sdk; // under way: fixed when it started; the Agent SDK version mounts none
+            return (
+              <label key={st.id} title={st.description}>
+                <input
+                  type="checkbox"
+                  checked={!!on}
+                  disabled={locked || busy}
+                  onChange={(e) =>
+                    setMounts((ms) =>
+                      e.target.checked
+                        ? [...ms, { store_id: st.id, access: 'read_write' }]
+                        : ms.filter((m) => m.store_id !== st.id),
+                    )
+                  }
+                />{' '}
+                {st.name}
+                {on && (
+                  <select
+                    value={on.access}
+                    disabled={locked || busy}
+                    onChange={(e) =>
+                      setMounts((ms) =>
+                        ms.map((m) =>
+                          m.store_id === st.id ? { ...m, access: e.target.value as MemoryMount['access'] } : m,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="read_write">read-write</option>
+                    <option value="read_only">read-only</option>
+                  </select>
+                )}
+              </label>
+            );
+          })}
+          {state && mounts.length > 0 && <span className="muted">mounted as .memory/ in this session</span>}
+          {state && <span className="muted">· start a new session to change them</span>}
+          {sdk && <span className="muted">only the lab's own agent mounts memory, not the Agent SDK version</span>}
+        </div>
+      )}
       {!info?.sdk && info && (
         <p className="small muted">
           The Agent SDK version is not installed. In <code>examples/claude-agent-sdk</code> run{' '}

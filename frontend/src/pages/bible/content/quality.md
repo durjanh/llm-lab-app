@@ -247,3 +247,76 @@
   **A:** The server takes a `--budget`, and every reply is charged to a spend tracker from the token usage and the price table. Paid routes depend on a guard that returns 429 `budget_exceeded` once the session total reaches the budget. The check runs before each call, so one call in flight can still overshoot by its own cost; max_tokens is capped on the server (16,000 non-streaming, 32,000 streaming) to bound that.
 
 **What I built:** The page calls the backend's `/api/stream`, `/api/messages` and `/api/count_tokens`. The stream route returns NDJSON text events and then a final event with the message, time to first text, total time and cost; the backend checks the model against an allow-list, caps max_tokens, charges `SpendTracker` (pricing by the model that answered, including cache writes at 1.25 times and cache reads), and maps SDK errors to `{error: {type, message}}`. Sections compare effort levels on one question, run three questions with an explicit breakpoint, automatic caching or none, and count tokens exactly.
+
+## Model Failover (`/model-failover`)
+**In one line:** an agent that keeps working when its model is rate limited or overloaded, by switching to the next model in a list, with circuit breakers shared by every page in the lab.
+
+**Key terms**
+- **429 and 529**: rate limited and overloaded. 5xx errors and timeouts count too. A 400 is the request's fault and never fails over.
+- **Circuit breaker**: after repeated failures a model is skipped (open) until a cooldown ends; then one probe call tests it (half-open) before it is used again (closed).
+- **Model catalog**: the models and their order, from `config/model-failover.json` or Table Storage, editable live on the page.
+- **Switch between calls, not mid-reply**: a conversation can move to another model between model calls, with the whole history in the lab's own store; a stream only fails over before it starts.
+- **Compaction**: summarising older history when switching to a model with a smaller context window.
+
+**Questions they could ask**
+- **Q:** How do you keep an agent running through a provider outage?
+  **A:** A router in front of every model call. If the model fails with 429, 529, 5xx or a timeout, the call goes to the next model in the list. A breaker per model stops hammering one that is down, and because the router is shared, a model failing on one page is skipped on every page until it recovers.
+- **Q:** What can go wrong when you switch models mid-conversation?
+  **A:** The next model may not support a feature the request needs, or its context may be smaller. A model that cannot do a request is passed over without marking it unhealthy; a history too long for every model is reported as that, not as a generic failure; and older turns can be compacted. The history lives in our own store, not the provider's, so any model can carry on.
+- **Q:** How do you test failover without waiting for an outage?
+  **A:** Fault injection: the page can make a model return 429 or 529 for a number of calls, and you watch the switch and the breaker open and close.
+- **Q:** Doesn't failover hide problems?
+  **A:** Not if it is visible. Every switch is recorded with the page, the model asked for and the reason; the page lists the latest anywhere in the lab, and each page reports the model that actually answered. Cost is charged by that model too.
+
+**What I built:** `services/model_router.py` (router and breakers), `services/lab_failover.py` (the gateway every page uses, `LLM_LAB_FAILOVER`), history in Azure Blob and Table Storage (Azurite locally, or files), and the same design in Microsoft Agent Framework and LangGraph in `examples/model-failover/`.
+
+## Observability (`/observability`)
+**In one line:** every model call the backend makes, as metrics, a log and traces: time, area, model, tokens, cost, latency, errors and fallbacks, with no prompt or reply text kept.
+
+**Key terms**
+- **p50 and p95 latency**: the median, and the time 95% of calls beat. The tail is what users notice.
+- **Trace**: one request's model calls on a timeline, so you see where the time went.
+- **Spend by area**: cost grouped by which page or feature asked.
+- **OpenTelemetry**: the open standard for traces and metrics; Foundry's tracing builds on it.
+
+**Questions they could ask**
+- **Q:** What would you monitor first in an LLM application?
+  **A:** Latency (p95, not just the average), errors and fallbacks by model, and cost by feature. Those catch outages, slowdowns and runaway spending. Quality needs evaluation on top.
+- **Q:** Why not log prompts and replies?
+  **A:** They can hold personal or confidential data. Counts and timings are enough for operations; content belongs in a separate, access-controlled evaluation store, if anywhere.
+
+**What I built:** a call log in `generated/observability/calls.jsonl` (capped), written by a timed wrapper round the client, with the area taken from the route; and the page's metrics, log and traces, mapped to OpenTelemetry and Foundry tracing.
+
+## Red Teaming (`/red-team`)
+**In one line:** an attacker model writes attacks in seven strategies against a support agent with a secret in its instructions, code scores what it can see, and a run can be saved and replayed as a regression suite.
+
+**Key terms**
+- **Canary**: a random code in the agent's instructions; if it ever appears in a reply, in any encoding, the instructions leaked.
+- **Attack strategies**: direct override, role-play, payload splitting, encoding, indirect injection through data, multi-turn escalation and social engineering.
+- **Defence in depth**: stricter instructions, an input classifier, an output filter and checks in the tools, each switchable.
+- **Regression suite**: a run's attacks saved and replayed word for word after a change.
+
+**Questions they could ask**
+- **Q:** How do you score attacks without trusting a model?
+  **A:** Code checks everything it can see: the canary written plainly, spaced, reversed, in ROT13, base64 or hex; a refund over the limit or on another customer's order; another customer's details. A judge model only reads what is left, against a rubric shown on the page.
+- **Q:** Which defence matters most?
+  **A:** Checks in the tools, because they hold even when the model is fooled. The page shows results by strategy and by defence, so you see what each one catches.
+
+**What I built:** the attacker, a fixed seed set, the invented shop agent with two recorded tools, the four defences, code scoring and a judge, saved suites in `generated/red-team/suites/`, run in the background with an estimate first and a cost cap.
+
+## Delivery and Governance (`/delivery`)
+**In one line:** taking an AI system from a business brief to production: discovery, pattern, value, integration, observability, compliance, risk and the life cycle, with MedAssist as the worked example.
+
+**Key terms**
+- **Value pillars**: how the system is meant to help, such as time saved, quality or revenue, each with a measure.
+- **Integration choice**: MCP, a plain API or a CLI, or agent-to-agent, chosen by who calls what and how.
+- **Progressive discovery**: giving an agent a few tools at first and more only when needed, to avoid capability bloat.
+- **ADR**: an architecture decision record.
+
+**Questions they could ask**
+- **Q:** How do you start an AI project with a business?
+  **A:** With the problem and how success will be measured, not the model. Then the simplest pattern that works, the risks and compliance needs, and an evaluation plan before building.
+- **Q:** What compliance questions come up?
+  **A:** Where data is processed and kept, whether it trains anyone's models, who can see it, and which rules apply, such as GDPR or HIPAA. The page only states facts verified from the providers' own documents.
+
+**What I built:** a static guide, and a paid tool that turns a pasted brief into a structured design (requirements, pattern, components, value measures, risks and compliance flags, evaluation plan, SLAs, open questions and an ADR draft), checked by code and retried once.

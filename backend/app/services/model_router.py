@@ -37,7 +37,7 @@ import anthropic
 import httpx
 
 from ..core.errors import ApiError
-from ..shared import ModelUnavailable, NeedsClaude, is_local  # noqa: F401
+from ..shared import ModelUnavailable, NeedsClaude, is_local
 
 SHORT_RETRY_S = 2.0  # a 429 that says "try again in 2 s or less" is retried on the same pool
 COOLDOWN_S = 30.0  # how long a pool's breaker stays open at least
@@ -113,6 +113,11 @@ def classify(exc: BaseException, short_retry_s: float = SHORT_RETRY_S) -> Verdic
         status = exc.status_code
     else:
         status = None
+    if isinstance(exc, NeedsClaude):
+        # The model cannot do this request (a Claude-only feature, or images it cannot read): healthy, so it is passed
+        # over for this call without opening its breaker. With failover on every page, a GPT or local entry in the
+        # catalog meets requests only Claude can serve.
+        return Verdict("skip", "needs what this model cannot do")
     if isinstance(exc, PoolWentDown):
         return Verdict("skip", "breaker opened by this call's own summary")
     if isinstance(exc, ApiError) and getattr(exc, "kind", "") == "context_too_long":
@@ -353,7 +358,8 @@ class ModelRouter:
         tried: list[str] = []
         first_name, reason, last_after = "", "", None
         skipped: tuple[str, str] | None = None  # (pool, why) for a pool passed over because its breaker was open
-        too_long: BaseException | None = None  # the last 'history too long' error, raised if no pool could take it
+        unable: list[BaseException] = []  # why each pool that could not take the request said so (a skip, not a failure)
+        failed = 0  # pools that failed or had their breaker open
         attempts = 0
         for index, pool in enumerate(order):
             if not self._acquire(pool.name):
@@ -361,6 +367,7 @@ class ModelRouter:
                     left = max(0.0, self._b(pool.name).open_until - self._clock())
                 why = f"breaker open, {left:.0f} s left" if left else "breaker half-open, a probe is in flight"
                 tried.append(f"{pool.name}: {why}")
+                failed += 1
                 if not first_name:
                     first_name, reason = pool.name, why
                 if skipped is None:
@@ -391,9 +398,10 @@ class ModelRouter:
                         continue
                     if verdict.action == "skip":
                         self._released(pool.name)  # healthy: no breaker change
-                        too_long = exc
+                        unable.append(exc)
                     else:
                         self._failed(pool.name, verdict)
+                        failed += 1
                     tried.append(f"{pool.name}: {verdict.reason}")
                     if not first_name:
                         first_name, reason, last_after = pool.name, verdict.reason, verdict.retry_after
@@ -410,6 +418,7 @@ class ModelRouter:
                 switched = first_name not in ("", pool.name)
                 return Routed(result, pool, first_name if switched else "", reason if switched else "", last_after,
                               attempts, events)
-        if too_long is not None and all("history too long" in t for t in tried):
-            raise too_long  # nothing failed: the history fits no model, which is a clearer error than "all failed"
+        if unable and not failed:  # nothing failed: no model could take this request, which is clearer than "all failed"
+            # A history too long for every window says more than "needs Claude": the person can shorten it.
+            raise next((e for e in unable if isinstance(e, ApiError) and e.kind == "context_too_long"), unable[0])
         raise AllPoolsFailed(tried)

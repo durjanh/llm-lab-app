@@ -57,6 +57,10 @@ class EnvSettings:
     # after the SDK's own retries. auto: a GPT deployment for Claude (or the local model when there is no GPT), and
     # Claude for GPT. none: no fallback. Or a model id.
     rate_limit_fallback: str = "auto"
+    # LLM_LAB_FAILOVER: on (the default) sends every page's model call that fails with 429, 529, 5xx or a timeout to
+    # the next model in the failover catalog (/model-failover's list), with circuit breakers shared by the whole lab.
+    # off: each call goes only to the model asked for (the one-step fallback above still applies).
+    failover: bool = True
     # The backend. `python -m backend` sets the first two from its --port and --budget flags.
     port: int = 8000  # LLM_LAB_PORT
     budget_usd: float = 2.0  # LLM_LAB_BUDGET
@@ -175,6 +179,19 @@ class EnvSettings:
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
         get = env.get
 
+        def switch(name: str, default: bool) -> bool:
+            """on or off (also true/false, yes/no, 1/0). Anything else is reported and the default used, so a typo
+            such as "disabled" does not leave it silently on."""
+            raw = (get(name) or "").strip().lower()
+            if not raw:
+                return default
+            if raw in ("on", "true", "yes", "1", "enabled"):
+                return True
+            if raw in ("off", "false", "no", "0", "disabled"):
+                return False
+            print(f"settings: {name}={raw!r} is not on or off; using {'on' if default else 'off'}.", file=sys.stderr)
+            return default
+
         def num(name: str, default: float, low: float | None = None, high: float | None = None) -> Any:
             """A number in its range. A value that is not one (a typo such as 30s) is reported and the default used,
             so one bad line in .env does not stop every script and the backend."""
@@ -199,6 +216,7 @@ class EnvSettings:
             local_url=(get("LLM_LAB_LOCAL_URL") or cls.local_url).rstrip("/"),
             local_openai_url=(get("LLM_LAB_LOCAL_OPENAI_URL") or cls.local_openai_url).rstrip("/"),
             rate_limit_fallback=(get("LLM_LAB_RATE_LIMIT_FALLBACK") or cls.rate_limit_fallback).strip(),
+            failover=switch("LLM_LAB_FAILOVER", cls.failover),
             local_context=num("LLM_LAB_LOCAL_CONTEXT", cls.local_context, 1024),
             local_embed_model=get("LLM_LAB_LOCAL_EMBED_MODEL", "").strip(),
             pgvector_url=(get("LLM_LAB_PGVECTOR_URL") or cls.pgvector_url).strip(),

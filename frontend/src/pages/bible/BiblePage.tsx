@@ -7,6 +7,7 @@ import foundations from './content/foundations.md?raw';
 import building from './content/building.md?raw';
 import azure from './content/azure.md?raw';
 import quality from './content/quality.md?raw';
+import certification from './content/certification.md?raw';
 import './bible.css';
 
 interface Section {
@@ -35,6 +36,12 @@ const SOURCES: [string, string, string, string][] = [
   ['building', 'Building with LLMs', 'Prompts, retrieval, agents, harnesses and the tools built on them.', building],
   ['azure', 'Building on Azure', 'Foundry, Azure AI services and the agents that use them.', azure],
   ['quality', 'Quality, safety, cost and operations', 'Measuring, guarding and paying for it all.', quality],
+  [
+    'certification',
+    'Certifications and maps',
+    'The exam maps, the AI tech stack and the roadmap: what to learn and where the lab practises it.',
+    certification,
+  ],
 ];
 
 const slug = (s: string) =>

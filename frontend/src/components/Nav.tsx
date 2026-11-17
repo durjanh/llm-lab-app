@@ -61,6 +61,7 @@ export function Nav() {
         {ungrouped.map(link)}
         {GROUPS.map((g) => {
           const items = PAGES.filter((p) => p.group === g);
+          const cols = MENU_COLUMNS[g] ? columns(g, items) : null;
           return (
             <details
               key={g}
@@ -75,9 +76,9 @@ export function Nav() {
               >
                 {g}
               </summary>
-              {MENU_COLUMNS[g] ? (
-                <div className="menu mega" role="group" aria-label={g}>
-                  {columns(g, items).map(([heading, pages]) => (
+              {cols ? (
+                <div className={`menu mega${cols.length > 3 ? ' wide' : ''}`} role="group" aria-label={g}>
+                  {cols.map(([heading, pages]) => (
                     <div key={heading} className="mega-col">
                       <div className="mega-head">{heading}</div>
                       {pages.map(link)}
