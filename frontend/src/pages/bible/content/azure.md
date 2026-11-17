@@ -328,3 +328,20 @@ Profanity handling only covers what Translator classes as profanity, so it is no
   **A:** Online evaluation on real traffic. Trace every request (the lab records OpenTelemetry spans for embedding, search, chat and safety, exported to Application Insights), sample a share of production traces, and run the same evaluators on them on a schedule. Alert on falling groundedness, rising blocked calls and slower responses, and add every reported failure to the golden set so it can never come back unnoticed.
 
 **What I built:** The service reads deployments, quotas, metrics and role assignments read-only from Azure Resource Manager with an Entra token, makes one small call to show the rate-limit headers, runs the evaluation with gpt-5.4-mini as judge plus Content Safety groundedness detection, and records a traced RAG answer with the OpenTelemetry SDK. Deployments are code in `infra/resources.bicep`.
+
+## Video Translation (`/video-translate`)
+**In one line:** upload a video and get subtitles and a spoken translation in step with it, through Azure Speech and Azure Translator, keyless.
+
+**Key terms**
+- **Fast transcription**: Azure Speech's batch-style transcription of a whole file, with each phrase's time and the detected language.
+- **Language identification**: choosing the spoken language from a list of candidates.
+- **WebVTT**: the subtitle format browsers show under a video.
+- **Timing fit**: a translated phrase too long for its slot is spoken up to 1.5× faster.
+
+**Questions they could ask**
+- **Q:** Why translate phrase by phrase rather than the whole transcript?
+  **A:** Each phrase keeps its start and end time, so subtitles and speech stay in step with the video. Translating the whole text at once would lose the timing.
+- **Q:** How do you avoid paying twice?
+  **A:** The transcript is kept per upload and each translation per language, so switching language only translates and speaks again.
+
+**What I built:** ffmpeg to take out the sound, Azure Speech for transcription and neural voices, Azure Translator through the AI Services account with Entra sign-in, and downloads as WebVTT. Files stay in `generated/video-translate/`.

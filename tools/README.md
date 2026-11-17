@@ -1,3 +1,13 @@
+# Tools
+
+| Script | What it does |
+| --- | --- |
+| `setup-envs.sh` | Sets up the Python 3.12 environments that some labs run in (`claude-agent-sdk`, `tabular`, `lora`, `image-to-3d`, `voice-agent`). With no arguments it lists them; `all` sets up every one; `check-hf` checks the Hugging Face sign-in and the gated models Idol needs. See the main README, "Labs with their own environment". |
+| `local-model.sh` | Runs an open model with Docker Model Runner, for `LLM_LAB_LOCAL_MODEL`. |
+| `sandbox.sh` | Runs the coding agent's sandbox image in Docker on `127.0.0.1:8099`, for `LLM_LAB_SANDBOX=docker`. |
+| `vector-db.sh` | Runs PostgreSQL with pgvector in Docker, for `/vector-db`. |
+| `export_gpt2_explainer.py` | Rebuilds the GPT-2 model with its internals exposed (below). |
+
 # Exporting GPT-2 with its internals
 
 The standard browser build of GPT-2 only returns next-token scores. `export_gpt2_explainer.py` builds a version that also returns every value the Transformer Explainer draws: token and position embeddings, each layer's queries, keys and values, attention weights, the attention projection, residuals, layer-norm outputs, the MLP before and after its projection, block outputs, the final state and the logits.

@@ -418,3 +418,111 @@
   **A:** It raises scores on tasks with checkable answers. OpenAI reported o1 at 74% on AIME with one sample, 83% with a consensus of 64 samples, and 93% re-ranking 1,000, against 12% for GPT-4o. It costs tokens and latency for every extra sample, the gains flatten, and it does little for tasks that have no way to check an answer.
 
 **What I built:** the book's 206 worked examples, each with its printed page, linked to the matching notebook demo or given a new one (heteroscedastic regression, early stopping, classifier-free guidance, REINFORCE with a KL penalty and others). A what-if estimator compares a plain baseline with your choices for memory, speed and cost per token on H100, H200 or B200. Evidence cards give each lever's measured gain, condition, trade-off and primary source.
+
+## Token Counter (`/token-counter`)
+**In one line:** paste a prompt, pick any model, and see its tokens, the cost per call and the share of the context window, coloured token by token where the tokenizer is published.
+
+**Key terms**
+- **Tokenizer**: the fixed vocabulary and rules that cut text into the pieces a model reads. Every model family has its own, so the same text is a different number of tokens on each.
+- **Framing**: the tokens a request adds around your text (roles, system prompt, tool definitions), counted in the request total.
+- **Exact or estimate**: exact when the model's own tokenizer runs; an estimate when it is not published, as for Gemini, where Gemma 2's is the closest.
+- **count_tokens**: Claude's endpoint that counts a request's tokens for free. Claude's tokenizer is not published, so the page uses it.
+
+**Questions they could ask**
+- **Q:** Why does the same prompt cost different amounts on different models?
+  **A:** Two reasons: the price per token differs, and so does the number of tokens, because each tokenizer cuts text differently. Code, non-English text and numbers vary the most. Comparing cost per character, not per token, is the fair way.
+- **Q:** How do you count Claude's tokens without its tokenizer?
+  **A:** With the `count_tokens` endpoint, which is free. To colour the text, the page counts it word by word through that endpoint, which is close enough to see where the tokens go.
+
+**What I built:** the backend runs the open tokenizers from Hugging Face (cached in `generated/tokenizers/`, about 90 MB once) and Claude's count through the API; prices come from `python/common.py`. "Every model, side by side" compares them all. Counting is free.
+
+## Fine-tuning with LoRA (`/lora`)
+**In one line:** a small open model, SmolLM2, learns on this machine to turn customer emails into one JSON object in a fixed shape, with every score checked by code before and after.
+
+**Key terms**
+- **LoRA (low-rank adaptation)**: the original weights stay frozen; each chosen layer learns two small matrices, A and B, whose product is added to it. Only those are trained.
+- **Rank (r) and alpha**: r is the size of the small matrices (more capacity, more parameters); the update is scaled by alpha / r.
+- **Target layers**: which layers get adapters, usually the attention projections (q, k, v, o), sometimes the MLP too.
+- **Adapter**: the saved small matrices: megabytes, not the gigabytes of the model.
+- **Merging**: adding the adapter into the weights so it costs nothing at inference. The page checks merging changes no answer.
+- **QLoRA**: LoRA on a frozen model stored in 4-bit, so a bigger model fits in less memory. Its 4-bit loading needs an NVIDIA GPU.
+
+**Questions they could ask**
+- **Q:** When would you fine-tune rather than prompt?
+  **A:** When the task is narrow and repeated, the output must have an exact shape, and prompting a small model gets it wrong too often. Here the base model asked nicely produces the right JSON on none of the held-out emails; after a few minutes of LoRA, every field is right on all of them. A smaller fine-tuned model can then replace a larger one for that task.
+- **Q:** Why LoRA rather than full fine-tuning?
+  **A:** Memory and storage. Full fine-tuning needs the weights, gradients and optimiser state for every parameter. LoRA trains well under 1% of them, so it fits on a laptop, and the adapter is a small file you can swap per task. The page works out the memory for full, LoRA and QLoRA from each model's shape.
+- **Q:** How do you know the training worked and is not memorising?
+  **A:** Code writes 400 emails with their right answers, trains on 340 and scores 40 of the held-out ones: valid JSON, exactly the right keys, each field, and every field. A model never grades another model here.
+- **Q:** How do you share an adapter?
+  **A:** Publish it to Hugging Face with a model card. The page writes the card from the adapter's own scores, uploads only the weights, the config and the card, names the base model by its Hub id rather than a local folder, and keeps it private unless you choose otherwise.
+
+**What I built:** `examples/lora/` (`run_lora.py` trains and scores in its own PyTorch environment; `lora_data.py` holds the task, scoring and memory arithmetic with no PyTorch, so the backend uses it too; `publish_adapter.py` uploads). The backend runs one training run at a time and streams the loss to the page.
+
+## Tabular Foundation Models (`/tabular`)
+**In one line:** TabPFN predicts a new table by reading its rows as context, with no training on it, compared with gradient boosting on the same split.
+
+**Key terms**
+- **TabPFN**: a transformer pre-trained on millions of invented tables. It reads the training rows and predicts the test rows in one forward pass.
+- **In-context learning**: learning from examples in the input, not by changing weights.
+- **Gradient boosting**: many small decision trees, each fixing the last one's errors; the usual strong baseline for tables.
+- **Metrics**: accuracy, balanced accuracy and ROC AUC for classes; RMSE, MAE and R² for numbers.
+
+**Questions they could ask**
+- **Q:** Do LLMs replace classic machine learning on tables?
+  **A:** Not by reading the table as text. But the idea behind LLMs, a model pre-trained on huge amounts of data that adapts in context, works for tables too. TabPFN often matches or beats gradient boosting on small tables with no tuning. On large tables, boosting is still the safe choice.
+- **Q:** Where does the language model come in?
+  **A:** Around the edges. It suggests what to predict from the column summary only, and explains the result. Code checks the target is a real, usable column, computes every metric, and checks the explanation uses no number that is not in the results.
+
+**What I built:** `examples/tabular/run_tabular.py`, run by the backend from its own environment; three invented sample tables or an uploaded CSV.
+
+## One Photo to a 3D Object (`/image-to-3d`)
+**In one line:** Idol turns one photo into a 3D object made of Gaussian splats, on this machine, shown in the browser to turn and zoom.
+
+**Key terms**
+- **Gaussian splat**: a small, coloured, see-through ellipsoid. Hundreds of thousands of them, blended, look like a solid object. There is no mesh.
+- **3DGS `.ply`**: the standard file format for Gaussian splats, which other viewers open.
+- **Diffusion transformer**: a transformer that starts from noise and removes it step by step, guided by the image, to produce the object's shape.
+- **Image encoders**: DINOv3 and FLUX.2's encoder turn the photo into features the model conditions on. Both are gated on Hugging Face.
+- **Steps and Gaussians**: more steps give a cleaner shape; more Gaussians give finer detail. Both cost time.
+
+**Questions they could ask**
+- **Q:** How can one photo give a full 3D object?
+  **A:** The model has learnt from many objects what the unseen sides usually look like, so it generates them. The back of the object is a plausible guess, not a measurement, which is why the page shows the image it saw beside the result.
+- **Q:** Why Gaussian splats rather than a mesh?
+  **A:** They are fast to render and capture soft detail and colour well, and they come straight out of the decoder. A mesh is better when you need to edit or 3D print the object.
+- **Q:** What does it take to run?
+  **A:** Its own Python environment with PyTorch, about 5 GB of weights on the first run, access to the two gated encoders, and a GPU (Apple's MPS or NVIDIA's CUDA). On an M-series Mac, 10 steps and 65,536 Gaussians take about 80 seconds to generate. It costs nothing per run.
+
+**What I built:** `examples/image-to-3d/run_idol.py`, run by the backend from its own environment, one object at a time, streaming each stage with its time; objects kept in `generated/image-to-3d/`; the viewer uses Spark on three.js. `tools/setup-envs.sh` sets it up and checks access.
+
+## Why Atoms Never Touch (`/atoms-touch`)
+**In one line:** a short film halves the gap between two fingertips 25 times, from 10 mm to atoms, to show why the push you feel is quantum, not just electric charge.
+
+**Key terms**
+- **Pauli exclusion principle**: no two electrons can share the same quantum state, so electron clouds resist being squeezed together.
+- **Charge repulsion**: like charges pushing apart. Atoms are neutral overall, so this alone does not explain the push.
+- **Force against distance**: almost nothing until the clouds overlap, then a very steep rise.
+
+**Questions they could ask**
+- **Q:** Do things ever really touch?
+  **A:** It depends on what touching means. Atoms' electron clouds overlap a little, and the resistance rises so steeply that they stop at a distance of about a tenth of a nanometre. What you feel as touch is that resistance.
+
+**What I built:** a film drawn by the page with three.js (with a flat cross-section where WebGL is missing) and a force chart that follows it.
+
+## Songbird: Two Voices at Once (`/songbird`)
+**In one line:** a songbird's syrinx has two sides that sing independently, shown on a drawn bird with real-time synthesised songs, and a model that composes for both sides with code checking the score.
+
+**Key terms**
+- **Syrinx**: the bird's voice organ, where the windpipe splits into the two bronchi. Each side has its own vibrating membranes.
+- **Two-voice singing**: the left side usually sings lower and the right side higher, at the same time or handed between them.
+- **Spectrogram**: frequency against time, so two voices show as two lines.
+- **Score**: the composed song as data: for each side, notes with pitch, time and length.
+
+**Questions they could ask**
+- **Q:** How does the model's song get checked?
+  **A:** The model writes a score as structured output. Code checks each side stays in its range, no side sings two notes at once, and the length is right, and sends the problems back once. A cut-off reply is reported as cut off rather than played. The page also names the model that actually answered, because failover may have switched it.
+- **Q:** Why synthesise rather than play recordings?
+  **A:** So each side can be shown and heard on its own, and so you can play it: SynthBird has breath, glide, grit, windpipe length and throat controls on the keyboard.
+
+**What I built:** an original drawn bird animated from what each side sings, seven stylised songs in Web Audio along the bird's own signal path, and a compose route on the backend with a smaller note limit for the local model.

@@ -291,3 +291,17 @@
   margin-left: 8px;
   font-size: 11px;
 }
+.page-coding .cg-memory {
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+}
+.page-coding .cg-memory label {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.page-coding .cg-memory select {
+  font: inherit;
+  padding: 1px 4px;
+}

@@ -1,0 +1,212 @@
+/* Memory stores. Scoped to the page, as every page's styles are. */
+.page-memory-stores .ms-error {
+  color: var(--bad);
+}
+.page-memory-stores .ms-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(220px, 1fr) minmax(0, 1.6fr);
+  gap: 12px;
+  align-items: start;
+  margin-top: 16px;
+}
+.page-memory-stores .ms-grid > * {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 12px;
+  min-width: 0;
+}
+.page-memory-stores h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.page-memory-stores ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.page-memory-stores .ms-stores li button,
+.page-memory-stores .ms-tree li button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  text-align: left;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.page-memory-stores .ms-stores li button {
+  flex-direction: column;
+  gap: 2px;
+}
+.page-memory-stores .ms-stores li button:hover,
+.page-memory-stores .ms-tree li button:hover {
+  background: var(--soft);
+}
+.page-memory-stores li button.on {
+  background: var(--brand-soft);
+}
+.page-memory-stores .ms-tree .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-memory-stores .ms-folder {
+  color: var(--muted);
+  padding: 6px 8px 2px;
+}
+.page-memory-stores .ms-folder + ul {
+  padding-left: 10px;
+}
+.page-memory-stores .ms-new,
+.page-memory-stores .ms-add,
+.page-memory-stores .ms-edit,
+.page-memory-stores .ms-desc-edit {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.page-memory-stores input,
+.page-memory-stores textarea {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+}
+.page-memory-stores .ms-edit textarea,
+.page-memory-stores .ms-add textarea {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12.5px;
+}
+.page-memory-stores .ms-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.page-memory-stores .ms-desc {
+  cursor: text;
+  color: var(--ink2);
+}
+.page-memory-stores .ms-tree-head,
+.page-memory-stores .ms-memory-head,
+.page-memory-stores .ms-view-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.page-memory-stores .ms-memory-head h3 {
+  margin: 0;
+  font-size: 15px;
+  word-break: break-all;
+}
+.page-memory-stores .ms-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.page-memory-stores .ms-delete-store {
+  margin-top: 12px;
+}
+.page-memory-stores .ms-meta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+  gap: 2px 10px;
+  margin: 0 0 8px;
+}
+.page-memory-stores .ms-meta dt {
+  color: var(--muted);
+}
+.page-memory-stores .ms-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.page-memory-stores .ms-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.page-memory-stores .ms-toggle button {
+  border: 0;
+  background: none;
+  color: var(--ink2);
+  padding: 3px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.page-memory-stores .ms-toggle button.on {
+  background: var(--soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.page-memory-stores .ms-content {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  max-height: 460px;
+  overflow: auto;
+  font-size: 14px;
+}
+.page-memory-stores .ms-content pre {
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: 12.5px;
+}
+.page-memory-stores .ms-content :is(h1, h2, h3) {
+  font-size: 15px;
+  margin: 8px 0 4px;
+}
+.page-memory-stores .ms-content code {
+  font-size: 12.5px;
+}
+.page-memory-stores .ms-versions tr.on td {
+  background: var(--brand-soft);
+}
+.page-memory-stores .ms-version-actions {
+  white-space: nowrap;
+}
+.page-memory-stores .ms-link {
+  border: 0;
+  background: none;
+  color: var(--brand);
+  cursor: pointer;
+  padding: 0 4px;
+  font: inherit;
+  text-decoration: underline;
+}
+.page-memory-stores .ms-link.danger {
+  color: var(--bad);
+}
+.page-memory-stores .ms-how {
+  margin-top: 16px;
+}
+.page-memory-stores .ms-how ol {
+  padding-left: 20px;
+}
+.page-memory-stores .ms-how li {
+  margin-bottom: 6px;
+}
+@media (max-width: 1000px) {
+  .page-memory-stores .ms-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-memory-stores .ms-versions td {
+  white-space: nowrap;
+}

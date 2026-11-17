@@ -1112,6 +1112,7 @@ class CodingAgent:
         self.sent_mode = mode
         self.spent, self.turns, self.tool_calls = 0.0, 0, 0
         self.started_with, self.stop_checks = self.ws.fingerprint(), 0  # for the Stop hook, reset by each ask()
+        self.stop_hooks: list[Callable] = []  # this session's own Stop hooks, run after HOOKS["Stop"]
         self.lock = threading.Lock()
 
     def emit(self, event: dict) -> None:
@@ -1181,7 +1182,7 @@ class CodingAgent:
             calls = [b for b in resp.content if b.type == "tool_use"]
             if resp.stop_reason != "tool_use" or not calls:
                 if depth == 0 and self.stop_checks < MAX_STOP_CHECKS and \
-                        (reason := next((r for hook in HOOKS["Stop"] if (r := hook(self))), None)):
+                        (reason := next((r for hook in [*HOOKS["Stop"], *self.stop_hooks] if (r := hook(self))), None)):
                     self.stop_checks += 1  # not done yet: the hook's reason goes back as the next message
                     messages.append({"role": "user", "content": [
                         {"type": "text", "text": f"<system-reminder>Stop hook: {reason}</system-reminder>"}]})

@@ -136,8 +136,9 @@ def test_one_person_never_sees_anothers_memories(tmp_path: Path) -> None:
 
 
 def test_a_turn_that_fails_part_way_keeps_nothing(tmp_path: Path) -> None:
-    overloaded = anthropic.APIStatusError("overloaded", response=httpx.Response(
-        529, request=httpx.Request("POST", "http://test/v1/messages")), body=None)
+    # A 400, not a 529: a 529 now fails over to another model (lab_failover) and the turn would succeed.
+    overloaded = anthropic.APIStatusError("bad request", response=httpx.Response(
+        400, request=httpx.Request("POST", "http://test/v1/messages")), body=None)
     client, _ = make(tmp_path, [
         [use("remember", {"kind": "fact", "subject": "home city", "text": "Sam lives in Leeds.",
                           "quote": "I live in Leeds", "importance": 2})],
@@ -145,7 +146,7 @@ def test_a_turn_that_fails_part_way_keeps_nothing(tmp_path: Path) -> None:
     ])
     sid = client.post("/api/agent-memory/people/sam/sessions", headers=LAB).json()["session"]
     r = say(client, "sam", sid, "I live in Leeds.")
-    assert r.status_code >= 500 and client.get("/api/agent-memory/people/sam", headers=LAB).json()["memories"] == []
+    assert r.status_code >= 400 and client.get("/api/agent-memory/people/sam", headers=LAB).json()["memories"] == []
 
 
 def test_a_refusal_or_an_empty_reply_is_an_error_that_saves_nothing(tmp_path: Path) -> None:

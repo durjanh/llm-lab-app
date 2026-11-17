@@ -98,6 +98,7 @@ class Settings:
     model_failover_short_retry_s: float = 2.0
     # Where that lab's model list lives: "file" or "table" (python/settings.py explains them).
     model_failover_catalog: str = "file"
+    failover: bool = True  # every page's calls fail over across the catalog (LLM_LAB_FAILOVER)
     model_failover_catalog_path: str = "config/model-failover.json"
     model_failover_catalog_ttl_s: float = 30.0
     # Voice agent defaults (python/settings.py explains them); each conversation may change the first four.
@@ -165,6 +166,7 @@ class Settings:
             model_failover_max_cooldown_s=env.model_failover_max_cooldown_s,  # ModelRouter keeps it at least the cooldown
             model_failover_short_retry_s=env.model_failover_short_retry_s,
             model_failover_catalog=env.model_failover_catalog,
+            failover=env.failover,
             model_failover_catalog_path=env.model_failover_catalog_path,
             model_failover_catalog_ttl_s=env.model_failover_catalog_ttl_s,
             voice_agent_end_silence_ms=env.voice_agent_end_silence_ms,

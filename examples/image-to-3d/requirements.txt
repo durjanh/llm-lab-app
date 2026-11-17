@@ -1,6 +1,6 @@
 # Idol (speridlabs/idol, Apache 2.0): one image to a 3D object made of Gaussian splats. Its own Python 3.12
 # environment, because it needs PyTorch, which the lab's main environment must not get. The idol package is not on
 # PyPI, so it is installed from its GitHub repo at a fixed commit; pip picks its other packages (diffusers,
-# transformers, torchvision) to match torch. About 2 GB installed, plus about 5 GB of weights on first use.
+# transformers, torchvision) to match torch. About 1 GB installed, plus about 5 GB of weights on first use.
 torch==2.15.0
 idol @ git+https://github.com/speridlabs/idol-sdk@8db700349a5570aac390e4780fa32e3eed6b587a

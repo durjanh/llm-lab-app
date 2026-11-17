@@ -17,9 +17,30 @@ MedAssist's texting costs nothing while it is idle: texts are paid for one by on
 
 The lab itself still runs on your machine (`python -m backend`). Hosting the backend in Azure is a separate step: the API only answers pages served from localhost.
 
+## Before you start
+
+You need:
+
+- **The Azure CLI and the Azure Developer CLI (azd)**, and Python 3 (the hooks run `az` and `python3`).
+
+  ```sh
+  brew install azure-cli azd                         # macOS
+  winget install Microsoft.AzureCLI Microsoft.Azd    # Windows
+  curl -fsSL https://aka.ms/install-azd.sh | bash    # Linux (azd); the Azure CLI: https://aka.ms/InstallAzureCLI
+  az version && azd version
+  ```
+
+- **An Azure subscription where you can grant roles:** Owner, or Contributor with Role Based Access Control Administrator (or User Access Administrator). The template gives you the data-plane roles in the table above, and Contributor alone cannot.
+- **Permission to create app registrations in Microsoft Entra ID.** The hooks make one for the coding sandbox. Most tenants allow it; if yours does not, ask for the Application Developer role.
+- **The lab's `.env`, with your Anthropic key**, made first as the main README says (`umask 077 && cp .env.example .env`). `azd up` adds the Azure lines and keeps the rest.
+
+The sandbox image (`ghcr.io/durjanh/coding-sandbox:1`) is public, so nothing needs building. To use your own build, push it and set `SANDBOX_IMAGE` (below).
+
 ## Run it
 
 ```sh
+az login                                 # add --tenant <tenant id> if your account is in more than one
+az account set --subscription <name or id>
 azd config set auth.useAzCliAuth true    # once: azd uses your az login, the same account the hooks use
 azd auth login --check-status            # or: az login
 azd up                                    # asks for an environment name (e.g. lab: not llm-lab, which is the hand-made group) and the subscription
@@ -31,6 +52,18 @@ It takes about ten minutes. The hooks then:
 - **After:** write the endpoints, ids and sandbox settings into `.env`. Every other line, such as `ANTHROPIC_API_KEY`, is kept. The first time, your old file is copied to `.env.before-azd`.
 
 Restart the backend to use the new values. MedAssist's prompt agent is not part of the infrastructure: create it with `python examples/medassist/medassist.py create`.
+
+Other commands you may need:
+
+```sh
+azd provision --preview     # what would change, without changing anything
+azd provision               # apply a changed template (no redeploy of the Function)
+azd deploy reminders        # redeploy only MedAssist's reminder Function
+azd env get-values          # the environment's values (the same ones written into .env)
+azd env list                # your azd environments; azd env select <name> switches
+```
+
+If a model deployment fails for lack of quota, pick a region that has it (`azd env set AZURE_LOCATION <region>`) and run `azd up` again.
 
 Settings you can change before `azd up`:
 

@@ -144,7 +144,9 @@ class SongbirdService:
             tries.append({"attempt": attempt, "problems": found})
             if not found:
                 return {"title": score["title"], "explanation": score["explanation"], "notes": to_page(score),
-                        "tries": tries, "cost_usd": round(cost, 6), "model": model}
+                        "tries": tries, "cost_usd": round(cost, 6),
+                        # the model that answered: with failover on, not always the one asked for
+                        "model": answered if isinstance(answered := getattr(response, "model", None), str) else model}
             messages += [{"role": "assistant", "content": raw},
                          {"role": "user", "content": "The synth cannot play that yet:\n- " + "\n- ".join(found)
                           + "\nFix these and send the whole score again."}]

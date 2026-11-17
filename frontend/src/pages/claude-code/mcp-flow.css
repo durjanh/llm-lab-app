@@ -1,0 +1,37 @@
+/* The MCP call sequence on /claude-code. Colours come from the global tokens, so dark mode follows them: brand for
+   the Messages API, s3 for MCP's JSON-RPC, s2 for the outside service's own API, ink for you and the host. */
+
+.page-claude-code .mf-wrap{margin:12px 0 18px}
+.page-claude-code .mf-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.page-claude-code .mf-svg{display:block;width:100%;min-width:720px;height:auto;font-family:inherit}
+.page-claude-code .mf-setup{fill:var(--soft);stroke:var(--line);stroke-dasharray:4 4}
+.page-claude-code .mf-zone{font-size:11px;fill:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.page-claude-code .mf-head{fill:var(--surface2);stroke:var(--line2)}
+.page-claude-code .mf-head-text{font-size:13px;font-weight:600;fill:var(--ink)}
+.page-claude-code .mf-life{stroke:var(--line2);stroke-dasharray:4 5}
+
+.page-claude-code .mf-step{--c:var(--ink2);cursor:pointer;outline:none}
+.page-claude-code .mf-step.mf-mcp{--c:var(--s3)}
+.page-claude-code .mf-step.mf-api{--c:var(--brand)}
+.page-claude-code .mf-step.mf-http{--c:var(--s2)}
+.page-claude-code .mf-hit{fill:transparent}
+.page-claude-code .mf-line{stroke:var(--c);stroke-width:1.6}
+.page-claude-code .mf-head-arrow{fill:var(--c)}
+.page-claude-code .mf-label{font-size:12px;fill:var(--ink2)}
+.page-claude-code .mf-step.mf-later{opacity:.28}
+.page-claude-code .mf-step.mf-now .mf-line{stroke-width:3}
+.page-claude-code .mf-step.mf-now .mf-label{fill:var(--ink);font-weight:700}
+.page-claude-code .mf-step.mf-now .mf-hit{fill:var(--brand-soft)}
+.page-claude-code .mf-step:hover .mf-label,.page-claude-code .mf-step:focus-visible .mf-label{fill:var(--ink);text-decoration:underline}
+
+.page-claude-code .mf-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.page-claude-code .mf-panel{border-left:4px solid var(--c,var(--ink2))}
+.page-claude-code .mf-panel.mf-mcp{--c:var(--s3)}
+.page-claude-code .mf-panel.mf-api{--c:var(--brand)}
+.page-claude-code .mf-panel.mf-http{--c:var(--s2)}
+.page-claude-code .mf-panel h4{margin:0 0 6px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.page-claude-code .mf-route{font-size:12px;font-weight:400;color:var(--muted)}
+.page-claude-code .mf-panel p{margin:0 0 8px}
+.page-claude-code .mf-wire{margin:0;padding:10px 12px;border-radius:8px;background:var(--soft);font-size:12.5px;line-height:1.5;overflow-x:auto;white-space:pre}
+.page-claude-code .mf-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--ink2);margin-top:8px}
+.page-claude-code .mf-legend span::before{content:"";display:inline-block;width:14px;height:3px;background:var(--c);margin-right:6px;vertical-align:3px}
