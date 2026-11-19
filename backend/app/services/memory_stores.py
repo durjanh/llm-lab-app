@@ -110,6 +110,13 @@ class MemoryStores:
         return folder
 
     @staticmethod
+    def _still_there(folder: Path) -> None:
+        """Checked again once the store's lock is held: a write that waited behind delete_store must not re-create the
+        folder it removed (an orphan with no store.json, and a write reported as saved)."""
+        if not (folder / "store.json").exists():
+            raise ApiError(404, "not_found", "That memory store has gone.")
+
+    @staticmethod
     def _read(path: Path) -> Any:
         try:
             return json.loads(path.read_text())
@@ -175,8 +182,8 @@ class MemoryStores:
             store = {"id": new_id("memstore"), "name": name, "description": (description or "").strip()[:2000],
                      "created_at": time.time()}
             self._write(self.root / store["id"] / "store.json", store)
-        if seed_guide:
-            self.add(store["id"], "README.md", LESSON_GUIDE, by="console")
+            if seed_guide:  # inside the lock: a list or a mount never sees the store before its guide
+                self.add(store["id"], "README.md", LESSON_GUIDE, by="console")
         return self.get(store["id"])
 
     def get(self, store_id: str) -> dict[str, Any]:
@@ -188,6 +195,7 @@ class MemoryStores:
     def describe(self, store_id: str, description: str) -> dict[str, Any]:
         folder = self._dir(store_id)
         with self._lock(store_id):
+            self._still_there(folder)
             store = self._read(folder / "store.json")
             store["description"] = (description or "").strip()[:2000]
             self._write(folder / "store.json", store)
@@ -196,6 +204,7 @@ class MemoryStores:
     def delete_store(self, store_id: str) -> dict[str, Any]:
         folder = self._dir(store_id)
         with self._lock(store_id):
+            self._still_there(folder)
             shutil.rmtree(folder)
         with self._guard:
             self._locks.pop(store_id, None)
@@ -231,6 +240,7 @@ class MemoryStores:
         if why := problem(path, content):
             raise ApiError(400, "invalid_request", why)
         with self._lock(store_id):
+            self._still_there(folder)
             memories = self._memories(folder)
             if existing := self._by_path(memories, path):
                 raise ApiError(409, "memory_path_conflict", f"{path} already exists ({existing['id']}).")
@@ -246,6 +256,7 @@ class MemoryStores:
     def update(self, store_id: str, memory_id: str, content: str, by: str = "console") -> dict[str, Any]:
         folder = self._dir(store_id)
         with self._lock(store_id):
+            self._still_there(folder)
             memories = self._memories(folder)
             m = memories.get(memory_id)
             if not m or not m["current"]:
@@ -260,6 +271,7 @@ class MemoryStores:
     def delete(self, store_id: str, memory_id: str, by: str = "console") -> dict[str, Any]:
         folder = self._dir(store_id)
         with self._lock(store_id):
+            self._still_there(folder)
             memories = self._memories(folder)
             m = memories.get(memory_id)
             if not m or not m["current"]:
@@ -275,6 +287,7 @@ class MemoryStores:
         """Makes an old version current again, as a new version: history only grows."""
         folder = self._dir(store_id)
         with self._lock(store_id):
+            self._still_there(folder)
             v = self._version(folder, version_id)
             if v["content"] is None:
                 raise ApiError(400, "invalid_request", "That version has no text to restore (a deletion, or redacted).")
@@ -296,6 +309,7 @@ class MemoryStores:
         redacted while it is current: change or delete the memory first, so the text is not still being served."""
         folder = self._dir(store_id)
         with self._lock(store_id):
+            self._still_there(folder)
             v = self._version(folder, version_id)
             if self._memories(folder)[v["memory_id"]]["current"] == version_id:
                 raise ApiError(400, "invalid_request", "That is the memory's current text. Change or delete the "
@@ -314,6 +328,7 @@ class MemoryStores:
         folder = self._dir(store_id)
         changes: list[dict[str, Any]] = []
         with self._lock(store_id):
+            self._still_there(folder)
             memories = self._memories(folder)
             for path in sorted(set(mounted) | set(now)):
                 before, after = mounted.get(path), now.get(path)

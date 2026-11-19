@@ -110,3 +110,7 @@ router.include_router(model_failover.router)
 from . import voice_agent  # noqa: E402  (Voice Agent)
 
 router.include_router(voice_agent.router)
+
+from . import teammate  # noqa: E402  (Digital Teammate)
+
+router.include_router(teammate.router)

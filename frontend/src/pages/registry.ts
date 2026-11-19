@@ -79,6 +79,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'scans',
       'gaze-pointer',
       'storewatch',
+      'digital-teammate',
     ],
     'Microsoft Foundry and Azure': [
       'casework',
@@ -405,6 +406,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./deal-close/DealClosePage')),
+  },
+  {
+    id: 'digital-teammate',
+    path: '/digital-teammate',
+    title: 'Digital Teammate',
+    label: 'Digital teammate',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./digital-teammate/DigitalTeammatePage')),
   },
   {
     id: 'diet',
@@ -957,6 +967,15 @@ export const PAGES: PageDef[] = [
     group: 'Cost and operations',
     bodyClass: 'lab',
     Component: lazy(() => import('./routing/RoutingPage')),
+  },
+  {
+    id: 'effort-cost',
+    path: '/effort-and-cost',
+    title: 'Model, Effort and Cost',
+    label: 'Model and effort cost',
+    group: 'Cost and operations',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./effort-cost/EffortCostPage')),
   },
   {
     id: 'resilience',

@@ -1,0 +1,556 @@
+/* Scoped to .page-effort-cost, so it cannot affect other pages. Colours come from the lab's theme tokens. */
+.page-effort-cost .ec-controls {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+/* Sticky only where the window is tall enough to keep the animation in view under it. */
+@media (min-height: 900px) and (min-width: 641px) {
+  .page-effort-cost .ec-controls {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+}
+.page-effort-cost .ec-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.page-effort-cost .ec-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  width: 56px;
+}
+.page-effort-cost .ec-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface2);
+}
+.page-effort-cost .ec-seg button {
+  font: inherit;
+  font-size: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink2);
+  padding: 7px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.page-effort-cost .ec-seg button + button {
+  border-left: 1px solid var(--line2);
+}
+.page-effort-cost .ec-seg button:hover {
+  background: var(--soft);
+}
+.page-effort-cost .ec-seg button.on {
+  background: var(--brand);
+  color: #fff;
+}
+.page-effort-cost .ec-seg small {
+  font-size: 11px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.page-effort-cost .ec-dot {
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+.page-effort-cost .ec-effort {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: min(100%, 320px);
+  max-width: 560px;
+}
+.page-effort-cost .ec-effort input[type='range'] {
+  width: 100%;
+  accent-color: var(--brand);
+  height: 6px;
+  margin: 6px 0 0;
+}
+.page-effort-cost .ec-ticks {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  text-align: center;
+}
+.page-effort-cost .ec-ticks button {
+  font: inherit;
+  font-size: 13px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+.page-effort-cost .ec-ticks button.on {
+  color: var(--brand);
+  font-weight: 700;
+}
+.page-effort-cost .ec-ticks i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--faint);
+  letter-spacing: 0.04em;
+}
+.page-effort-cost .ec-toggles {
+  gap: 6px 22px;
+  font-size: 14px;
+  color: var(--ink2);
+}
+.page-effort-cost .ec-toggles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+/* The animation. */
+.page-effort-cost .ec-flow {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: radial-gradient(120% 90% at 50% 40%, var(--brand-soft), transparent 60%), var(--surface);
+  overflow: hidden;
+}
+.page-effort-cost .ec-flow canvas {
+  display: block;
+  width: 100%;
+}
+.page-effort-cost .ec-meter {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
+  max-width: calc(100% - 24px);
+}
+.page-effort-cost .ec-meter-cost {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.page-effort-cost .ec-meter-cost b {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.page-effort-cost .ec-meter.done .ec-meter-cost b {
+  color: var(--brand);
+}
+.page-effort-cost .ec-meter dl {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+}
+.page-effort-cost .ec-meter dl div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.page-effort-cost .ec-meter dt {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.page-effort-cost .ec-meter dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.page-effort-cost .ec-meter i,
+.page-effort-cost .ec-legend i,
+.page-effort-cost .ec-parts i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  vertical-align: 0;
+}
+.page-effort-cost .ec-meter .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.page-effort-cost .ec-legend {
+  margin: 8px 0 18px;
+  line-height: 1.9;
+}
+.page-effort-cost .ec-legend i {
+  margin: 0 3px 0 8px;
+}
+
+/* The bill. */
+.page-effort-cost .ec-bill-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 24px;
+  align-items: flex-end;
+}
+.page-effort-cost .ec-big {
+  font-size: 40px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  transition: color 0.3s;
+}
+.page-effort-cost .ec-compare {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+.page-effort-cost .ec-compare b {
+  font-size: 26px;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+.page-effort-cost .ec-compare input {
+  width: 90px;
+  font: inherit;
+  font-size: 13px;
+  padding: 2px 6px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.page-effort-cost .ec-stack {
+  display: flex;
+  height: 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 16px 0 10px;
+  background: var(--soft);
+}
+.page-effort-cost .ec-stack span {
+  flex-basis: 0;
+  min-width: 2px;
+  transition: flex-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.page-effort-cost .ec-parts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.page-effort-cost .ec-parts td {
+  padding: 5px 6px;
+  border-top: 1px solid var(--line);
+}
+.page-effort-cost .ec-parts .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page-effort-cost .ec-parts i {
+  margin-right: 6px;
+}
+
+/* Two dials. */
+.page-effort-cost .ec-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: 14px;
+}
+.page-effort-cost .ec-two > .card + .card {
+  margin-top: 0;
+}
+.page-effort-cost .ec-two h3 {
+  margin-top: 0;
+}
+.page-effort-cost .ec-prices {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.page-effort-cost .ec-prices > div {
+  display: grid;
+  grid-template-columns: 62px 1fr 52px;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+.page-effort-cost .ec-prices > div.on {
+  background: var(--brand-soft);
+}
+.page-effort-cost .ec-pname {
+  font-weight: 600;
+  font-size: 14px;
+  grid-row: span 2;
+}
+.page-effort-cost .ec-pbar {
+  height: 9px;
+  background: var(--soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.page-effort-cost .ec-pbar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.page-effort-cost .ec-efforts {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.page-effort-cost .ec-efforts button {
+  font: inherit;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: var(--ink2);
+  text-align: left;
+  transition: background 0.3s;
+}
+.page-effort-cost .ec-efforts button:hover {
+  background: var(--soft);
+}
+.page-effort-cost .ec-efforts button.on {
+  background: var(--brand-soft);
+  color: var(--ink);
+}
+.page-effort-cost .ec-ename {
+  font-weight: 600;
+  font-size: 14px;
+}
+.page-effort-cost .ec-ebar {
+  height: 9px;
+  background: var(--soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.page-effort-cost .ec-ebar span {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  border-radius: 999px;
+  transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* The grid of every setting. */
+.page-effort-cost .ec-grid {
+  display: grid;
+  grid-template-columns: 96px repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 14px 0 8px;
+}
+.page-effort-cost .ec-grow {
+  display: contents;
+}
+.page-effort-cost .ec-gh {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-effort-cost .ec-gm {
+  justify-content: flex-start;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+.page-effort-cost .ec-cell {
+  --h: 0;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  background: color-mix(in srgb, var(--brand) calc(var(--h) * 88%), var(--surface));
+  color: var(--ink);
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s,
+    background 0.4s;
+}
+.page-effort-cost .ec-cell b {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.page-effort-cost .ec-cell small {
+  font-size: 11px;
+  opacity: 0.75;
+}
+.page-effort-cost .ec-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+.page-effort-cost .ec-cell.on {
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
+}
+.page-effort-cost .ec-cell.deep {
+  color: #fff;
+}
+
+/* The staircase. */
+.page-effort-cost .ec-steps {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 230px;
+  padding: 6px 4px 0;
+  border-bottom: 1px solid var(--line2);
+}
+.page-effort-cost .ec-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 4px;
+  animation: ec-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: bottom;
+}
+.page-effort-cost .ec-col {
+  width: 100%;
+  max-width: 64px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px 6px 2px 2px;
+  overflow: hidden;
+  transition: height 0.5s;
+}
+.page-effort-cost .ec-col span {
+  flex-basis: 0;
+  min-height: 1px;
+}
+.page-effort-cost .ec-stairs .small {
+  margin-top: 10px;
+}
+@keyframes ec-rise {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+
+/* Cost per finished task. */
+.page-effort-cost .ec-finish label {
+  display: grid;
+  gap: 4px;
+}
+.page-effort-cost .ec-finish input[type='range'] {
+  accent-color: var(--brand);
+}
+.page-effort-cost .ec-ph {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: var(--note-bg);
+  color: var(--warn);
+}
+.page-effort-cost .ec-tries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 8px;
+  min-height: 20px;
+}
+.page-effort-cost .ec-tries span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bad);
+  opacity: 0.8;
+  animation: ec-pop 0.4s both;
+}
+.page-effort-cost .ec-tries span.ok {
+  background: var(--good);
+}
+@keyframes ec-pop {
+  from {
+    transform: scale(0);
+  }
+}
+
+.page-effort-cost .ec-take li {
+  margin: 6px 0;
+  max-width: 80ch;
+}
+@media (max-width: 640px) {
+  .page-effort-cost .ec-grid {
+    grid-template-columns: 64px repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .page-effort-cost .ec-cell {
+    padding: 8px 2px;
+  }
+  .page-effort-cost .ec-cell b {
+    font-size: 11px;
+  }
+  .page-effort-cost .ec-meter {
+    position: static;
+    margin: 8px;
+    max-width: none;
+  }
+  .page-effort-cost .ec-compare {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+.page-effort-cost .ec-legend span {
+  white-space: nowrap;
+  margin-left: 10px;
+}
+.page-effort-cost .ec-legend span i {
+  margin: 0 4px 0 0;
+}

@@ -122,7 +122,10 @@ if [[ "$1" == "check-hf" ]]; then check_hf; exit $?; fi
 
 need_python
 wanted=("$@")
-[[ "$1" == "all" ]] && wanted=($(for e in "${ENVS[@]}"; do field "$e" 1; done))
+if [[ "$1" == "all" ]]; then
+  wanted=()
+  for e in "${ENVS[@]}"; do wanted+=("$(field "$e" 1)"); done
+fi
 for w in "${wanted[@]}"; do
   found=""
   for e in "${ENVS[@]}"; do [[ "$(field "$e" 1)" == "$w" ]] && found="$e"; done

@@ -178,3 +178,29 @@ def test_the_wrapper_can_be_copied_without_endless_lookups() -> None:
 
     gw, _ = gateway()
     assert copy.copy(gw).inner is gw.inner
+
+
+def test_a_reply_from_a_catalog_only_model_is_charged_at_its_own_price() -> None:
+    """Failover can hand a Claude call to a GPT or local entry that PRICES does not list. It was charged at the asked
+    Claude model's price, and the call log named the asked model as the one that answered."""
+    from backend.app.services.spend import SpendTracker
+
+    spend = SpendTracker(10.0)
+    logged = []
+    spend.call_log.charged = lambda message, asked, model, cost: logged.append((asked, model, cost))
+    spend.price_of = lambda m: {"input": 1.0, "output": 2.0, "cache_read": 0.1} if m == "my-gpt" else None
+    usage = SimpleNamespace(input_tokens=1_000_000, output_tokens=1_000_000, cache_read_input_tokens=0,
+                            cache_creation_input_tokens=0)
+    cost = spend.charge(SimpleNamespace(model="my-gpt", usage=usage), HAIKU)
+    assert cost == 3.0 and logged == [(HAIKU, "my-gpt", 3.0)]
+
+
+def test_the_lab_wires_the_catalog_prices_into_the_spend_tracker(tmp_path) -> None:
+    from backend.app.main import create_app
+    from backend.app.settings import Settings
+    from backend.tests.test_api import FakeClient
+
+    settings = Settings(port=8000, budget_usd=1.0, generated_dir=tmp_path, frontend_dist=tmp_path / "dist",
+                        models_dir=tmp_path / "no-models")
+    c = create_app(settings, client=FakeClient()).state.container
+    assert c.spend.price_of is not None and c.spend.price_of("no-such-model") is None
