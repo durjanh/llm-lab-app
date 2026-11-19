@@ -25,6 +25,7 @@ from ..services.aftercare import AftercareService
 from ..services.aftercare_phone import AftercarePhone
 from ..services.code_graph import CodeGraphService
 from ..services.deals import DealsService
+from ..services.teammate import TeammateService
 from ..services.diet import DietService
 from ..services.hotel import HotelService
 from ..services.brain import BrainCheckService
@@ -151,6 +152,10 @@ def diet(c: Container = Depends(container)) -> DietService:
 
 def deals(c: Container = Depends(container)) -> DealsService:
     return c.deals
+
+
+def teammate(c: Container = Depends(container)) -> TeammateService:
+    return c.teammate
 
 
 def code_graph(c: Container = Depends(container)) -> CodeGraphService:

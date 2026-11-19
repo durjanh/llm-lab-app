@@ -675,6 +675,23 @@
 
 **What I built:** an invented SQLite CRM, an eight-step chain shown as a graph that lights up as it streams, on Claude, GPT or the local model. Sending is simulated.
 
+## Digital Teammate (`/digital-teammate`)
+**In one line:** an AI agent with its own account works in a team channel like a colleague, while code decides what it may read, checks every number it posts, and logs each tool call under its name.
+
+**Key terms**
+- **Agent identity**: the agent acts as itself, with its own account, profile, owner and audit trail, not under a person's account or a shared app. In Teams these are agentic users with Microsoft Entra accounts.
+- **Scopes checked at the tool call**: what the agent may read is the admin's setting, checked at every call, so a change applies even mid-answer.
+- **Thread as the memory boundary**: a follow-up carries its own thread's messages and nothing else.
+- **Proactive limits**: an agent that posts on its own does so only when allowed, at most a set number of times a day; code picks who to nudge.
+
+**Questions they could ask**
+- **Q:** Why give an agent its own identity?
+  **A:** So its actions are attributed to it, not to whoever asked, and an admin can grant, review and disable it like any other account. The audit log shows each tool call under its name.
+- **Q:** How do you stop it posting a wrong number?
+  **A:** Code does every sum through a tool, and a reply is sent back when a number in it is in no record it read and no sum code worked out. On the local model it once wrote "covers the gap exactly" for 16 of 18 batches with every number genuine, so a shortlist that leaves a gap must now say by how much.
+
+**What I built:** an invented procurement channel with a Sourcing Analyst agent, six tools, live plan and steps, a capacity widget backed by the same code as the agent's sums, and an admin centre with on and off, record scopes, posts of its own and the activity log. On Claude, GPT or the local model; nothing is ordered.
+
 ## Voice Agent (`/voice-agent`)
 **In one line:** a conversation-native voice agent built from readable parts: our own turn detection, speculative replies, clause-by-clause speech, barge-in and a latency timeline.
 

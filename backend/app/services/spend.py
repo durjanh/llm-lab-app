@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from typing import Any
 
 from ..core.telemetry import CallLog
@@ -18,6 +19,9 @@ class SpendTracker:
         self.spent_usd = 0.0
         self.calls = 0
         self._lock = threading.Lock()
+        # A model's own price when PRICES does not list it: the failover catalog's GPT or local entries. Failover can
+        # hand a call to one of them, and the reply is charged at the price of the model that answered.
+        self.price_of: Callable[[str], dict[str, float] | None] | None = None
 
     @property
     def over_budget(self) -> bool:
@@ -31,7 +35,12 @@ class SpendTracker:
         """Charges a reply. `price` is the caller's own price for a model that PRICES does not list."""
         # The model that answered, which differs from the one asked when a rate-limited request fell back.
         served = getattr(message, "model", None)
-        asked, model = model, served if isinstance(served, str) and served in PRICES else model
+        asked = model
+        if isinstance(served, str) and served != model:
+            if served in PRICES:
+                model = served
+            elif self.price_of and (own := self.price_of(served)):
+                model, price = served, own
         cost = cost_usd(message.usage, model, price)
         with self._lock:
             self.calls += 1

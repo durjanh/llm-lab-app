@@ -25,6 +25,7 @@ from .services.aftercare import AftercareService
 from .services.aftercare_phone import AftercarePhone
 from .services.code_graph import CodeGraphService
 from .services.deals import DealsService
+from .services.teammate import TeammateService
 from .services.diet import DietService
 from .services.hotel import HotelService
 from .services.brain import BrainCheckService
@@ -121,6 +122,7 @@ class Container:
     hotel: HotelService
     diet: DietService
     deals: DealsService
+    teammate: TeammateService
     code_graph: CodeGraphService
     whiteboard: WhiteboardService
     brain: BrainCheckService
@@ -182,6 +184,8 @@ class Container:
                              max_cooldown_s=settings.model_failover_max_cooldown_s,
                              short_retry_s=settings.model_failover_short_retry_s)
         claude = FailoverGateway(direct, router, enabled=settings.failover)
+        # A reply from a catalog model that PRICES does not list is charged at that model's own catalog price.
+        spend.price_of = lambda model: next((p.price for p in router.order() if p.model == model and p.price), None)
         streamer = RunStreamer(registry, settings.heartbeat_s)
         skills = SkillsService(claude, spend, streamer, MadeFiles())
         memory_stores = MemoryStores(settings.generated_dir / "memory-stores")  # shared: the page and the coding agent
@@ -285,6 +289,7 @@ class Container:
                 settings.hotel_email_sender, settings.hotel_email_to)),
             diet=DietService(claude, spend, settings.generated_dir / "diet-memory", streamer),
             deals=DealsService(claude, spend, settings.generated_dir / "deals", streamer),
+            teammate=TeammateService(claude, spend, settings.generated_dir / "digital-teammate", streamer),
             code_graph=CodeGraphService(claude, spend, settings.generated_dir / "code-graph"),
             whiteboard=WhiteboardService(claude, spend, imagegen),
             brain=BrainCheckService(claude, spend, settings.generated_dir / "brain-check"),
