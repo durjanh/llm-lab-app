@@ -1,0 +1,313 @@
+/* Scoped to .page-answer-power, so it cannot affect other pages. Colours come from the lab's theme tokens. */
+.page-answer-power .ap-controls {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0 14px;
+}
+.page-answer-power .ap-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.page-answer-power .ap-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  width: 56px;
+}
+.page-answer-power .ap-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface2);
+}
+.page-answer-power .ap-seg button {
+  font: inherit;
+  font-size: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink2);
+  padding: 7px 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.page-answer-power .ap-seg button + button {
+  border-left: 1px solid var(--line2);
+}
+.page-answer-power .ap-seg button:hover {
+  background: var(--soft);
+}
+.page-answer-power .ap-seg button.on,
+.page-answer-power .ap-seg button.on:hover {
+  background: var(--brand);
+  color: #fff;
+}
+.page-answer-power .ap-seg small {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* The question and the answer, as tokens. */
+.page-answer-power .ap-text {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.page-answer-power .ap-text > div {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  min-height: 92px;
+}
+.page-answer-power .ap-tag {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.page-answer-power .ap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: flex-end;
+}
+.page-answer-power .ap-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 6px;
+  padding: 3px 7px 2px;
+  line-height: 1.2;
+  border: 1px solid var(--line2);
+}
+.page-answer-power .ap-chip b {
+  font-weight: 500;
+  font-size: 14px;
+  white-space: pre;
+  color: var(--ink);
+}
+.page-answer-power .ap-chip i {
+  font-style: normal;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+}
+.page-answer-power .ap-chip.q {
+  background: color-mix(in srgb, var(--s1) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--s1) 45%, var(--surface));
+}
+.page-answer-power .ap-chip.q i {
+  color: var(--s1);
+}
+.page-answer-power .ap-chip.a {
+  background: color-mix(in srgb, var(--s3) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--s3) 45%, var(--surface));
+}
+.page-answer-power .ap-chip.a i {
+  color: var(--s3);
+}
+.page-answer-power .ap-chip.new {
+  animation: ap-pop 0.35s ease;
+}
+@keyframes ap-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+.page-answer-power .ap-caret {
+  width: 9px;
+  height: 22px;
+  background: var(--s3);
+  border-radius: 2px;
+  animation: ap-blink 1s steps(2) infinite;
+}
+@keyframes ap-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The animation and its meter. */
+.page-answer-power .ap-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: radial-gradient(110% 90% at 50% 50%, var(--brand-soft), transparent 62%), var(--surface);
+  overflow: hidden;
+}
+.page-answer-power .ap-stage {
+  min-width: 0;
+}
+.page-answer-power .ap-stage canvas {
+  display: block;
+  width: 100%;
+}
+.page-answer-power .ap-meter {
+  margin: 12px 12px 12px 0;
+  align-self: start;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+.page-answer-power .ap-step {
+  font-size: 14px;
+  color: var(--brand);
+}
+.page-answer-power .ap-meter dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.page-answer-power .ap-meter dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+.page-answer-power .ap-meter dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.page-answer-power .ap-meter p {
+  margin: 0;
+}
+.page-answer-power .ap-buttons {
+  display: flex;
+  gap: 6px;
+}
+.page-answer-power .ap-buttons .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.page-answer-power .ap-buttons select,
+.page-answer-power .ap-assume select {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 6px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.page-answer-power .ap-under {
+  margin: 8px 0 18px;
+}
+
+/* Sections below. */
+.page-answer-power .ap-three {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+.page-answer-power .ap-three > .card + .card {
+  margin-top: 0;
+}
+.page-answer-power .ap-three h3 {
+  margin-top: 0;
+}
+.page-answer-power .ap-assume {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--ink2);
+  margin-bottom: 12px;
+}
+.page-answer-power .ap-assume label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-answer-power .ap-assume input[type='range'] {
+  accent-color: var(--brand);
+}
+.page-answer-power .ap-scroll {
+  overflow-x: auto;
+}
+.page-answer-power .ap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.page-answer-power .ap-table th,
+.page-answer-power .ap-table td {
+  padding: 7px 6px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.page-answer-power .ap-table th {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.page-answer-power .ap-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.page-answer-power .ap-table tbody tr {
+  cursor: pointer;
+}
+.page-answer-power .ap-table tr.on td {
+  background: var(--brand-soft);
+}
+.page-answer-power .ap-bar {
+  display: inline-block;
+  width: 140px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.page-answer-power .ap-bar span {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+.page-answer-power .ap-take li {
+  margin: 6px 0;
+  max-width: 80ch;
+}
+
+@media (max-width: 640px) {
+  .page-answer-power .ap-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page-answer-power .ap-meter {
+    margin: 0 8px 8px;
+  }
+  .page-answer-power .ap-label {
+    width: auto;
+  }
+}
+
+.page-answer-power .ap-table tbody tr:focus-visible td {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.page-answer-power .ap-buttons[hidden] {
+  display: none;
+}

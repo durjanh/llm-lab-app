@@ -1,0 +1,295 @@
+/* Scoped to .page-context-window, so it cannot affect other pages. Colours come from the lab's theme tokens. */
+.page-context-window .cw-controls {
+  display: grid;
+  gap: 14px;
+  margin: 22px 0 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+.page-context-window .cw-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.page-context-window .cw-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  width: 86px;
+}
+.page-context-window .cw-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface2);
+}
+.page-context-window .cw-seg button {
+  font: inherit;
+  font-size: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink2);
+  padding: 7px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.page-context-window .cw-seg button + button {
+  border-left: 1px solid var(--line2);
+}
+.page-context-window .cw-seg button:hover:not(:disabled) {
+  background: var(--soft);
+}
+.page-context-window .cw-seg button.on,
+.page-context-window .cw-seg button.on:hover:not(:disabled) {
+  background: var(--brand);
+  color: #fff;
+}
+.page-context-window .cw-seg button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.page-context-window .cw-seg i,
+.page-context-window .cw-legend i,
+.page-context-window .cw-table i,
+.page-context-window h3 i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.page-context-window .cw-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink2);
+  cursor: pointer;
+}
+@media (min-height: 900px) and (min-width: 641px) {
+  .page-context-window .cw-controls {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+}
+
+/* The animation. */
+.page-context-window .cw-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: radial-gradient(110% 90% at 55% 45%, var(--brand-soft), transparent 62%), var(--surface);
+  overflow: hidden;
+}
+.page-context-window .cw-flow canvas {
+  display: block;
+  width: 100%;
+}
+.page-context-window .cw-stage {
+  min-width: 0;
+}
+.page-context-window .cw-meter {
+  margin: 12px 12px 12px 0;
+  align-self: start;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+.page-context-window .cw-meter-top {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+.page-context-window .cw-meter-top div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.page-context-window .cw-meter-top b {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.page-context-window .cw-pct {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.page-context-window .cw-fill {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+.page-context-window .cw-fill span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--s3), var(--s4) 70%, var(--bad));
+  border-radius: 999px;
+}
+.page-context-window .cw-meter p {
+  margin: 0;
+  min-height: 2.6em;
+  color: var(--ink2);
+}
+.page-context-window .cw-meter.full p {
+  color: var(--bad);
+  font-weight: 600;
+}
+.page-context-window .cw-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.page-context-window .cw-buttons .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.page-context-window .cw-buttons select {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.page-context-window .cw-legend {
+  margin: 8px 0 18px;
+  line-height: 1.9;
+}
+.page-context-window .cw-legend span {
+  white-space: nowrap;
+  margin-right: 12px;
+}
+.page-context-window .cw-legend i {
+  margin-right: 4px;
+}
+
+/* The chart and table. */
+.page-context-window .cw-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.page-context-window .cw-chart text {
+  font-size: 11px;
+  fill: var(--muted);
+}
+.page-context-window .cw-chart .grid {
+  stroke: var(--line);
+}
+.page-context-window .cw-chart .limit {
+  stroke: var(--bad);
+  stroke-dasharray: 4 4;
+}
+.page-context-window .cw-chart path {
+  fill: none;
+  stroke-width: 1.6;
+  opacity: 0.45;
+  transition:
+    opacity 0.3s,
+    stroke-width 0.3s;
+}
+.page-context-window .cw-chart g.on path {
+  stroke-width: 3;
+  opacity: 1;
+}
+.page-context-window .cw-chart .x {
+  font-weight: 700;
+  font-size: 12px;
+}
+.page-context-window .cw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 12px;
+}
+.page-context-window .cw-table th,
+.page-context-window .cw-table td {
+  padding: 6px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+.page-context-window .cw-table th {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.page-context-window .cw-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page-context-window .cw-table tr {
+  cursor: pointer;
+}
+.page-context-window .cw-table tr.on td {
+  background: var(--brand-soft);
+}
+.page-context-window .cw-bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.page-context-window .cw-three,
+.page-context-window .cw-two {
+  display: grid;
+  gap: 14px;
+}
+.page-context-window .cw-three {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+.page-context-window .cw-two {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+}
+.page-context-window .cw-three > .card + .card,
+.page-context-window .cw-two > .card + .card {
+  margin-top: 0;
+}
+.page-context-window .cw-three h3,
+.page-context-window .cw-two h3 {
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .page-context-window .cw-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .page-context-window .cw-meter {
+    margin: 0 8px 8px;
+  }
+  .page-context-window .cw-label {
+    width: auto;
+  }
+  .page-context-window .cw-table {
+    font-size: 12px;
+  }
+}
+
+/* On a phone the table scrolls inside its box, not the page. */
+.page-context-window .cw-scroll {
+  overflow-x: auto;
+}
+
+.page-context-window .cw-legend .cw-note {
+  white-space: normal;
+}
