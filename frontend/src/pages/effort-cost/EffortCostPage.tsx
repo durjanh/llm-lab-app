@@ -8,15 +8,14 @@ import {
   MODELS,
   TASKS,
   bill,
-  n0,
   tokensOf,
   turnsFor,
   usd,
   type Effort,
   type ModelId,
-  type Price,
   type Task,
 } from './workload';
+import { type Price, n0 } from '@/lib/format';
 import * as S from './snippets';
 import './effort-cost.css';
 

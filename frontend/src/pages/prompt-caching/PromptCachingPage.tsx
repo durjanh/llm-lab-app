@@ -5,17 +5,16 @@ import { statusService } from '@/services';
 import {
   type Block,
   type Event,
-  type Price,
   type Request,
   type Rules,
   AZURE_MIN,
   AZURE_STEP,
   TTL_MINUTES,
   TURNS,
-  n0,
   simulate,
   usd,
 } from './cachesim';
+import { type Price, n0 } from '@/lib/format';
 import * as S from './snippets';
 import './prompt-caching.css';
 

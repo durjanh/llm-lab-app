@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { STILL_TIME, createStage } from '@/lib/canvasStage';
 import { type Block, type Kind, type Run, type Strategy, k, usd } from './contextsim';
 
 export interface WindowFlowProps {
@@ -56,36 +57,34 @@ export function WindowFlow(props: WindowFlowProps) {
   restartRef.current = restartTick;
 
   useEffect(() => {
-    const cv = canvas.current!;
     const box = wrap.current!;
-    const ctx = cv.getContext('2d')!;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let W = 0;
     let H = 0;
-    let frame = 0;
-    let visible = true;
-    let redraw = () => {};
-    const fit = () => {
-      const r = box.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = Math.max(300, r.width);
-      H = W < 600 ? 380 : 420;
-      cv.width = Math.round(W * dpr);
-      cv.height = Math.round(H * dpr);
-      cv.style.height = `${H}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      redraw();
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(box);
-    const io = new IntersectionObserver((e) => (visible = e[0]?.isIntersecting ?? true));
-    io.observe(box);
+    const stage = createStage({
+      canvas: canvas.current!,
+      box,
+      minWidth: 300,
+      heightFor: (w) => (w < 600 ? 380 : 420),
+      onSize: (w, h) => {
+        W = w;
+        H = h;
+      },
+      paused: () => pausedRef.current,
+      before: () => {
+        if (live.current.runKey !== key || restartRef.current !== restartSeen) restart();
+      },
+      step: advance,
+      still: (t) => {
+        draw(t);
+        writeMeter(stage.reduce || isDone());
+      },
+    });
+    const ctx = stage.ctx;
+    const reduce = stage.reduce;
 
     let colors = {} as Record<string, string>;
     const readColors = () => {
-      const cs = getComputedStyle(box);
-      const v = (n: string) => cs.getPropertyValue(n).trim() || '#888';
+      const v = stage.css;
       colors = Object.fromEntries(Object.entries(COLOR_VARS).map(([key, name]) => [key, v(name)]));
       Object.assign(colors, {
         ink: v('--ink'),
@@ -118,7 +117,6 @@ export function WindowFlow(props: WindowFlowProps) {
 
     // The state of the animation.
     let key = '';
-    let start = 0;
     let turnIndex = -1;
     let heights = new Map<number, number>(); // block id -> current token height, eased towards the target
     let blocks: Block[] = [];
@@ -127,8 +125,6 @@ export function WindowFlow(props: WindowFlowProps) {
     let sent = 0;
     let flash = 0;
     let lastEvent = '';
-    let pausedAt = 0;
-    let drawn = false;
     let restartSeen = restartRef.current;
     let speedSeen = speedRef.current;
 
@@ -136,7 +132,7 @@ export function WindowFlow(props: WindowFlowProps) {
       const p = live.current;
       key = p.runKey;
       restartSeen = restartRef.current;
-      start = performance.now();
+      stage.restartClock();
       turnIndex = -1;
       heights = new Map();
       blocks = [];
@@ -145,8 +141,6 @@ export function WindowFlow(props: WindowFlowProps) {
       sent = 0;
       flash = 0;
       lastEvent = '';
-      pausedAt = 0;
-      drawn = false;
       const first = p.run.steps[0];
       if (first) {
         blocks = first.blocks.filter((b) => b.kind === 'prefix');
@@ -291,9 +285,8 @@ export function WindowFlow(props: WindowFlowProps) {
       el.classList.toggle('done', done);
     };
 
-    const draw = (now: number) => {
+    const draw = (t: number) => {
       const p = live.current;
-      const t = (now - start) / 1000;
       const G = g();
       ctx.clearRect(0, 0, W, H);
       const node = (at: [number, number], label: string, sub: string, w = 96) => {
@@ -435,72 +428,49 @@ export function WindowFlow(props: WindowFlowProps) {
       blocks = blocks.filter((b) => target.has(b.id) || (heights.get(b.id) ?? 0) > 1);
     };
 
-    redraw = () => {
-      if (reduce || pausedRef.current || !visible) draw(pausedAt || performance.now());
-    };
-
+    const isDone = () => turnIndex >= live.current.run.steps.length - 1;
     restart();
-    let last = performance.now();
-    const tick = (now: number) => {
-      frame = requestAnimationFrame(tick);
+    /** One running frame: begin the turns now due, ease the layers, draw, and play again when finished. */
+    function advance(clock: number, frameDt: number, now: number) {
       const p = live.current;
-      if (p.runKey !== key || restartRef.current !== restartSeen) restart();
-      if (pausedRef.current || !visible) {
-        if (!pausedAt) pausedAt = now;
-        if (!drawn) {
-          draw(now);
-          writeMeter(false);
-          drawn = true;
-        }
-        last = now;
-        return;
-      }
-      drawn = true;
-      if (pausedAt) {
-        start += now - pausedAt;
-        pausedAt = 0;
-      } else if (now - last > 500) {
-        start += now - last; // the tab was hidden: carry on where it stopped instead of rushing through turns
-      }
+      let t = clock;
       if (speedRef.current !== speedSeen) {
         // A new speed: keep the current turn and carry on from it at the new pace.
         speedSeen = speedRef.current;
-        const before = (now - start) / 1000;
-        start = now - (turnIndex + 1) * SPEEDS[speedSeen] * 1000;
-        const shift = (now - start) / 1000 - before;
+        const to = (turnIndex + 1) * SPEEDS[speedSeen];
+        const shift = to - t;
+        stage.setClock(now, to);
+        t = to;
         for (const d of dots) d.born += shift;
         if (flash) flash += shift;
       }
-      const t = (now - start) / 1000;
       const dt = SPEEDS[speedRef.current];
       const due = Math.floor(t / dt) - 1;
       while (turnIndex < Math.min(due, p.run.steps.length - 1)) {
         turnIndex++;
         beginTurn(turnIndex, t);
       }
-      advanceHeights((now - last) / 1000);
-      last = now;
+      advanceHeights(frameDt);
       dots = dots.filter((d) => t - d.born < d.dur);
-      draw(now);
-      const done = turnIndex >= p.run.steps.length - 1;
+      draw(t);
+      const done = isDone();
       writeMeter(done);
       if (done && dots.length === 0 && t > (p.run.steps.length + 1) * dt + 3.5) restart(); // play it again
-    };
+    }
 
     if (reduce) {
       // No motion: show where the run ends.
-      const p = live.current;
       const showEnd = () => {
         restart();
         for (let i = 0; i < live.current.run.steps.length; i++) {
           turnIndex = i;
-          beginTurn(i, 0);
+          beginTurn(i, STILL_TIME);
         }
         dots = [];
         const end = live.current.run.steps[live.current.run.steps.length - 1];
         blocks = end ? end.blocks : [];
         for (const b of blocks) heights.set(b.id, b.tokens);
-        draw(performance.now());
+        draw(STILL_TIME);
         writeMeter(true);
       };
       showEnd();
@@ -508,19 +478,13 @@ export function WindowFlow(props: WindowFlowProps) {
         () => (live.current.runKey !== key || restartRef.current !== restartSeen) && showEnd(),
         300,
       );
-      void p;
       return () => {
         window.clearInterval(id);
-        ro.disconnect();
-        io.disconnect();
+        stage.stop();
       };
     }
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      ro.disconnect();
-      io.disconnect();
-    };
+    stage.start();
+    return stage.stop;
     // The loop reads the latest props through refs; it starts once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

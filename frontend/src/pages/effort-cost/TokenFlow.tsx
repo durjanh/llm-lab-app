@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Price, type Turn, n0, usd } from './workload';
+import { STILL_TIME, createStage } from '@/lib/canvasStage';
+import { type Price, n0 } from '@/lib/format';
+import { type Turn, usd } from './workload';
 
 /** One dot stands for this many tokens, whatever its kind, so the dots compare honestly. */
 const PER_DOT = 100;
@@ -151,31 +153,30 @@ export function TokenFlow(props: FlowProps) {
   pausedRef.current = paused;
 
   useEffect(() => {
-    const cv = canvas.current!;
     const box = wrap.current!;
-    const ctx = cv.getContext('2d')!;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let W = 0;
     let H = 0;
-    let frame = 0;
-    let visible = true;
-    const fit = () => {
-      const r = box.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = Math.max(280, r.width);
-      H = W < 560 ? 300 : 340;
-      cv.width = Math.round(W * dpr);
-      cv.height = Math.round(H * dpr);
-      cv.style.height = `${H}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      redraw();
-    };
-    let redraw = () => {};
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(box);
-    const io = new IntersectionObserver((e) => (visible = e[0]?.isIntersecting ?? true));
-    io.observe(box);
+    const stage = createStage({
+      canvas: canvas.current!,
+      box,
+      minWidth: 280,
+      heightFor: (w) => (w < 560 ? 300 : 340),
+      onSize: (w, h) => {
+        W = w;
+        H = h;
+      },
+      paused: () => pausedRef.current,
+      before: () => {
+        if (live.current.runKey !== key) restart();
+      },
+      step: (tSec) => advance(tSec),
+      still: (t) => {
+        draw(t);
+        writeMeter(reduce || isDone()); // reduced motion always shows the finished run
+      },
+    });
+    const ctx = stage.ctx;
+    const reduce = stage.reduce;
 
     const SPOTS: Record<Node, [number, number]> = {
       req: [0.11, 0.58],
@@ -188,8 +189,7 @@ export function TokenFlow(props: FlowProps) {
     let colors: Record<Kind, string> & { ink: string; muted: string; line: string; surface: string; soft: string } =
       {} as never;
     const readColors = () => {
-      const cs = getComputedStyle(box);
-      const v = (name: string) => cs.getPropertyValue(name).trim() || '#888';
+      const v = stage.css;
       colors = {
         input: v(COLOR_VARS.input),
         cached: v(COLOR_VARS.cached),
@@ -207,23 +207,19 @@ export function TokenFlow(props: FlowProps) {
 
     let run = schedule(props.turns, props.price, props.caching, props.writeMultiplier);
     let key = props.runKey;
-    let start = performance.now();
     let next = 0;
     let dots: Dot[] = [];
     let spent = 0;
     const counts: Record<Kind, number> = { input: 0, cached: 0, thinking: 0, call: 0, result: 0, answer: 0 };
     let context = live.current.turns[0]?.input ?? 0;
     let turn = 0;
-    let pausedAt = 0;
-    let drawn = false;
+    const isDone = () => next >= run.list.length && dots.length === 0;
 
     const restart = () => {
-      drawn = false;
-      pausedAt = 0; // the paused branch notes the time again on the next frame
+      stage.restartClock();
       const p = live.current;
       run = schedule(p.turns, p.price, p.caching, p.writeMultiplier);
       key = p.runKey;
-      start = performance.now();
       next = 0;
       dots = [];
       spent = 0;
@@ -283,9 +279,8 @@ export function TokenFlow(props: FlowProps) {
       ctx.restore();
     };
 
-    const draw = (now: number) => {
+    const draw = (tSec: number) => {
       const p = live.current;
-      const tSec = (now - start) / 1000;
       ctx.clearRect(0, 0, W, H);
       const [cx, cy] = pos('core');
       const R = 30 + 26 * p.modelSize;
@@ -412,25 +407,7 @@ export function TokenFlow(props: FlowProps) {
       ctx.restore();
     };
 
-    const tick = (now: number) => {
-      frame = requestAnimationFrame(tick);
-      const p = live.current;
-      if (p.runKey !== key) restart();
-      if (pausedRef.current || !visible) {
-        if (!pausedAt) pausedAt = now;
-        if (!drawn) {
-          draw(now); // a still picture until it scrolls into view
-          writeMeter(false);
-          drawn = true;
-        }
-        return;
-      }
-      drawn = true;
-      if (pausedAt) {
-        start += now - pausedAt; // resume where it stopped
-        pausedAt = 0;
-      }
-      const tSec = (now - start) / 1000;
+    const advance = (tSec: number) => {
       while (next < run.list.length && run.list[next].t <= tSec) {
         const e = run.list[next++];
         const dot: Dot = {
@@ -460,15 +437,12 @@ export function TokenFlow(props: FlowProps) {
         }
       }
       dots = dots.filter((d) => tSec - d.born < (d.life ?? d.dur) + 0.05);
-      draw(now);
-      const done = next >= run.list.length && dots.length === 0;
+      draw(tSec);
+      const done = isDone();
       writeMeter(done);
       if (done && tSec > run.length + 2.2) restart(); // play it again
     };
 
-    redraw = () => {
-      if (reduce || pausedRef.current || !visible) draw(pausedAt || performance.now());
-    };
     if (reduce) {
       // No motion: bill the whole run at once and draw it still.
       for (const e of run.list) {
@@ -477,7 +451,7 @@ export function TokenFlow(props: FlowProps) {
         if (e.kind === 'call' || e.kind === 'result') context += e.tokens;
       }
       turn = props.turns.length - 1;
-      draw(performance.now());
+      draw(STILL_TIME);
       writeMeter(true);
       const again = () => {
         restart();
@@ -487,22 +461,17 @@ export function TokenFlow(props: FlowProps) {
           if (e.kind === 'call' || e.kind === 'result') context += e.tokens;
         }
         turn = live.current.turns.length - 1;
-        draw(performance.now());
+        draw(STILL_TIME);
         writeMeter(true);
       };
       const id = window.setInterval(() => live.current.runKey !== key && again(), 300);
       return () => {
         window.clearInterval(id);
-        ro.disconnect();
-        io.disconnect();
+        stage.stop();
       };
     }
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      ro.disconnect();
-      io.disconnect();
-    };
+    stage.start();
+    return stage.stop;
     // The loop reads the latest props through `live`; it starts once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
