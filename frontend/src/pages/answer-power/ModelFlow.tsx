@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { STILL_TIME, createStage } from '@/lib/canvasStage';
 import {
   type Assumptions,
   type ModelSpec,
@@ -55,36 +56,34 @@ export function ModelFlow(props: ModelFlowProps) {
   speedRef.current = speed;
 
   useEffect(() => {
-    const cv = canvas.current!;
     const box = wrap.current!;
-    const ctx = cv.getContext('2d')!;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let W = 0;
     let H = 0;
-    let frame = 0;
-    let visible = true;
-    let redraw = () => {};
-    const fit = () => {
-      const r = box.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      W = Math.max(300, r.width);
-      H = W < 600 ? 330 : 380;
-      cv.width = Math.round(W * dpr);
-      cv.height = Math.round(H * dpr);
-      cv.style.height = `${H}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      redraw();
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(box);
-    const io = new IntersectionObserver((e) => (visible = e[0]?.isIntersecting ?? true));
-    io.observe(box);
+    const stage = createStage({
+      canvas: canvas.current!,
+      box,
+      minWidth: 300,
+      heightFor: (w) => (w < 600 ? 330 : 380),
+      onSize: (w, h) => {
+        W = w;
+        H = h;
+      },
+      paused: () => pausedRef.current,
+      before: () => {
+        if (live.current.runKey !== key) restart();
+      },
+      step: advance,
+      still: (t) => {
+        draw(t);
+        writeMeter();
+      },
+    });
+    const ctx = stage.ctx;
+    const reduce = stage.reduce;
 
     let c = {} as Record<string, string>;
     const readColors = () => {
-      const cs = getComputedStyle(box);
-      const v = (n: string) => cs.getPropertyValue(n).trim() || '#888';
+      const v = stage.css;
       c = {
         ink: v('--ink'),
         muted: v('--muted'),
@@ -103,10 +102,6 @@ export function ModelFlow(props: ModelFlowProps) {
 
     // Phases: 0 reading the question (all at once), then one pass per answer token.
     let key = '';
-    let start = 0;
-    let pausedAt = 0;
-    let last = performance.now();
-    let drawn = false;
     let phase = -1; // -1 before the question; 0 reading it; n = writing answer token n
     let phaseStart = 0;
     let ops = 0;
@@ -116,9 +111,7 @@ export function ModelFlow(props: ModelFlowProps) {
 
     const restart = () => {
       key = live.current.runKey;
-      start = performance.now();
-      pausedAt = 0;
-      drawn = false;
+      stage.restartClock();
       phase = -1;
       phaseStart = 0;
       ops = 0;
@@ -165,11 +158,10 @@ export function ModelFlow(props: ModelFlowProps) {
       ctx.restore();
     };
 
-    const draw = (now: number) => {
+    const draw = (t: number) => {
       const p = live.current;
       const m = p.model;
       const L = layout();
-      const t = (now - start) / 1000;
       const pass = passSeconds(m) * SPEEDS[speedRef.current];
       const local = phase >= 0 ? (t - phaseStart) / (phase === 0 ? pass * 1.4 : pass) : 0;
       ctx.clearRect(0, 0, W, H);
@@ -346,29 +338,10 @@ export function ModelFlow(props: ModelFlowProps) {
       el.classList.toggle('done', done);
     };
 
-    const tick = (now: number) => {
-      frame = requestAnimationFrame(tick);
+    /** One running frame: finish a pass if its time is up, then draw; play again after a pause on the answer. */
+    function advance(clock: number) {
       const p = live.current;
-      if (p.runKey !== key) restart();
-      if (pausedRef.current || !visible) {
-        if (!pausedAt) pausedAt = now;
-        if (!drawn) {
-          draw(now);
-          writeMeter();
-          drawn = true;
-        }
-        last = now;
-        return;
-      }
-      drawn = true;
-      if (pausedAt) {
-        start += now - pausedAt;
-        pausedAt = 0;
-      } else if (now - last > 500) {
-        start += now - last;
-      }
-      last = now;
-      let t = (now - start) / 1000;
+      let t = clock;
       if (speedRef.current !== speedSeen && (done || phase < 0)) {
         speedSeen = speedRef.current; // nothing is in progress to rescale
       } else if (speedRef.current !== speedSeen) {
@@ -404,15 +377,13 @@ export function ModelFlow(props: ModelFlowProps) {
           phaseStart = t;
         }
       }
-      if (done && t - phaseStart > 3) restart(); // play it again
-      t = (now - start) / 1000;
-      draw(now);
+      if (done && t - phaseStart > 3) {
+        restart(); // play it again, drawing from the start of the new clock
+        t = 0;
+      }
+      draw(t);
       writeMeter();
-    };
-
-    redraw = () => {
-      if (reduce || pausedRef.current || !visible) draw(pausedAt || performance.now());
-    };
+    }
 
     const showEnd = () => {
       restart();
@@ -425,7 +396,7 @@ export function ModelFlow(props: ModelFlowProps) {
       phaseStart = -10;
       done = true;
       p.onToken(p.answer.length);
-      draw(performance.now());
+      draw(STILL_TIME);
       writeMeter();
     };
     if (reduce) {
@@ -433,17 +404,12 @@ export function ModelFlow(props: ModelFlowProps) {
       const id = window.setInterval(() => live.current.runKey !== key && showEnd(), 300);
       return () => {
         window.clearInterval(id);
-        ro.disconnect();
-        io.disconnect();
+        stage.stop();
       };
     }
     restart();
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      ro.disconnect();
-      io.disconnect();
-    };
+    stage.start();
+    return stage.stop;
     // The loop reads the latest props through refs; it starts once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

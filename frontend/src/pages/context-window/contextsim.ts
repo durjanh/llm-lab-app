@@ -6,6 +6,7 @@
  * once; a sub-agent keeps its reading out of the main window but still pays for it. Prices come from the backend's
  * status (python/common.py).
  */
+import type { Price } from '@/lib/format';
 
 export type Kind = 'prefix' | 'message' | 'result' | 'cleared' | 'summary';
 export type Strategy = 'keep' | 'clear' | 'compact' | 'subagent';
@@ -16,12 +17,6 @@ export interface Block {
   kind: Kind;
   tokens: number;
   label: string;
-}
-
-export interface Price {
-  input: number;
-  output: number;
-  cache_read: number;
 }
 
 export interface Scenario {
@@ -270,7 +265,6 @@ export function simulate(
 }
 
 export const k = (x: number) => (x >= 1e6 ? `${(x / 1e6).toFixed(x % 1e6 ? 2 : 0)}M` : `${Math.round(x / 1000)}K`);
-export const n0 = (x: number) => Math.round(x).toLocaleString('en-GB');
 export function usd(x: number): string {
   if (x === 0) return '$0';
   if (x < 0.01) return `$${x.toFixed(4)}`;

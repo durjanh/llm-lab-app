@@ -9,14 +9,13 @@ import {
   SCENARIOS,
   STRATEGIES,
   k,
-  n0,
   simulate,
   usd,
-  type Price,
   type Run,
   type ScenarioId,
   type Strategy,
 } from './contextsim';
+import { type Price, n0 } from '@/lib/format';
 import * as S from './snippets';
 import './context-window.css';
 

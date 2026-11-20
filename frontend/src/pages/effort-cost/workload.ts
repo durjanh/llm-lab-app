@@ -5,6 +5,7 @@
  * and, for an agent, more turns. Prices are not here; they come from the backend's status (python/common.py), so
  * there is one price list for the whole lab.
  */
+import type { Price } from '@/lib/format';
 
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type Effort = (typeof EFFORTS)[number];
@@ -15,12 +16,6 @@ export const MODELS = [
   { id: 'claude-opus-5-5', name: 'Opus 5.5', short: 'Opus', size: 1, defaultEffort: 'medium' as Effort },
 ] as const;
 export type ModelId = (typeof MODELS)[number]['id'];
-
-export interface Price {
-  input: number;
-  output: number;
-  cache_read: number;
-}
 
 export interface Task {
   id: 'simple' | 'agent';
@@ -152,5 +147,3 @@ export function usd(x: number): string {
   if (x < 100) return `$${x.toFixed(2)}`;
   return `$${Math.round(x).toLocaleString('en-GB')}`;
 }
-
-export const n0 = (x: number) => Math.round(x).toLocaleString('en-GB');

@@ -6,6 +6,7 @@
  * renews the entry's five minutes; the rest is written to the cache at 1.25x the input price; output is never cached.
  * The token counts are an illustrative conversation. Prices come from the backend's status (python/common.py).
  */
+import type { Price } from '@/lib/format';
 
 export type Kind = 'tools' | 'system' | 'user' | 'reply' | 'document';
 
@@ -14,12 +15,6 @@ export interface Block {
   kind: Kind;
   label: string;
   tokens: number;
-}
-
-export interface Price {
-  input: number;
-  output: number;
-  cache_read: number;
 }
 
 /** The conversation's turns: what the person sends, and how long the reply is. */
@@ -73,7 +68,6 @@ export interface Request {
 
 const sum = (b: Block[]) => b.reduce((s, x) => s + x.tokens, 0);
 
-/** Plays the conversation through, request by request. */
 /**
  * Whose rules: Anthropic's (Claude, also on Microsoft Foundry), or Azure OpenAI's for GPT models before GPT-5.6:
  * always on, only from 1,024 tokens, matched in 128-token steps after that, and nothing extra to write.
@@ -86,6 +80,7 @@ export const AZURE_STEP = 128;
 export const azureCached = (matched: number) =>
   matched < AZURE_MIN ? 0 : AZURE_MIN + Math.floor((matched - AZURE_MIN) / AZURE_STEP) * AZURE_STEP;
 
+/** Plays the conversation through, request by request. */
 export function simulate(
   caching: boolean,
   events: Record<number, Event>,
@@ -157,7 +152,6 @@ export function simulate(
   return out;
 }
 
-export const n0 = (x: number) => Math.round(x).toLocaleString('en-GB');
 export function usd(x: number): string {
   if (x === 0) return '$0';
   if (x < 0.01) return `$${x.toFixed(4)}`;

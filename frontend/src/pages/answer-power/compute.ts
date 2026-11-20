@@ -97,21 +97,11 @@ export const opsPerToken = (m: ModelSpec) => 2 * m.active;
  * is shared by everyone in the batch; the arithmetic is not. Whichever takes longer sets the time, and the GPUs draw
  * their power for that long. The number of GPUs cancels out: more GPUs share the work and the power alike.
  */
-export function joulesPerToken(
-  m: ModelSpec,
-  a: Assumptions,
-): { joules: number; memoryBound: boolean; seconds: number } {
-  const compute = (2 * m.active) / (GPU.flops * a.utilisation);
+export function joulesPerToken(m: ModelSpec, a: Assumptions): { joules: number; memoryBound: boolean } {
+  const compute = opsPerToken(m) / (GPU.flops * a.utilisation);
   // For a mixture of experts this reads only the active experts: a best case, since a batch's tokens use more of them.
   const memory = (m.active * BYTES_PER_PARAM) / (GPU.bandwidth * a.batch);
-  const perToken = Math.max(compute, memory);
-  const g = gpusFor(m);
-  // Time per step for the batch, on g GPUs working together.
-  const seconds = Math.max(
-    (2 * m.active * a.batch) / (g * GPU.flops * a.utilisation),
-    (m.active * BYTES_PER_PARAM) / (g * GPU.bandwidth),
-  );
-  return { joules: GPU.watts * perToken, memoryBound: memory > compute, seconds };
+  return { joules: GPU.watts * Math.max(compute, memory), memoryBound: memory > compute };
 }
 
 /** Energy (joules) to read the prompt: all its tokens go through at once, so the arithmetic sets the pace. */
