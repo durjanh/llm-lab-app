@@ -509,6 +509,70 @@
 
 **What I built:** `tools/vector-db.sh` (pgvector in Docker on `127.0.0.1:5433`), chunking under headings, the local embedding model, three search modes with their plans, and cited answers whose citations code checks.
 
+## MLOps (`/mlops`)
+**In one line:** the life cycle that turns a notebook model into a repeatable, safely released and monitored service: tracking, registry, feature store, release strategies, drift and retraining.
+
+**Key terms**
+- **Experiment tracking**: every run's parameters, metrics, code commit, data version and model file, recorded by a server such as MLflow.
+- **Model registry**: numbered model versions with lineage, and aliases (`champion`, `challenger`) that deployments load.
+- **Feature store**: features computed once, kept offline for training and online for low-latency scoring.
+- **Point-in-time join**: each training row gets feature values as they were at its label time, never later ones.
+- **Training/serving skew**: the same feature computed differently in training and in production.
+- **Shadow, canary, blue-green, A/B**: ways to release a new version without exposing every user at once.
+- **PSI and KS**: measures of how far a feature's distribution has moved since training.
+
+**Questions they could ask**
+- **Q:** How do you choose which run to promote?
+  **A:** By validation score, only among runs on the same data version, with a time-based split when the model predicts the future. The test set is read once, after choosing, as the number to report. Choosing by test score turns it into a second validation set, and the reported number is optimistic. The page's runs table warns on exactly these cases.
+- **Q:** Why load a model by alias rather than by version?
+  **A:** The scoring code then never changes. Promotion moves `champion` to the new version after it passes the gate; rollback moves it back. Both are one registry change with full history, not a redeploy.
+- **Q:** What is a point-in-time join and why does it matter?
+  **A:** Each label is joined to the latest feature value on or before its label time. Joining the newest value leaks the outcome: churned customers have no logins after leaving, so the model learns "zero logins means gone". On the page that scores 99.7% offline and 70.8% in production. In pandas it is `merge_asof` with `direction="backward"`; feature stores do it for you.
+- **Q:** What does a feature store actually solve?
+  **A:** Two failures. Leakage, through point-in-time joins for training sets. Training/serving skew, through one feature definition used by both the offline store and the online lookup. It also lets teams reuse features instead of rebuilding them.
+- **Q:** Canary or blue-green?
+  **A:** A canary exposes a small, growing share and rolls back automatically on a threshold, so a bad version hurts few users. Blue-green switches everything at once and rolls back as quickly, but every user is exposed until then. Shadow is the safest first step (no user impact, double the cost); A/B is for measuring a business outcome, with guard metrics still able to stop it.
+- **Q:** When should a model be retrained?
+  **A:** On a measured performance drop when fresh labels exist, or on a schedule if that is cheaper to run than the monitoring. Drift alone is a reason to investigate: the cause may be a broken feed, and retraining on it bakes the fault in. Every retrained version goes back through the same evaluation and promotion gate.
+- **Q:** How do you monitor a model whose labels arrive weeks later?
+  **A:** Input drift (PSI, KS) and prediction drift as early warnings, service health as for any endpoint, and real performance once labels land. Under 0.1 PSI is usually stable, 0.1 to 0.25 worth watching, 0.25 and over a real shift.
+- **Q:** What are the MLOps maturity levels?
+  **A:** Level 0 is manual (notebooks, hand-off, rare releases). Level 1 automates the training pipeline with a feature store, registry and gate. Level 2 puts the pipeline itself under CI/CD, with monitoring triggering retraining and canary releases. Not every model needs level 2; the question is what to build next.
+
+**What I built:** a page that walks an invented churn model through the eight stages, with a runs table and promotion warnings, a registry gate with aliases and rollback, a point-in-time join demo, a release simulator for four strategies, a drift slider with PSI and KS and a retraining decision, maturity levels, and a cross-platform tools table. `examples/mlops/` runs the same steps with MLflow on this machine.
+
+## Data Platforms and Integration for AI (`/data-integration`)
+**In one line:** the data and integration plumbing under an AI system: a lakehouse feeding training and retrieval, the right stores, a shared AI gateway, event streams that keep an index current, and the patterns that stop work being lost or done twice.
+
+**Key terms**
+- **Medallion layers**: bronze holds data as landed, silver holds it cleaned and unique, gold holds it shaped for a use (reports, features, text to embed).
+- **Open table format**: Delta Lake or Apache Iceberg; Parquet files plus a log that gives ACID writes, schema enforcement and time travel.
+- **AI gateway**: one place between apps and model endpoints for token limits per app, semantic caching, backend pools with spillover, circuit breakers and token metrics for chargeback.
+- **Partition key**: decides which partition an event lands in; order is kept only within a partition.
+- **At-least-once delivery**: after a crash, events since the last checkpoint arrive again, so every consumer must be idempotent.
+- **Transactional outbox**: the change and its event written in one transaction, so neither is lost without the other.
+- **Change data capture (CDC)**: turning a database's own change log into events, to keep indexes and the lakehouse in step.
+
+**Questions they could ask**
+- **Q:** Why keep a bronze layer at all, if silver is what everyone uses?
+  **A:** So you can reprocess. When a rule was wrong, a new field matters, or a new embedding model arrives, you rebuild silver and gold from bronze instead of asking the source systems for history they may no longer have. Bronze is append-only and as landed; the rules live between bronze and silver, with rejected rows quarantined with a reason rather than dropped.
+- **Q:** How do you make a model's training data reproducible?
+  **A:** Train from a table in an open format and record its version with the run, for example the Delta version number in MLflow. Time travel then rebuilds exactly that data for a retrain, a fair comparison between two models or an audit. The same goes for a vector index: record which table version and embedding model built it.
+- **Q:** pgvector or a dedicated vector database?
+  **A:** Up to a few million vectors with relational data already in PostgreSQL, pgvector: one system, filtering with ordinary WHERE clauses and joins, and the embedding written in the same transaction as the row. At tens of millions or more, or when search load must scale apart from the app's database, a dedicated index beside the source of truth, kept in step by CDC or an outbox. If you also need keyword search, a search engine with hybrid search does both in one query.
+- **Q:** Several teams share our model deployments. How do you stop one starving the rest?
+  **A:** Put an AI gateway in front. Give each app a tokens-per-minute limit keyed on its subscription, send traffic to provisioned capacity first and spill over to pay-as-you-go, add a circuit breaker per backend, and emit token metrics per app so each team pays for what it used. In API Management these are the llm-token-limit and llm-emit-token-metric policies plus a backend pool; the simulation shows a batch job taking everyone's capacity until its limit is set.
+- **Q:** How do you keep a RAG index current when documents change?
+  **A:** Publish each change as an event, partitioned by document id so one document's changes stay in order, and have a consumer re-embed only that document. Because delivery is at least once, the consumer upserts by document id and remembers applied event ids, so a redelivery after a crash adds no duplicate chunks. A corrupt file goes to a dead-letter queue after a few attempts instead of blocking its partition. Retention also lets a new consumer group replay from the start to rebuild the index with a new embedding model.
+- **Q:** What goes wrong if you write to the database and then publish an event?
+  **A:** The dual-write problem: the process can die between the two, so the row is saved but the index never hears, or the event goes out for a change that then rolled back. The transactional outbox writes the event to an outbox table in the same transaction, and a relay or CDC publishes it, giving at-least-once publishing with no lost changes.
+- **Q:** A user asks an agent for a report that takes five minutes. How do you expose that over HTTP?
+  **A:** Async request-reply: accept with 202, a job id and a status URL, put the job on a queue and return at once. Workers take messages with a lock and complete them when done; if a worker dies the lock expires and another retries, and after the maximum deliveries the message is dead-lettered. The client polls the status URL or gets a webhook. Nothing holds a connection open for minutes.
+- **Q:** Queue or stream?
+  **A:** A queue hands each message to one worker and deletes it when done: right for jobs. A stream is an ordered, retained log that many consumer groups read at their own pace and can replay: right for change events several systems react to, like re-indexing, auditing and loading the lakehouse.
+
+**What I built:** a browser-only page on invented data with four working demos: a medallion pipeline with quality rules you switch on and the downstream damage of each missing one; a store chooser by access pattern; an AI gateway simulation with per-app limits, caching, spillover, a circuit breaker and chargeback; and an event stream into a vector index where you crash the consumer and add a partition key, an idempotent consumer and a dead-letter queue. It closes with the matching API Management policies, async request-reply, the outbox and a table of integration patterns.
+
 ## GraphRAG (`/graphrag`)
 **In one line:** a knowledge graph built from documents by a model, stored beside the chunks in PostgreSQL, and one question answered three ways: plain RAG, local graph search and global search.
 

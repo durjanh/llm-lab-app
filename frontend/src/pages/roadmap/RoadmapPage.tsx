@@ -166,6 +166,8 @@ const LEVELS: Level[] = [
             ],
           },
           { name: 'Observability', pages: [['/observability', 'Monitoring and traces']] },
+          { name: 'CI/CD, containers and A/B tests', pages: [['/llmops', 'LLMOps and CI/CD']] },
+          { name: 'Data platforms and integration', pages: [['/data-integration', 'Data and integration']] },
           {
             name: 'Guardrails and access control',
             pages: [
@@ -242,6 +244,14 @@ const LEVELS: Level[] = [
           },
           { name: 'DPO and RLHF', pages: [['/preference-tuning', 'Preference tuning']] },
           { name: 'Model routing', pages: [['/routing', 'Routing']] },
+          { name: 'MLOps', pages: [['/mlops', 'MLOps']], note: 'tracking, registry, feature store, drift' },
+          {
+            name: 'Cloud architecture',
+            pages: [
+              ['/multicloud', 'Three clouds'],
+              ['/delivery', 'Delivery'],
+            ],
+          },
           {
             name: 'vLLM and inference serving',
             pages: [

@@ -1,0 +1,285 @@
+/* MLOps: a reading page with five simulations. Colours come from the shared variables, so both themes work. */
+
+.page-mlops .ml-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.page-mlops .ml-section {
+  scroll-margin-top: 70px;
+}
+.page-mlops .ml-flush {
+  margin-top: 0;
+}
+.page-mlops .ml-bad {
+  color: var(--bad);
+}
+.page-mlops .ml-ok {
+  color: var(--good);
+}
+.page-mlops .ml-warn {
+  color: var(--warn);
+}
+
+/* The life cycle loop */
+.page-mlops .ml-life {
+  align-items: center;
+}
+.page-mlops .ml-loop {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.page-mlops .ml-edge {
+  fill: none;
+  stroke: var(--ink2);
+  stroke-width: 1.6;
+  marker-end: url(#ml-arr);
+}
+.page-mlops .ml-edge.back {
+  stroke: var(--good);
+  stroke-dasharray: 5 4;
+}
+.page-mlops .ml-head {
+  fill: var(--ink2);
+}
+.page-mlops .ml-centre {
+  fill: var(--muted);
+  font-size: 14px;
+}
+.page-mlops .ml-node {
+  cursor: pointer;
+}
+.page-mlops .ml-node rect {
+  fill: var(--surface2);
+  stroke: var(--line2);
+  stroke-width: 1.4;
+}
+.page-mlops .ml-node text {
+  fill: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.page-mlops .ml-node:hover rect,
+.page-mlops .ml-node:focus-visible rect {
+  stroke: var(--brand);
+}
+.page-mlops .ml-node:focus {
+  outline: none;
+}
+.page-mlops .ml-node.on rect {
+  fill: var(--brand);
+  stroke: var(--brand);
+}
+.page-mlops .ml-node.on text {
+  fill: #fff;
+}
+.page-mlops .ml-stage p {
+  font-size: 14px;
+}
+.page-mlops .ml-without {
+  color: var(--ink2);
+}
+@media (max-width: 700px) {
+  .page-mlops .ml-diagram-scroll {
+    overflow-x: auto;
+  }
+  .page-mlops .ml-loop {
+    min-width: 520px;
+  }
+}
+
+/* Runs and the registry */
+.page-mlops .ml-runs tbody tr {
+  cursor: pointer;
+}
+.page-mlops .ml-runs tbody tr.on {
+  background: var(--brand-soft);
+}
+.page-mlops .ml-warnings,
+.page-mlops .ml-gate {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  font-size: 14px;
+}
+.page-mlops .ml-warnings li,
+.page-mlops .ml-gate li {
+  margin: 6px 0;
+  padding-left: 12px;
+  border-left: 3px solid currentColor;
+}
+.page-mlops .ml-warnings li.ml-ok,
+.page-mlops .ml-warnings li.ml-warn,
+.page-mlops .ml-warnings li.ml-bad,
+.page-mlops .ml-gate li {
+  color: var(--ink);
+}
+.page-mlops .ml-warnings li.ml-ok,
+.page-mlops .ml-gate li.ml-ok {
+  border-left-color: var(--good);
+}
+.page-mlops .ml-warnings li.ml-warn {
+  border-left-color: var(--warn);
+}
+.page-mlops .ml-warnings li.ml-bad,
+.page-mlops .ml-gate li.ml-bad {
+  border-left-color: var(--bad);
+}
+.page-mlops .ml-aliases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.page-mlops .ml-alias {
+  border: 1px solid var(--good);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.page-mlops .ml-alias.challenger {
+  border-color: var(--warn);
+}
+.page-mlops .ml-lineage,
+.page-mlops .ml-history {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+.page-mlops .ml-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.page-mlops .ml-field input[type='range'] {
+  width: 100%;
+}
+.page-mlops .ml-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+/* The point-in-time join */
+.page-mlops th.ml-used,
+.page-mlops td.ml-used {
+  background: var(--brand-soft);
+  font-weight: 700;
+}
+
+/* Charts */
+.page-mlops .ml-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 4px 18px;
+  margin-top: 8px;
+}
+.page-mlops .ml-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 6px;
+}
+.page-mlops .ml-axis {
+  stroke: var(--line2);
+}
+.page-mlops .ml-bar {
+  fill: var(--s1);
+  opacity: 0.35;
+}
+.page-mlops .ml-line {
+  fill: none;
+  stroke: var(--s2);
+  stroke-width: 2.2;
+}
+.page-mlops .ml-limit {
+  stroke: var(--bad);
+  stroke-dasharray: 6 4;
+}
+.page-mlops .ml-rb {
+  stroke: var(--ink2);
+  stroke-dasharray: 2 3;
+}
+.page-mlops .ml-tick {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.page-mlops .ml-tick-limit {
+  fill: var(--bad);
+}
+.page-mlops .ml-ref {
+  fill: var(--s1);
+  opacity: 0.45;
+}
+.page-mlops .ml-cur {
+  fill: var(--s2);
+  opacity: 0.45;
+}
+.page-mlops .ml-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.page-mlops .ml-key {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+}
+.page-mlops .ml-key.bar,
+.page-mlops .ml-key.ref {
+  background: var(--s1);
+  opacity: 0.45;
+}
+.page-mlops .ml-key.cur {
+  background: var(--s2);
+  opacity: 0.45;
+}
+.page-mlops .ml-key.line {
+  height: 3px;
+  background: var(--s2);
+}
+.page-mlops .ml-key.limit {
+  height: 0;
+  border-top: 2px dashed var(--bad);
+}
+.page-mlops .ml-band-stable {
+  color: var(--good);
+}
+.page-mlops .ml-band-watch {
+  color: var(--warn);
+}
+.page-mlops .ml-band-drift {
+  color: var(--bad);
+}
+.page-mlops .ml-decision {
+  border-left: 3px solid var(--line2);
+  background: var(--soft2);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.page-mlops .ml-act-leave {
+  border-left-color: var(--good);
+}
+.page-mlops .ml-act-investigate,
+.page-mlops .ml-act-wait {
+  border-left-color: var(--warn);
+}
+.page-mlops .ml-act-retrain {
+  border-left-color: var(--brand);
+}
+
+/* The tools table is wide; keep its columns readable and let the wrapper scroll. */
+.page-mlops .ml-tools {
+  min-width: 860px;
+  font-size: 13px;
+}

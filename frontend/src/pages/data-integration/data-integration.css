@@ -1,0 +1,328 @@
+/* Data platforms and integration: a reading page with four browser-only demos. Colours come from the shared variables. */
+
+.page-data-integration .di-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.page-data-integration .di-section {
+  scroll-margin-top: 70px;
+}
+.page-data-integration .di-demo {
+  margin: 14px 0;
+}
+.page-data-integration .di-bad {
+  color: var(--bad);
+}
+.page-data-integration .di-ok {
+  color: var(--good);
+  font-weight: 600;
+}
+.page-data-integration .di-issues {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.page-data-integration details {
+  margin-top: 10px;
+}
+.page-data-integration summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+.page-data-integration table.di-small {
+  font-size: 13px;
+}
+
+/* Checkbox lists */
+.page-data-integration .di-rules {
+  border: 0;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page-data-integration .di-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--ink);
+}
+.page-data-integration .di-check input {
+  margin-top: 3px;
+}
+.page-data-integration .di-inline {
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Medallion layer counts */
+.page-data-integration .di-layers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.page-data-integration .di-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line2);
+  border-top-width: 4px;
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.page-data-integration .di-layer b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.page-data-integration .di-layer-name {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.page-data-integration .di-layer.bronze {
+  border-top-color: var(--s2);
+}
+.page-data-integration .di-layer.silver {
+  border-top-color: var(--faint);
+}
+.page-data-integration .di-layer.gold {
+  border-top-color: var(--s4);
+}
+.page-data-integration .di-layer.serve {
+  border-top-color: var(--brand);
+}
+.page-data-integration .di-chunks {
+  padding-left: 20px;
+}
+
+/* The medallion diagram */
+.page-data-integration .di-diagram-scroll {
+  overflow-x: auto;
+  margin: 10px 0 14px;
+}
+.page-data-integration .di-flow {
+  width: 100%;
+  min-width: 560px;
+  max-width: 860px;
+  height: auto;
+  display: block;
+}
+.page-data-integration .di-node rect {
+  fill: var(--surface2);
+  stroke: var(--line2);
+  stroke-width: 1.2;
+}
+.page-data-integration .di-node.bronze rect {
+  stroke: var(--s2);
+  stroke-width: 2;
+}
+.page-data-integration .di-node.silver rect {
+  stroke: var(--faint);
+  stroke-width: 2;
+}
+.page-data-integration .di-node.gold rect {
+  stroke: var(--s4);
+  stroke-width: 2;
+}
+.page-data-integration .di-node.serve rect {
+  stroke: var(--brand);
+}
+.page-data-integration .di-t {
+  fill: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.page-data-integration .di-s {
+  fill: var(--ink2);
+  font-size: 11.5px;
+}
+.page-data-integration .di-arrow {
+  fill: none;
+  stroke: var(--ink2);
+  stroke-width: 1.6;
+}
+.page-data-integration .di-arrow.dashed {
+  stroke-dasharray: 4 3;
+}
+.page-data-integration .di-head {
+  fill: var(--ink2);
+}
+
+/* Store chooser */
+.page-data-integration .di-stores {
+  margin: 10px 0;
+}
+.page-data-integration .di-store {
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--surface2);
+}
+.page-data-integration .di-store h3 {
+  margin: 0 0 4px;
+}
+.page-data-integration .di-store p {
+  margin: 0 0 6px;
+}
+
+/* Gateway simulation */
+.page-data-integration .di-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 10px 18px;
+}
+.page-data-integration .di-sliders label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+.page-data-integration .di-sliders input {
+  width: 100%;
+}
+.page-data-integration .di-switches {
+  margin: 12px 0;
+  align-items: center;
+}
+.page-data-integration .di-chart-wrap {
+  overflow-x: auto;
+}
+.page-data-integration .di-chart {
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+  display: block;
+}
+.page-data-integration .di-axis {
+  stroke: var(--line2);
+}
+.page-data-integration .di-tick {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.page-data-integration .di-f-cache {
+  fill: var(--s3);
+  background: var(--s3);
+}
+.page-data-integration .di-f-ptu {
+  fill: var(--s1);
+  background: var(--s1);
+}
+.page-data-integration .di-f-payg {
+  fill: var(--s4);
+  background: var(--s4);
+}
+.page-data-integration .di-f-limited {
+  fill: var(--s2);
+  background: var(--s2);
+}
+.page-data-integration .di-f-b429 {
+  fill: var(--s5);
+  background: var(--s5);
+}
+.page-data-integration .di-f-failed {
+  fill: var(--bad);
+  background: var(--bad);
+}
+.page-data-integration .di-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0;
+}
+.page-data-integration .di-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+/* Stream simulation */
+.page-data-integration .di-controls {
+  margin: 8px 0 12px;
+}
+.page-data-integration .di-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.page-data-integration .di-lane {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.page-data-integration .di-lane-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  width: 22px;
+}
+.page-data-integration .di-lane-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.page-data-integration .di-ev {
+  position: relative;
+  min-width: 38px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 6px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface2);
+  font-variant-numeric: tabular-nums;
+}
+.page-data-integration .di-ev sub {
+  font-size: 10px;
+  font-weight: 400;
+}
+.page-data-integration .di-ev.read {
+  background: var(--soft);
+  color: var(--muted);
+}
+.page-data-integration .di-ev.next {
+  border: 2px solid var(--brand);
+}
+.page-data-integration .di-ev.poison {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+.page-data-integration .di-ev.ckpt::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--s3);
+}
+.page-data-integration .di-ev.end {
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+}
+.page-data-integration .di-log {
+  margin: 0;
+  padding-left: 20px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.page-data-integration .di-log li {
+  margin: 2px 0;
+}

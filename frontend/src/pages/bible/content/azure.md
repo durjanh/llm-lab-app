@@ -345,3 +345,34 @@ Profanity handling only covers what Translator classes as profanity, so it is no
   **A:** The transcript is kept per upload and each translation per language, so switching language only translates and speaks again.
 
 **What I built:** ffmpeg to take out the sound, Azure Speech for transcription and neural voices, Azure Translator through the AI Services account with Entra sign-in, and downloads as WebVTT. Files stay in `generated/video-translate/`.
+
+## One AI Architecture on Three Clouds (`/multicloud`)
+**In one line:** a use case becomes building blocks first and products second; the blocks are the same on Azure, Google Cloud and AWS, and the page names them on each and turns requirements into decisions with reasons.
+
+**Key terms**
+- **Building block**: a job the system needs done (gateway, agent runtime, retrieval, model hosting), whichever product does it.
+- **Workload identity**: a service proves who it is to another service without a stored key (managed identity, service account, IAM role).
+- **Provisioned throughput**: reserved model capacity, paid whether used or not (PTUs on Azure, GSUs on Vertex AI, model units on Bedrock).
+- **Data zone deployment**: the provider balances load across regions but keeps processing inside a zone such as the EU.
+- **AI gateway**: an API gateway that counts tokens per caller, balances across model deployments and logs usage.
+- **ADR**: an architecture decision record: the decision, the drivers and the reason, so it can be revisited.
+
+**Questions they could ask**
+- **Q:** How do you turn a use case into an architecture?
+  **A:** Write down the drivers first: data residency, the client's existing cloud, latency, load shape, data sensitivity, team skills and budget model. Then list the blocks the use case needs and leave out the rest; a fixed RAG flow needs no agent runtime. Only then name products, on the cloud the client already runs. Each choice goes in an ADR with its driver.
+- **Q:** What actually differs between Azure, Google Cloud and AWS for GenAI?
+  **A:** Product names map almost one to one. The real differences are identity (managed identity, service accounts, IAM roles), capacity models, where a model may run under residency rules, private networking (private endpoints, Private Service Connect with VPC Service Controls, PrivateLink) and whether the safety filter works for any model. Those are what break a design copied from one cloud to another.
+- **Q:** When would you buy provisioned throughput?
+  **A:** When load is high, steady and measured, so the reserved capacity stays busy and latency must be predictable. Size it for the steady base and send the excess to pay-as-you-go through the gateway. For spiky or unmeasured load, stay on pay-as-you-go with per-caller token limits and failover.
+- **Q:** How do you meet a "data must stay in the UK" requirement with LLMs?
+  **A:** Use regional deployments in a UK region, not global or multi-region endpoints. Check that each model is actually served there before committing, because new models reach single regions last. Regional processing can cost more, and logs, search indexes and backups must stay in the region too.
+- **Q:** Should we go multi-cloud?
+  **A:** Usually not by default. A second cloud is justified by a client or regulator mandate, a model that isn't served on your cloud in your region, or data too large to move. Its cost is a second identity model, egress, two on-call skill sets and two sets of tooling. Price alone rarely pays for that, and resilience is normally met with a second region.
+- **Q:** Where does Databricks fit next to a hyperscaler?
+  **A:** It runs on all three and takes over the data, pipeline, feature, registry and often serving blocks under one catalogue (Unity Catalog), with lineage from source table to served model. Identity, networking and the customer-facing API stay with the host cloud. It suits teams that already work in Spark and SQL.
+- **Q:** How do you keep an AI system portable without building for every cloud?
+  **A:** Four cheap habits from day one: one model interface in the code, tables in Delta or Iceberg, the app in containers deployed from infrastructure as code, and OpenTelemetry traces. A later change of model, region or cloud then becomes mostly configuration.
+- **Q:** Where do agent frameworks fit in the architecture?
+  **A:** In the orchestration block. Microsoft Agent Framework, Google ADK, LangGraph, LlamaIndex or Strands provide the tool loop and state. A managed runtime (Foundry Agent Service, Vertex AI Agent Engine, Bedrock AgentCore) hosts it with sessions, identity and tracing. The framework choice is mostly portable; the runtime ties you to a cloud.
+
+**What I built:** a page that draws five use cases as the same 13 building blocks, names every block on Azure, Google Cloud, AWS and Databricks with what differs, shows keyless Claude client code for each platform, turns eight drivers into ADR-style decisions with tested rules, compares the six differences that change a design, and checks whether a second cloud is worth its cost.

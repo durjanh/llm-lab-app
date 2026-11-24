@@ -1,0 +1,167 @@
+/* One AI architecture on three clouds. Colours come from the shared variables so both themes work. */
+
+.page-multicloud .mc-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.page-multicloud .mc-section {
+  margin-top: 36px;
+  scroll-margin-top: 70px;
+}
+.page-multicloud .mc-summary {
+  margin-top: 10px;
+}
+.page-multicloud .mc-switch {
+  margin: 10px 0;
+}
+.page-multicloud .mc-diagram-card {
+  padding: 10px;
+}
+.page-multicloud .mc-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.page-multicloud .mc-lane {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: var(--muted);
+}
+.page-multicloud .mc-rule {
+  stroke: var(--line2);
+  stroke-dasharray: 4 4;
+}
+.page-multicloud .mc-channel rect {
+  fill: var(--brand-soft);
+  stroke: var(--brand-line);
+}
+.page-multicloud .mc-channel text {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.page-multicloud .mc-edge {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 1.6;
+}
+.page-multicloud .mc-head {
+  fill: var(--faint);
+}
+.page-multicloud .mc-box {
+  cursor: pointer;
+  outline: none;
+}
+.page-multicloud .mc-box rect {
+  fill: var(--surface2);
+  stroke: var(--line2);
+  stroke-width: 1.2;
+  transition:
+    stroke 0.15s,
+    fill 0.15s;
+}
+.page-multicloud .mc-box.cross rect {
+  fill: var(--soft);
+}
+.page-multicloud .mc-box:hover rect,
+.page-multicloud .mc-box:focus-visible rect {
+  stroke: var(--brand);
+}
+.page-multicloud .mc-box.sel rect {
+  stroke: var(--brand);
+  stroke-width: 2.4;
+  fill: var(--brand-soft);
+}
+.page-multicloud .mc-box.off {
+  opacity: 0.38;
+}
+.page-multicloud .mc-box.off rect {
+  stroke-dasharray: 4 3;
+}
+.page-multicloud .mc-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+.page-multicloud .mc-svc {
+  font-size: 12px;
+  fill: var(--ink2);
+}
+.page-multicloud .mc-detail {
+  margin-top: 12px;
+}
+.page-multicloud .mc-detail h3 {
+  margin-top: 0;
+}
+.page-multicloud tr.mc-here td {
+  background: var(--brand-soft);
+}
+.page-multicloud .mc-map {
+  margin-top: 10px;
+}
+.page-multicloud .mc-map td:first-child {
+  min-width: 150px;
+}
+.page-multicloud .mc-sheet .mc-drivers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 10px 14px;
+}
+.page-multicloud .mc-drivers label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.page-multicloud .mc-drivers select {
+  width: 100%;
+}
+.page-multicloud .mc-decisions {
+  margin: 16px 0 12px;
+  padding-left: 22px;
+}
+.page-multicloud .mc-decisions li {
+  margin: 8px 0;
+  max-width: 90ch;
+}
+.page-multicloud .mc-because {
+  display: block;
+  margin-top: 2px;
+}
+.page-multicloud .mc-why {
+  margin-top: 12px;
+}
+.page-multicloud .mc-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 6px 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+.page-multicloud .mc-check input {
+  margin-top: 3px;
+}
+.page-multicloud .mc-verdict {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.page-multicloud .mc-verdict.yes {
+  border-color: var(--ok-line);
+  background: var(--ok-bg);
+}
+.page-multicloud .mc-verdict.maybe {
+  background: var(--note-bg);
+}
+.page-multicloud .mc-verdict.no b {
+  color: var(--bad);
+}
+.page-multicloud .card h3:first-child {
+  margin-top: 0;
+}

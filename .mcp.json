@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "engagements": {
+      "command": ".venv/bin/python",
+      "args": ["examples/mcp/server.py"]
+    }
+  }
+}

@@ -287,6 +287,38 @@
 
 **What I built:** a call log in `generated/observability/calls.jsonl` (capped), written by a timed wrapper round the client, with the area taken from the route; and the page's metrics, log and traces, mapped to OpenTelemetry and Foundry tracing.
 
+## LLMOps and CI/CD (`/llmops`)
+**In one line:** how an AI change gets from a pull request to production safely: version everything that can change an answer, gate early on tests and evals, build one image, scale on the right signal, and prove a change with a fair A/B test.
+
+**Key terms**
+- **Eval gate**: a pipeline step that scores a fixed, versioned eval set and fails the release under a quality threshold or over a cost or latency budget.
+- **Workload identity federation**: the CI system issues a short-lived token for the run and Entra ID trusts it for one repository and branch, so the pipeline stores no secret.
+- **Canary**: a small share of real traffic on the new version, compared with the old one on the same traffic, with automatic rollback.
+- **HorizontalPodAutoscaler**: sets pods to `ceil(pods × observed ÷ target)` for a chosen metric.
+- **SBOM**: a software bill of materials, the list of every package and version in an image.
+- **Minimum detectable effect**: the smallest change an A/B test is sized to find.
+- **Peeking**: checking an A/B test repeatedly and stopping at the first significant result, which inflates false positives.
+
+**Questions they could ask**
+- **Q:** What do you version in an LLM application that you would not in ordinary software?
+  **A:** The prompt, the model version, the retrieval index with its chunking and embedding model, the tool descriptions, the guardrail configuration and the eval set, as well as the code. Each can change an answer, so each gets a version, and every call logs the versions it used. Without that, a regression cannot be traced or undone.
+- **Q:** What goes in an eval gate, and where does it sit?
+  **A:** A fixed, versioned set of cases scored by code checks and an LLM judge, with thresholds on quality and budgets on cost per task and latency. It runs after the fake-model unit tests and before the build, so a worse or dearer change never reaches an image. The lab's `eval_gate.py` exits 1 under the threshold, and that stops the pipeline.
+- **Q:** How does your pipeline authenticate to Azure?
+  **A:** Workload identity federation. GitHub Actions or Azure DevOps issues an OIDC token for the run, and an Entra app registration trusts tokens for one repository and branch. There is no client secret to leak or rotate. At run time the app uses its managed identity, so no image or pipeline holds a key.
+- **Q:** Why might CPU-based autoscaling fail for an AI service?
+  **A:** A service that calls a hosted model spends most of each request waiting on the network. CPU stays low while the request slots fill, so the autoscaler never adds pods and requests queue. Scale on requests in progress instead (a custom metric or KEDA). Also, above the model deployment's own rate limit, more pods only bring more 429s; you need more quota or failover.
+- **Q:** How do you A/B test a prompt change properly?
+  **A:** Randomise by user, not by request. Fix the sample size beforehand from the base rate, the minimum detectable effect, alpha and power. Pick a primary metric and guardrails (cost per task, p95 latency, refusal rate) that can veto a winner. Then analyse once at the planned size, or use a sequential method if you must look early.
+- **Q:** Why is peeking a problem?
+  **A:** Every look is another chance for noise to cross the significance line. In the page's A/A simulation, checking 14 days in a row calls several times more false winners than the 5% you get from one look at the end. A stricter threshold on each look, which is what sequential methods formalise, brings the rate back down.
+- **Q:** How do you make rollback fast?
+  **A:** Make every rollback a pointer change: an image digest, a revision weight, an index alias, a prompt version behind a flag. Run a new model version as a new deployment beside the old one and keep the old one warm until the new one has had a full day of traffic. Pin model versions and turn off automatic upgrades in production.
+- **Q:** Container Apps or AKS for an AI backend?
+  **A:** For an API in front of a hosted model, Container Apps: request-based scaling, scale to zero, revisions with traffic splitting, and no cluster to run. AKS earns its cost when you run many services, schedule your own GPUs for self-hosted models, need a service mesh or tight network control, or already have a platform team.
+
+**What I built:** a page that follows one change through a nine-stage release pipeline where any stage can be made to fail. The same pipeline is written in GitHub Actions and Azure DevOps YAML with federated sign-in and the lab's eval gate. There is a non-root multi-stage Dockerfile and a Kubernetes manifest, an autoscaling simulation of an invented day, a sample-size calculator, a significance check with guardrail vetoes, and an A/A peeking simulation.
+
 ## Red Teaming (`/red-team`)
 **In one line:** an attacker model writes attacks in seven strategies against a support agent with a secret in its instructions, code scores what it can see, and a run can be saved and replayed as a regression suite.
 

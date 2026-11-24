@@ -602,6 +602,42 @@ export default function IndexPage() {
           </span>
           <span className="dl">Nothing: a map</span>
         </a>{' '}
+        <a className="lab-card" href="/mlops">
+          <span className="num">Lab 53</span>
+          <h3>MLOps</h3>
+          <p>
+            Tracked runs, a model registry with a promotion gate, a point-in-time feature join, canary and blue-green
+            releases, and drift with PSI.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which run to promote, how to release it, and when to retrain.
+          </span>
+          <span className="dl">No download</span>
+        </a>{' '}
+        <a className="lab-card" href="/data-integration">
+          <span className="num">Lab 54</span>
+          <h3>Data and integration</h3>
+          <p>
+            A medallion lakehouse with quality rules, a store chooser, an AI gateway shared by three apps, and an event
+            stream feeding a vector index.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which stores, gateway and integration patterns an AI system needs.
+          </span>
+          <span className="dl">No download</span>
+        </a>{' '}
+        <a className="lab-card" href="/multicloud">
+          <span className="num">Lab 55</span>
+          <h3>One architecture, three clouds</h3>
+          <p>
+            Five use cases as the same building blocks, named on Azure, Google Cloud, AWS and Databricks, and
+            requirements turned into decisions.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which services to use on the cloud the client already runs.
+          </span>
+          <span className="dl">No download</span>
+        </a>{' '}
       </div>
       <h2>Quality and safety</h2>
       <p className="muted">How to know a change helped, when to trust an answer, and how to stay safe.</p>
@@ -690,6 +726,18 @@ export default function IndexPage() {
           </span>
           <span className="dl">Needs the local server and your API key</span>
         </a>
+        <a className="lab-card" href="/llmops">
+          <span className="num">Lab 56</span>
+          <h3>LLMOps and CI/CD</h3>
+          <p>
+            A release pipeline with an eval gate, keyless GitHub Actions and Azure DevOps, containers and Kubernetes
+            autoscaling, and A/B tests done properly.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> how to ship a prompt or model change safely and prove it helped.
+          </span>
+          <span className="dl">No download</span>
+        </a>{' '}
       </div>
       <h2>Decision cheat sheet</h2>
       <p>Common problems, the first thing to try, and where to see why it works.</p>
