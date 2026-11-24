@@ -319,6 +319,32 @@
 
 **What I built:** a page that follows one change through a nine-stage release pipeline where any stage can be made to fail. The same pipeline is written in GitHub Actions and Azure DevOps YAML with federated sign-in and the lab's eval gate. There is a non-root multi-stage Dockerfile and a Kubernetes manifest, an autoscaling simulation of an invented day, a sample-size calculator, a significance check with guardrail vetoes, and an A/A peeking simulation.
 
+## Quality, Cost and Time: Model Pareto Frontiers (`/pareto`)
+**In one line:** the models worth considering are the ones no other model beats on quality, cost and time at once; the page draws that frontier in three dimensions and shows what a flat chart hides.
+
+**Key terms**
+- **Dominates**: model A dominates B when it is at least as good on every measure and strictly better on one.
+- **Pareto frontier**: the models nothing dominates. Every other model is a worse choice on these measures alone.
+- **Cost per task**: what one task costs in total, thinking and output tokens included, not the price per token.
+- **Effort variant**: one model at one effort setting; each setting is its own point, because it is its own trade-off.
+- **Two-measure frontier**: the frontier on quality and one other measure, which drops models that win on the third.
+
+**Questions they could ask**
+- **Q:** How do you choose a model for a new use case?
+  **A:** Start from the frontier, not a leaderboard: drop every model something else beats on quality, cost and time. Then apply the use case's limits, a budget per task and a deadline, and take the best quality that fits. Finally measure the two or three survivors on your own cases, because a general quality index averages someone else's tasks.
+- **Q:** Why look at three measures instead of quality against price?
+  **A:** A flat chart has its own, smaller frontier. A model that is neither the cheapest nor the strongest can still be the right one because it answers fastest, which matters for a live chat or a voice line. On the page's invented field, the quality-against-time view hides twelve models that are on the three-measure frontier.
+- **Q:** Why are effort settings separate points?
+  **A:** Each setting is a different trade-off: more thinking buys quality with diminishing returns while cost and time grow faster. One model at low, high and maximum effort traces its own line, and often only some of its settings are on the frontier.
+- **Q:** Is cost per token a good way to compare models?
+  **A:** No. A model that thinks longer or writes more can cost more per task at a lower token price. Compare cost per task on your workload, and remember caching and batching change it again.
+- **Q:** Should you always pick a model on the frontier?
+  **A:** For one model on these three measures, yes. But a cascade or a router that sends easy requests to a cheap model and hard ones to a strong one can beat every single model, and other measures (data residency, open weights, context length, tool use) can rule frontier models out.
+- **Q:** How much should you trust a published frontier chart?
+  **A:** As a shortlist. The index is someone else's tasks, the times include provider queues that change weekly, prices change, and log scales make a tenfold price step look small. Re-measure the shortlist on your own cases before deciding.
+
+**What I built:** a page that computes the three-measure Pareto frontier of a field of invented models (each effort setting a separate point), draws it in a 3D chart you turn by dragging, with an open-weight frontier and the best corner marked, compares it with the two flat frontiers, picks the best model under a budget and a deadline, and reads real data pasted in as CSV, with every bad row reported.
+
 ## Red Teaming (`/red-team`)
 **In one line:** an attacker model writes attacks in seven strategies against a support agent with a secret in its instructions, code scores what it can see, and a run can be saved and replayed as a regression suite.
 

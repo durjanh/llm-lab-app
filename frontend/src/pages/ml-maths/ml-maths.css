@@ -1,0 +1,217 @@
+/* Maths for ML: drawings and controls. Colours come from the shared variables, so both themes work. */
+
+.page-ml-maths .mm-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.page-ml-maths .mm-section {
+  scroll-margin-top: 70px;
+}
+.page-ml-maths .mm-week {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.page-ml-maths .mm-pair {
+  align-items: start;
+}
+.page-ml-maths .mm-plane,
+.page-ml-maths .mm-plot {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface2);
+  touch-action: none;
+}
+.page-ml-maths .mm-click {
+  cursor: crosshair;
+}
+.page-ml-maths .mm-grid line,
+.page-ml-maths line.mm-grid {
+  stroke: var(--line2);
+  stroke-width: 1;
+}
+.page-ml-maths .mm-axis {
+  stroke: var(--ink2);
+  stroke-width: 1.4;
+}
+.page-ml-maths .mm-vec {
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.page-ml-maths .mm-va .mm-vec,
+.page-ml-maths line.mm-va {
+  stroke: var(--s1);
+}
+.page-ml-maths .mm-vb .mm-vec,
+.page-ml-maths line.mm-vb {
+  stroke: var(--s2);
+}
+.page-ml-maths .mm-va .mm-handle {
+  fill: var(--s1);
+}
+.page-ml-maths .mm-vb .mm-handle {
+  fill: var(--s2);
+}
+.page-ml-maths .mm-handle {
+  cursor: grab;
+  opacity: 0.85;
+}
+.page-ml-maths .mm-label {
+  fill: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+.page-ml-maths .mm-ka {
+  color: var(--s1);
+  font-weight: 600;
+}
+.page-ml-maths .mm-kb {
+  color: var(--s2);
+  font-weight: 600;
+}
+.page-ml-maths .mm-unit {
+  fill: var(--brand);
+  fill-opacity: 0.18;
+  stroke: var(--brand);
+}
+.page-ml-maths .mm-shape {
+  fill: var(--s3);
+  fill-opacity: 0.35;
+  stroke: var(--s3);
+  stroke-width: 1.5;
+}
+.page-ml-maths .mm-matrix {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 12px 0;
+  max-width: 360px;
+}
+.page-ml-maths .mm-matrix label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.page-ml-maths .mm-matrix input {
+  width: 100%;
+}
+.page-ml-maths .mm-tight td,
+.page-ml-maths .mm-tight th {
+  padding: 5px 8px;
+}
+.page-ml-maths .mm-curve {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.page-ml-maths .mm-tangent {
+  stroke: var(--s3);
+  stroke-width: 2;
+}
+.page-ml-maths .mm-secant {
+  stroke: var(--s2);
+  stroke-width: 1.6;
+  stroke-dasharray: 6 4;
+}
+.page-ml-maths .mm-dot {
+  fill: var(--brand);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.page-ml-maths .mm-dot2 {
+  fill: var(--s2);
+}
+.page-ml-maths .mm-key {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  vertical-align: middle;
+  margin-right: 4px;
+  background: var(--ink2);
+}
+.page-ml-maths .mm-secant-key {
+  background: var(--s2);
+}
+.page-ml-maths .mm-tangent-key {
+  background: var(--s3);
+}
+.page-ml-maths .mm-band {
+  fill: var(--brand);
+}
+.page-ml-maths .mm-down {
+  stroke: var(--s2);
+  stroke-width: 2.5;
+}
+.page-ml-maths .mm-arrowhead {
+  fill: var(--ink2);
+}
+.page-ml-maths .mm-path {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+.page-ml-maths .mm-p1 {
+  stroke: var(--s2);
+}
+.page-ml-maths .mm-p2 {
+  stroke: var(--s4);
+}
+.page-ml-maths .mm-p3 {
+  stroke: var(--s3);
+}
+.page-ml-maths .mm-key.mm-p1 {
+  background: var(--s2);
+}
+.page-ml-maths .mm-key.mm-p2 {
+  background: var(--s4);
+}
+.page-ml-maths .mm-key.mm-p3 {
+  background: var(--s3);
+}
+.page-ml-maths .mm-bad {
+  color: var(--bad);
+}
+.page-ml-maths .mm-scroll {
+  overflow-x: auto;
+}
+.page-ml-maths .mm-graph {
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+  display: block;
+  margin: 10px 0;
+}
+.page-ml-maths .mm-node rect {
+  fill: var(--surface2);
+  stroke: var(--line2);
+}
+.page-ml-maths .mm-nt {
+  fill: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.page-ml-maths .mm-nv {
+  fill: var(--ink2);
+  font-size: 12px;
+}
+.page-ml-maths .mm-ng {
+  fill: var(--s2);
+  font-size: 11px;
+}
+.page-ml-maths .mm-edge {
+  stroke: var(--ink2);
+  stroke-width: 1.4;
+}

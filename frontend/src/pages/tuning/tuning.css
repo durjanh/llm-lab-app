@@ -1,0 +1,50 @@
+/* Tuning and Bayesian optimisation. Plot and shared course styles are in plot.css. */
+
+.page-tuning .tu-flush {
+  margin-top: 0;
+  font-size: 14px;
+}
+.page-tuning .tu-heat {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.page-tuning .tu-cell {
+  fill: var(--s1);
+}
+.page-tuning .tu-pt {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.page-tuning .tu-pt.ring {
+  fill: none;
+  stroke-width: 2.5;
+}
+.page-tuning .tu-grid {
+  fill: var(--s2);
+}
+.page-tuning .tu-grid.ring {
+  stroke: var(--s2);
+}
+.page-tuning .tu-rand {
+  fill: var(--s2);
+}
+.page-tuning .tu-rand.ring {
+  stroke: var(--s2);
+}
+.page-tuning .tu-bo {
+  fill: var(--s4);
+}
+.page-tuning .tu-bo.ring {
+  stroke: var(--s4);
+}
+.page-tuning .tu-init {
+  fill: var(--muted);
+}
+.page-tuning .tu-init.ring {
+  stroke: var(--muted);
+}

@@ -1,0 +1,225 @@
+/* The shared plot, scoped to the three pages that use it. Colours come from the page variables, so both themes work. */
+
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  touch-action: manipulation;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-pick {
+  cursor: crosshair;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-axis {
+  stroke: var(--line2);
+  stroke-width: 1.2;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-tick {
+  fill: var(--muted);
+  font-size: 11px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-label {
+  fill: var(--ink2);
+  font-size: 12px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-thin {
+  stroke-width: 1.2;
+  opacity: 0.55;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-dashed {
+  stroke-dasharray: 6 4;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-band {
+  stroke: none;
+  opacity: 0.18;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-ref {
+  stroke-width: 1.4;
+  stroke-dasharray: 4 4;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-dot {
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+/* Colours: one rule per class, for lines (stroke), bands and dots (fill), and legend keys. */
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-s1 {
+  stroke: var(--s1);
+  fill: var(--s1);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-s2 {
+  stroke: var(--s2);
+  fill: var(--s2);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-s3 {
+  stroke: var(--s3);
+  fill: var(--s3);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-s4 {
+  stroke: var(--s4);
+  fill: var(--s4);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-s5 {
+  stroke: var(--s5);
+  fill: var(--s5);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-brand {
+  stroke: var(--brand);
+  fill: var(--brand);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-good {
+  stroke: var(--good);
+  fill: var(--good);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-bad {
+  stroke: var(--bad);
+  fill: var(--bad);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-muted {
+  stroke: var(--muted);
+  fill: var(--muted);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-s1,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-s2,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-s3,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-s4,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-s5,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-brand,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-good,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-bad,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-line.pl-muted,
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-ref {
+  fill: none;
+}
+
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 13px;
+  color: var(--ink2);
+  margin: 4px 0 0;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 3px solid;
+  border-color: inherit;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-s1 {
+  border-color: var(--s1);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-s2 {
+  border-color: var(--s2);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-s3 {
+  border-color: var(--s3);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-s4 {
+  border-color: var(--s4);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-s5 {
+  border-color: var(--s5);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-brand {
+  border-color: var(--brand);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-good {
+  border-color: var(--good);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-bad {
+  border-color: var(--bad);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-muted {
+  border-color: var(--muted);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .pl-key i.pl-dashed {
+  border-top-style: dashed;
+}
+
+/* Shared course-page parts: the week tag beside a heading, and the quiz. */
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .wk-tag {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: 3px;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-section {
+  scroll-margin-top: 70px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: min(100%, 200px);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-field input[type='range'] {
+  width: 100%;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  align-items: flex-end;
+  margin: 8px 0 12px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-bad {
+  color: var(--bad);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-good {
+  color: var(--good);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-warn {
+  color: var(--warn);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-quiz ol {
+  padding-left: 20px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-quiz li {
+  margin: 0 0 14px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-opt {
+  text-align: left;
+  white-space: normal;
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-opt.right {
+  border-color: var(--good);
+  color: var(--good);
+}
+:is(.page-tuning, .page-model-evaluation, .page-capstone) .cs-opt.wrong {
+  border-color: var(--bad);
+  color: var(--bad);
+}

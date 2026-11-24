@@ -1,0 +1,143 @@
+/* The course hub: a progress summary and one expandable card per week. Colours come from the shared variables. */
+
+.page-ml-course .mc-stats {
+  margin-top: 18px;
+}
+.page-ml-course .mc-stats .stat b {
+  display: block;
+  font-size: 20px;
+}
+.page-ml-course .mc-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  margin: 12px 0 6px;
+}
+.page-ml-course .mc-bar span {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.3s;
+}
+.page-ml-course .mc-parts {
+  margin: 10px 0 4px;
+}
+.page-ml-course .mc-part-title {
+  margin-top: 26px;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.page-ml-course .mc-week {
+  margin: 8px 0;
+  padding: 0;
+  scroll-margin-top: 70px;
+}
+.page-ml-course .mc-week.done {
+  border-color: var(--ok-line);
+}
+.page-ml-course .mc-week-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.page-ml-course .mc-week-head:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+.page-ml-course .mc-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+  min-width: 60px;
+}
+.page-ml-course .mc-title {
+  font-weight: 600;
+  flex: 1 1 260px;
+}
+.page-ml-course .mc-flags {
+  display: flex;
+  gap: 6px;
+}
+.page-ml-course .mc-tag {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line2);
+  color: var(--muted);
+}
+.page-ml-course .mc-tag.good {
+  border-color: var(--ok-line);
+  color: var(--good);
+}
+.page-ml-course .mc-week-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+}
+.page-ml-course .mc-week-body h3 {
+  font-size: 14px;
+  margin: 16px 0 4px;
+}
+.page-ml-course .mc-week-body ul,
+.page-ml-course .mc-week-body ol {
+  margin: 4px 0;
+  padding-left: 22px;
+}
+.page-ml-course pre.code {
+  overflow-x: auto;
+}
+.page-ml-course .mc-q {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  min-width: 0;
+}
+.page-ml-course .mc-q legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.page-ml-course .mc-opt {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.page-ml-course .mc-opt input {
+  margin-top: 4px;
+}
+.page-ml-course .mc-opt.right {
+  background: var(--ok-bg);
+}
+.page-ml-course .mc-opt.wrong {
+  outline: 1px solid var(--bad);
+}
+.page-ml-course .mc-why {
+  margin: 8px 0 0;
+  color: var(--ink2);
+}
+.page-ml-course .mc-quiz-bar {
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.page-ml-course .mc-good {
+  color: var(--good);
+}
+.page-ml-course .mc-bad {
+  color: var(--bad);
+}

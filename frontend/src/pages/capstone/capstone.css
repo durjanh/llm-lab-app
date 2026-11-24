@@ -1,0 +1,80 @@
+/* The capstone. Plot and shared course styles are in ../tuning/plot.css. */
+
+.page-capstone .cp-hist {
+  max-height: 340px;
+  overflow: auto;
+  margin: 10px 0;
+}
+.page-capstone .cp-best td {
+  background: var(--ok-bg);
+}
+.page-capstone .cp-round {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 4px;
+}
+.page-capstone .cp-point {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  margin: 10px 0;
+}
+.page-capstone .cp-point > .small {
+  flex: 0 0 100%;
+}
+.page-capstone .cp-in {
+  min-width: 0;
+  flex: 0 1 110px;
+}
+.page-capstone .cp-in input[type='number'] {
+  width: 100%;
+}
+.page-capstone .cp-note {
+  width: 100%;
+  margin: 8px 0;
+}
+.page-capstone .cp-helpers {
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 8px 0;
+}
+.page-capstone .cp-surrogate {
+  max-width: 320px;
+}
+.page-capstone .cp-heat {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.page-capstone .cp-cell {
+  fill: var(--s1);
+}
+.page-capstone .cp-old {
+  fill: var(--muted);
+  stroke: var(--surface);
+  stroke-width: 1;
+}
+.page-capstone .cp-new {
+  fill: var(--s2);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.page-capstone .cp-md {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  margin: 6px 0 8px;
+}
+.page-capstone a.btn {
+  text-decoration: none;
+  display: inline-block;
+}
+.page-capstone .cp-danger {
+  border-color: var(--bad);
+  color: var(--bad);
+}

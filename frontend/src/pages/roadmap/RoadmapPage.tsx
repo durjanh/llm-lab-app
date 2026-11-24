@@ -91,6 +91,20 @@ const LEVELS: Level[] = [
             ],
           },
           {
+            name: 'Maths, probability and statistics',
+            pages: [
+              ['/ml-maths', 'Maths for ML'],
+              ['/probability-stats', 'Probability and statistics'],
+            ],
+          },
+          {
+            name: 'Classical ML and honest evaluation',
+            pages: [
+              ['/ml-course', 'The 25-week course'],
+              ['/model-evaluation', 'Model evaluation'],
+            ],
+          },
+          {
             name: 'Testing and logging',
             pages: [
               ['/evals', 'Evals'],
@@ -223,6 +237,16 @@ const LEVELS: Level[] = [
               ['/code-graph', 'Code knowledge graph'],
             ],
           },
+          { name: 'Reinforcement learning', pages: [['/reinforcement-learning', 'Reinforcement learning']] },
+          { name: 'Interpretability and fairness', pages: [['/interpretability', 'Interpretability']] },
+          {
+            name: 'Tuning and Bayesian optimisation',
+            pages: [
+              ['/tuning', 'Tuning'],
+              ['/capstone', 'Capstone'],
+            ],
+          },
+          { name: 'Choosing a model on quality, cost and time', pages: [['/pareto', 'Pareto frontier']] },
           {
             name: 'Adversarial testing',
             pages: [

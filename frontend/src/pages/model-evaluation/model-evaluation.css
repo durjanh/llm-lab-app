@@ -1,0 +1,173 @@
+/* Evaluating models honestly. Plot and shared course styles are in ../tuning/plot.css. */
+
+.page-model-evaluation .me-flush {
+  margin-top: 0;
+}
+
+/* The three splits as one bar */
+.page-model-evaluation .me-bar {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.page-model-evaluation .me-bar span {
+  padding: 8px 10px;
+  color: #fff;
+  min-width: 0;
+}
+.page-model-evaluation .me-bar .tr {
+  flex: 3;
+  background: var(--s1);
+}
+.page-model-evaluation .me-bar .va {
+  flex: 1;
+  background: var(--s4);
+}
+.page-model-evaluation .me-bar .te {
+  flex: 1;
+  background: var(--s3);
+}
+
+/* Confusion matrix */
+.page-model-evaluation .me-cm-wrap {
+  overflow-x: auto;
+  margin: 8px 0 12px;
+}
+.page-model-evaluation .me-cm {
+  border-collapse: separate;
+  border-spacing: 6px;
+  font-size: 14px;
+}
+.page-model-evaluation .me-cm th {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 4px;
+}
+.page-model-evaluation .me-cm td {
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 130px;
+  border: 1px solid var(--line);
+}
+.page-model-evaluation .me-cm td b {
+  display: block;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.page-model-evaluation .me-cm td span {
+  font-size: 12px;
+  color: var(--ink2);
+}
+.page-model-evaluation .me-cm td.ok {
+  background: var(--ok-bg);
+  border-color: var(--ok-line);
+}
+.page-model-evaluation .me-cm td.miss {
+  background: var(--note-bg);
+  border-color: var(--line2);
+}
+
+/* Cross-validation folds */
+.page-model-evaluation .me-cv {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 700px) {
+  .page-model-evaluation .me-cv {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-model-evaluation .me-folds {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  display: block;
+}
+.page-model-evaluation .me-pos {
+  fill: var(--ink);
+}
+.page-model-evaluation .me-f0 {
+  fill: var(--s1);
+  background: var(--s1);
+}
+.page-model-evaluation .me-f1 {
+  fill: var(--s2);
+  background: var(--s2);
+}
+.page-model-evaluation .me-f2 {
+  fill: var(--s3);
+  background: var(--s3);
+}
+.page-model-evaluation .me-f3 {
+  fill: var(--s4);
+  background: var(--s4);
+}
+.page-model-evaluation .me-f4 {
+  fill: var(--s5);
+  background: var(--s5);
+}
+.page-model-evaluation .me-folds rect {
+  opacity: 0.55;
+}
+.page-model-evaluation .me-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+/* Nested cross-validation */
+.page-model-evaluation .me-nested {
+  max-width: 620px;
+  margin: 10px 0 14px;
+}
+.page-model-evaluation .me-outer {
+  border: 2px solid var(--s1);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+}
+.page-model-evaluation .me-inner {
+  margin-top: 10px;
+  border: 1px dashed var(--s4);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--surface2);
+}
+.page-model-evaluation .me-inner.held {
+  border-style: solid;
+  border-color: var(--s3);
+}
+
+/* Time-order splits */
+.page-model-evaluation .me-time {
+  width: 100%;
+  max-width: 620px;
+  height: auto;
+  display: block;
+}
+.page-model-evaluation .me-time-train {
+  fill: var(--s1);
+  opacity: 0.7;
+}
+.page-model-evaluation .me-time-test {
+  fill: var(--s3);
+}
+.page-model-evaluation .me-time-t {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.page-model-evaluation .pl-key i.me-k-train {
+  border-color: var(--s1);
+}
+.page-model-evaluation .pl-key i.me-k-test {
+  border-color: var(--s3);
+}

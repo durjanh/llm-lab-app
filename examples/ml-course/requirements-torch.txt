@@ -1,0 +1,3 @@
+# Optional: weeks 15, 16, 17 and 20 use PyTorch for some of their tests, and skip those without it.
+# The CPU build is enough; it is about 700 MB.
+torch==2.15.0

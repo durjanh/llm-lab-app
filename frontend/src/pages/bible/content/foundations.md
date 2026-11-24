@@ -526,3 +526,213 @@
   **A:** So each side can be shown and heard on its own, and so you can play it: SynthBird has breath, glide, grit, windpipe length and throat controls on the keyboard.
 
 **What I built:** an original drawn bird animated from what each side sings, seven stylised songs in Web Audio along the bird's own signal path, and a compose route on the backend with a smaller note limit for the local model.
+
+## Machine Learning and AI in 25 Weeks (`/ml-course`)
+**In one line:** the lab's own course, from vectors and Bayes' rule through classical models, neural networks and language models to reinforcement learning and a capstone, with lab pages, a Python exercise and a quiz each week.
+
+**Key terms**
+- **Week**: goals, lab pages to work through, one hands-on task, a Python exercise with tests, and a short quiz.
+- **Exercise and solution**: `exercise.py` has stubs that fail their tests until filled in; `ML_COURSE_SOLUTIONS=1` runs the same tests on the worked solution.
+- **Capstone**: black-box optimisation of invented systems on a fixed budget, the same in the browser and in Python.
+
+**Questions they could ask**
+- **Q:** What does the course cover, in order?
+  **A:** Maths and optimisation, then probability and statistics, evaluation, the classical models (nearest neighbours, trees and ensembles, naive Bayes and logistic regression, SVMs), Bayesian optimisation, neural networks and CNNs, tuning, language models, interpretability and fairness, clustering and PCA, reinforcement learning, and the capstone.
+- **Q:** Why build each idea in NumPy before using a library?
+  **A:** Writing k-NN, a tree split, backpropagation or a Gaussian process once by hand shows what the library's settings mean and where it can go wrong. After that the library is a faster, tested version of something you understand, and its defaults stop being magic.
+- **Q:** How is it assessed?
+  **A:** Each week's tests check the exercise, and its quiz explains every answer and counts as passed at three quarters of its questions. The capstone is judged by regret on the clean function and by the decision log: what was tried each round and why.
+
+**What I built:** a course hub with 26 weeks (an orientation week and 25 more), progress and quiz scores kept in the browser, quizzes gathered from the pages that teach each week, seven new teaching pages and a capstone, and `examples/ml-course/` with an exercise, a worked solution and tests for every week.
+
+## Maths for Machine Learning (`/ml-maths`)
+**In one line:** the linear algebra and calculus a model actually uses: vectors and matrices for data and weights, derivatives and the chain rule for learning, and gradient descent with its failure modes.
+
+**Key terms**
+- **Dot product and cosine similarity**: matching entries multiplied and summed; divided by both lengths, a measure of direction only.
+- **Determinant**: the factor by which a matrix scales areas; zero means information is lost and there is no inverse.
+- **Gradient**: the vector of partial derivatives, pointing in the direction of steepest increase.
+- **Chain rule**: the derivative of a chain of steps is the product of each step's local derivative; backpropagation applies it backwards through a graph.
+- **Learning rate**: the size of each step against the gradient.
+- **Momentum and Adam**: optimisers that keep a running velocity, and a running size of each coordinate's gradient.
+
+**Questions they could ask**
+- **Q:** Why is cosine similarity used for embeddings rather than the plain dot product?
+  **A:** The dot product grows with length as well as alignment, so a long vector looks similar to everything. Dividing by both lengths keeps only direction, which is what carries meaning in an embedding. If vectors are normalised to length one, the two are the same.
+- **Q:** Why does a network need a non-linearity between layers?
+  **A:** A matrix times a matrix is another matrix, so a stack of purely linear layers is one linear layer. The non-linearity between them is what lets depth model curved boundaries and interactions.
+- **Q:** What does backpropagation actually compute?
+  **A:** The gradient of the loss with respect to every weight, in one backward pass. It runs the chain rule over the computation graph: each node multiplies the gradient arriving from above by its own local derivative and passes it on. The cost is about the same as one forward pass.
+- **Q:** Your loss goes to NaN in the first few steps. What do you try?
+  **A:** Lower the learning rate first: a step bigger than the curvature allows overshoots and grows. Then check for exploding gradients (clip them), bad input scaling (normalise features) and a warm-up schedule. The ravine surface on the page shows the threshold exactly.
+- **Q:** Why do most deep learning projects use Adam rather than plain gradient descent?
+  **A:** Real loss surfaces are badly conditioned: steep in some directions, flat in others. Plain descent must keep its step small for the steep ones and crawls along the flat ones. Adam divides each coordinate's step by a running size of its gradient, so all directions move at similar speeds with less tuning.
+- **Q:** Does gradient descent find the best possible model?
+  **A:** Not in general. It finds a point where the gradient is near zero, which can be a local minimum or, in high dimensions more often, a long flat region or a saddle. Where you start matters, as the two-valley surface shows. In large networks many minima are about equally good, which is part of why it works anyway.
+
+**What I built:** a page that builds vectors, matrices, a network layer, derivatives, gradients, the chain rule and three optimisers from things you can drag and click, with the formula after each, a NumPy line fit by hand-written gradient descent, and self-check questions for weeks 1 and 2.
+
+## Probability and Statistics for ML (`/probability-stats`)
+**In one line:** the probability and statistics machine learning leans on: Bayes' rule and base rates, distributions, simulation, robust summaries, likelihood, regression, the bootstrap, missing data, and the entropy and Bayes behind trees and naive Bayes.
+
+**Key terms**
+- **Conditional probability**: P(A | B), the chance of A among the cases where B happened; not the same as P(B | A).
+- **Base rate**: how common something is before any evidence; it decides how much a positive result means.
+- **Maximum likelihood**: the parameter values that make the observed data most probable; most training losses are negative log-likelihoods.
+- **Bootstrap**: resampling the data with replacement to see how much a statistic varies.
+- **MCAR, MAR, MNAR**: missing completely at random, at random given what you observe, and not at random (because of the missing value itself).
+- **Entropy and Gini impurity**: two measures of how mixed a node's classes are, used to choose tree splits.
+
+**Questions they could ask**
+- **Q:** A fraud model is 95% accurate on both classes. Why might most of its alerts still be wrong?
+  **A:** Base rates. If 1 in 1,000 transactions is fraud, the 5% false alarms on the 999 genuine ones vastly outnumber the true catches. Precision depends on prevalence, so report it alongside recall and test at the real base rate.
+- **Q:** How do squared error and cross-entropy relate to likelihood?
+  **A:** Minimising squared error is maximising likelihood under normal noise; minimising cross-entropy is maximising likelihood for a Bernoulli or categorical outcome. Choosing a loss is choosing a noise model.
+- **Q:** How would you handle missing values in a training set?
+  **A:** First ask why they are missing. If it depends on observed columns, model-based imputation using them removes most of the bias; if it depends on the value itself, nothing fully fixes it, so add a missing-indicator column and say so. Avoid mean filling for anything that needs the spread, and fit any imputer on the training split only.
+- **Q:** Mean or median, and which outlier rule?
+  **A:** Median and IQR when the data is skewed or may contain errors, because one extreme value cannot drag them. The z-score rule uses the standard deviation, which the outlier inflates, so it can miss the very point it should flag. Either way, investigate an outlier before removing it.
+- **Q:** When would you use the bootstrap?
+  **A:** Whenever you need an interval for a statistic with no simple formula: a median, a ratio, an AUC, the gap between two models on the same test set. Resample with replacement a few thousand times and take the middle 95% of the results.
+- **Q:** How does a decision tree decide where to split, and why might naive Bayes be overconfident?
+  **A:** The tree tries every candidate split and keeps the one with the largest size-weighted drop in entropy or Gini impurity. Naive Bayes multiplies one likelihood ratio per feature, assuming independence given the class; correlated features get counted several times, which pushes probabilities towards 0 or 1 even when the ranking is good.
+
+**What I built:** a page on invented data with ten working demos: a 1,000-person screening test for Bayes' rule, five distributions, Monte Carlo with its 1/√n error, outliers under two rules, likelihood for a coin and a normal, least squares with residuals, a bootstrap interval, three missing-data mechanisms against three fixes, entropy and Gini choosing a tree's first split, and naive Bayes with smoothing. It has self-check questions for weeks 3, 4, 5, 10 and 12.
+
+## Evaluating Models Honestly (`/model-evaluation`)
+**In one line:** how to get honest evidence that a model works on data it has not seen: three splits, learning curves, the measures of a classifier at a threshold, cross-validation, and the traps of imbalance and leakage.
+
+**Key terms**
+- **Validation and test sets**: validation chooses between models; the test set is read once, at the end, for the number you report.
+- **Learning curve**: training and validation error against the amount of training data; a gap that closes with data means variance.
+- **Sensitivity and specificity**: the share of real positives caught, and the share of real negatives correctly cleared.
+- **Precision**: the share of positive calls that are right; it falls as positives get rarer.
+- **ROC AUC**: the chance a random positive scores above a random negative; a ranking measure, independent of threshold and prevalence.
+- **Lift**: the share of positives found in the top of a ranked list, divided by the share contacted.
+- **Stratified k-fold**: cross-validation that keeps each class's share the same in every fold.
+- **Leakage**: information from the evaluation data reaching training, such as resampling before the split.
+
+**Questions they could ask**
+- **Q:** Why is accuracy a poor measure for fraud or disease screening?
+  **A:** Positives are rare, so doing nothing scores well: at 1% prevalence, calling everyone negative is 99% accurate and finds nobody. Use sensitivity and precision, read the precision–recall curve, compare with the do-nothing baseline, and set the threshold from what each kind of mistake costs.
+- **Q:** How do you choose a classification threshold?
+  **A:** From the costs, not by default at 0.5. Put a cost on a miss and on a false alarm, compute the total cost at each threshold on validation data, and take the cheapest. On the page, when a miss costs twenty times a false alarm, the best threshold drops well below 0.5.
+- **Q:** ROC AUC or precision–recall?
+  **A:** Both answer different questions. ROC AUC measures how well the scores rank people and hardly moves with prevalence. Precision–recall shows what a positive call is worth, which collapses when positives are rare. For rare-event problems, report the precision–recall curve or average precision alongside AUC.
+- **Q:** What does a learning curve tell you to do?
+  **A:** Both errors high and close together means bias: use a more flexible model or better features; more data will not help. A large gap that shrinks as rows are added means variance: get more data, regularise or simplify. The page shows both with a straight line and a degree-9 polynomial.
+- **Q:** Why must resampling happen inside the training fold?
+  **A:** Oversampling before the split puts copies of test positives into training, so a nearest neighbour finds its own copy and sensitivity soars. Undersampling first leaves a balanced test set, so precision looks far better than on real traffic. In scikit-learn, put the resampler in an imbalanced-learn pipeline so cross-validation applies it fold by fold.
+- **Q:** When do you need nested cross-validation?
+  **A:** When you tune and want an unbiased estimate of the whole tune-then-train procedure. The inner loop tunes on each outer training set; the outer fold scores the tuned model on data the tuning never saw. Reporting the best inner cross-validated score is optimistic, as the three-splits demo shows.
+
+**What I built:** a browser page on invented data. It shows how choosing many models inflates the validation score, learning and complexity curves from polynomial fits, and a screening test with a threshold slider driving a live confusion matrix, ROC, precision–recall and gains charts and a cost-based threshold. It also has a fold grid comparing plain and stratified k-fold, a nested CV diagram, four ways of handling imbalance run both correctly and leakily, time-ordered splits, and scikit-learn code.
+
+## Hyperparameter Tuning and Bayesian Optimisation (`/tuning`)
+**In one line:** how to search for good hyperparameters on a budget: random beats grid, stop bad trials early, and let a Gaussian process choose the next trial when each one is expensive.
+
+**Key terms**
+- **Hyperparameter**: a setting chosen before training (learning rate, depth, regularisation), unlike parameters, which training learns.
+- **Random search**: sampling settings at random; each trial tries a new value of every hyperparameter.
+- **Successive halving / Hyperband**: train many settings briefly, keep the best fraction, give survivors more budget, repeat.
+- **Gaussian process**: a surrogate that gives a mean and an uncertainty at every input, shaped by a kernel's length-scale and noise.
+- **Acquisition function**: turns the surrogate into the next point to try; expected improvement, probability of improvement or upper confidence bound.
+- **Exploration and exploitation**: measuring where you are unsure, against measuring where the surrogate already looks good.
+
+**Questions they could ask**
+- **Q:** Why does random search often beat grid search?
+  **A:** Usually only a few hyperparameters matter. A 3 × 3 grid tests just three values of the important one; nine random trials test nine. On the page's loss, where learning rate matters and dropout hardly does, random search wins most of 200 draws.
+- **Q:** How does Bayesian optimisation work?
+  **A:** Fit a surrogate, usually a Gaussian process, to the trials so far. Use an acquisition function to pick the point that best balances a high predicted score against high uncertainty. Run that trial, refit and repeat. It pays off when each trial is expensive, because choosing carefully costs seconds and a trial costs hours.
+- **Q:** Expected improvement or UCB?
+  **A:** Expected improvement weighs both the chance and the size of beating the best so far, and needs little tuning, so it is a good default. UCB, the mean plus κ standard deviations, makes the balance explicit: larger κ explores more. Probability of improvement is greedy and settles on small, sure gains.
+- **Q:** What do the length-scale and noise of a Gaussian process do?
+  **A:** The length-scale says how far apart two inputs can be and still move together: short gives wiggly fits that are unsure between points, long gives smooth ones. The noise says how much a repeated measurement can differ, so the mean need not pass through every point. Set them badly and the suggestions go wrong.
+- **Q:** Is Bayesian optimisation guaranteed to find the best setting?
+  **A:** No. On the page's function, every run quickly climbs a broad hill, far faster than random search, but only some find a taller, narrow peak within 25 evaluations. It is efficient, not magic. More starting points, a shorter length-scale or more exploration change the odds at the cost of evaluations.
+- **Q:** How do you avoid overfitting the validation set when tuning?
+  **A:** Score each trial by cross-validation rather than one split, limit the budget, and report the chosen settings on a test set the search never saw, or use nested cross-validation. After hundreds of trials, the best validation score is partly luck.
+
+**What I built:** a browser page with grid and random search on an invented loss, successive halving against full training at the same budget, a clickable one-input Gaussian process with posterior samples and three acquisition functions, and Bayesian optimisation against random search over eight runs in two dimensions. It ends with practical advice and scikit-learn and Optuna code. The Gaussian process is written out with no library and reused by the capstone.
+
+## Capstone: Optimise a Black Box (`/capstone`)
+**In one line:** an original capstone in which you find the best settings of five invented systems on a fixed budget of trials, explain each round's choices, and turn the work into a portfolio project.
+
+**Key terms**
+- **Black-box optimisation**: improving a function you can only evaluate, with no formula or gradient.
+- **Query budget**: the fixed number of evaluations, released round by round.
+- **Surrogate**: a cheap model of the black box, here a Gaussian process, used to choose where to measure.
+- **Batch suggestion**: choosing several points per round, here by pretending each suggestion returned its predicted mean (a "believer").
+- **Regret**: how far the clean value of your chosen point is below the true optimum.
+- **Decision log**: a short record of what was tried each round and why.
+
+**Questions they could ask**
+- **Q:** How would you approach a black-box optimisation problem with a small budget?
+  **A:** Start from the given points and the surrogate's view. Spend early rounds exploring the regions the surrogate is least sure of, then shift to exploiting the best region, checking any surprising high reading before trusting it. Each round's note records which acquisition and settings were used and why.
+- **Q:** Why score regret on the clean function?
+  **A:** Because with noise a lucky reading can look like success. What matters is how good the setting you would actually choose is, so the score uses the noise-free value of your best-measured point.
+- **Q:** How do you choose several points in one round with Bayesian optimisation?
+  **A:** Suggest one point, then pretend it came back at the surrogate's predicted mean, refit and suggest the next. That spreads the batch out instead of putting every point on the same peak. Other methods sample from the posterior or penalise points near those already chosen.
+- **Q:** What changes as the number of inputs rises?
+  **A:** The space grows so fast that a budget of around 40 trials sees almost none of it; a grid of three values in six inputs is already 729 points. The surrogate's assumptions about smoothness and the number of peaks decide where to look, so the length-scale matters more, and some exploration budget is worth keeping.
+- **Q:** One of the functions has a broad, easy peak and a narrow, taller one. How would you avoid settling on the easy one?
+  **A:** Keep some exploration going after the first good region is found: a larger κ in UCB for a round, a deliberately distant point, or a shorter length-scale so the surrogate admits it could have missed a narrow peak. Then compare what that exploration cost with what it found.
+- **Q:** How would you present it as a portfolio project?
+  **A:** Write a README with the problem, the result and one progress plot. Add a method section on the surrogate and acquisition, a decision log per round including what failed, regret and surrogate plots, and code that reproduces every query from a fixed seed. Finish with a reflection on what would change with more noise, more inputs or twice the budget.
+
+**What I built:** five invented black boxes with two to six inputs, starting points, ten rounds and a note per round. It has optional Gaussian-process helpers (a surrogate map for two inputs and batch suggestions by expected improvement or UCB), progress and regret plots with the optimum revealed only at the end, a Markdown export for a portfolio README, and progress saved in the browser. The same functions are in `examples/ml-course/capstone/` for Python.
+
+## Interpretability, Fairness and Documentation (`/interpretability`)
+**In one line:** why a model decided what it did, whether it treats groups fairly, and what it is for, worked exactly on a small invented loan model.
+
+**Key terms**
+- **Global and local explanation**: how the model behaves overall, against why it made one decision.
+- **Permutation importance**: the fall in score when one input is shuffled; it measures dependence, not truth.
+- **Partial dependence and ICE**: the average prediction as one input is swept, and the same sweep per person.
+- **Shapley value**: a feature's fair share of the gap between one prediction and the average prediction.
+- **Counterfactual**: the smallest change to the inputs that would flip the decision.
+- **Proxy**: an allowed input that tracks a sensitive attribute, bringing it into the decisions.
+- **Model card and datasheet**: documentation of what a model is for and how it performs, and of how a dataset was made.
+
+**Questions they could ask**
+- **Q:** What is the difference between SHAP and permutation importance?
+  **A:** Permutation importance is global: shuffle a column and see how much the model's score falls across the whole dataset. SHAP is local: it splits one prediction among the inputs, and the shares add up exactly to that prediction minus the average. You can average absolute SHAP values for a global view, but they answer a different question.
+- **Q:** We removed the protected attribute. Is the model fair now?
+  **A:** Not necessarily. Other inputs can carry it. On the page, the branch area is never an input, yet years at address and income both track it and the approval gap is 22 points. Check outcomes by group, not just the input list.
+- **Q:** Why can't a model satisfy every fairness metric?
+  **A:** When groups have different base rates and the model is imperfect, equal precision, equal true positive rates and equal false positive rates cannot all hold together. That is arithmetic. You choose the metric that matches the harm you most need to avoid, and write down why.
+- **Q:** When would you trust a post-hoc explanation?
+  **A:** As a lead, not a finding. Post-hoc methods describe behaviour, and with correlated inputs they evaluate combinations that never occur. Confirm with a second method, a test on real cases, or a simpler model that can be read directly.
+- **Q:** What goes in a model card?
+  **A:** Intended use and out-of-scope uses, the training data and who is missing from it, metrics overall and by group at the threshold used, fairness findings and what was decided, and known limits. It travels with the model so later teams inherit the findings.
+- **Q:** Is a model's chain of thought an explanation?
+  **A:** No. It is more generated text, and studies have found models giving reasons that leave out what actually drove the answer. For LLM systems, rely on behaviour: test sets broken down by group and case type, refusal checks and records of inputs.
+
+**What I built:** an invented loan model with exact explanations (weights, permutation importance, PD and ICE curves, all 16 Shapley coalitions with a waterfall, counterfactuals marked by whether they can be acted on), a proxy analysis, fairness metrics with per-group thresholds and a search showing they conflict, calibration by group, a table of bias sources, and fillable model card and datasheet forms that render Markdown.
+
+## Reinforcement Learning from Bandits to Q-learning (`/reinforcement-learning`)
+**In one line:** learning what to do from rewards rather than answers, from choosing between options to planning and learning in a grid world, all seeded so runs repeat.
+
+**Key terms**
+- **Return and discount factor**: the total future reward, with a reward t steps away weighted by γ to the power t.
+- **Regret**: reward lost compared with always choosing the best option, which nobody knows in advance.
+- **ε-greedy, UCB1, Thompson sampling**: exploring at random, by optimism where evidence is thin, and by sampling from beliefs.
+- **Markov decision process**: states, actions, outcome probabilities and rewards, with the next state depending only on the current one.
+- **Value iteration**: planning with known rules by repeatedly setting each state's value to its best action's expected return.
+- **Q-learning and SARSA**: learning action values from experience; off-policy towards the best next action, on-policy towards the next action taken.
+
+**Questions they could ask**
+- **Q:** When would you use a bandit instead of an A/B test?
+  **A:** When showing a losing option costs money and you care about the total outcome more than a clean estimate. A bandit shifts traffic to the winner as evidence builds; a fixed split keeps paying for the loser until the test ends but gives an unbiased comparison.
+- **Q:** Why does Thompson sampling usually beat ε-greedy?
+  **A:** ε-greedy keeps exploring at a fixed rate for ever, so its regret grows in a straight line. Thompson sampling explores in proportion to its uncertainty, so it nearly stops once the best option is clear. On the page's 3,000 visitors, it ends with markedly less regret.
+- **Q:** What is the difference between value iteration and Q-learning?
+  **A:** Value iteration plans: it needs the transition probabilities and rewards written down. Q-learning learns the same action values from experience alone, by acting and updating towards the reward plus the discounted best next value.
+- **Q:** Q-learning or SARSA?
+  **A:** Q-learning is off-policy and learns the best policy as if it will play perfectly afterwards. SARSA is on-policy and learns the value of what it actually does, exploration included. On a cliff walk, Q-learning hugs the edge and falls more while learning; SARSA keeps a safe distance and earns more per episode.
+- **Q:** How does the reward design change behaviour?
+  **A:** Directly. In the page's grid world, raising each step's cost makes the agent accept a risky route past the pit, and at a high enough cost it walks into the pit to end the episode. The agent optimises the reward you wrote, not the one you meant.
+- **Q:** Where is reinforcement learning used in language models?
+  **A:** In RLHF, a reward model trained on people's preferences scores answers and the model is tuned to score well, with a penalty for drifting. Reasoning models are trained with checkable rewards such as passing tests, often with GRPO. The main risk is reward hacking: pleasing the scorer rather than the person.
+
+**What I built:** seeded simulations of discounting, a three-way bandit race with regret curves and pull counts, an editable slippery grid world solved by value iteration sweep by sweep, Q-learning on the same world with a learning curve and Q-value map, and Q-learning against SARSA on a cliff walk, with a Python tabular Q-learning sample.

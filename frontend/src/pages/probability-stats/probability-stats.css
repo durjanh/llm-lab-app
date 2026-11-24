@@ -1,0 +1,173 @@
+/* Probability and statistics: charts and controls. Colours come from the shared variables, so both themes work. */
+
+.page-probability-stats .ps-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.page-probability-stats .ps-section {
+  scroll-margin-top: 70px;
+}
+.page-probability-stats .ps-week {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.page-probability-stats .ps-pair {
+  align-items: start;
+}
+.page-probability-stats .ps-flush {
+  margin-top: 0;
+}
+.page-probability-stats .ps-chart {
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  display: block;
+  margin: 6px 0;
+}
+.page-probability-stats .ps-square {
+  max-width: 300px;
+  border-radius: 8px;
+}
+.page-probability-stats .ps-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0;
+  max-width: 380px;
+}
+.page-probability-stats .ps-slider input {
+  width: 100%;
+}
+.page-probability-stats .ps-tight td,
+.page-probability-stats .ps-tight th {
+  padding: 5px 8px;
+}
+.page-probability-stats .ps-bar {
+  fill: var(--s1);
+  opacity: 0.55;
+}
+.page-probability-stats .ps-bar.on {
+  opacity: 1;
+}
+.page-probability-stats .ps-axis {
+  stroke: var(--ink2);
+  stroke-width: 1.2;
+}
+.page-probability-stats .ps-tick {
+  fill: var(--muted);
+  font-size: 10px;
+}
+.page-probability-stats .ps-curve {
+  fill: none;
+  stroke: var(--s1);
+  stroke-width: 2.2;
+}
+.page-probability-stats .ps-curve2 {
+  fill: none;
+  stroke: var(--s2);
+  stroke-width: 2.2;
+}
+.page-probability-stats .ps-frame {
+  fill: var(--surface2);
+  stroke: var(--line2);
+}
+.page-probability-stats .ps-arc {
+  fill: none;
+  stroke: var(--ink2);
+  stroke-width: 1.5;
+}
+.page-probability-stats .ps-hit {
+  fill: var(--s1);
+}
+.page-probability-stats .ps-miss {
+  fill: var(--s2);
+  opacity: 0.6;
+}
+.page-probability-stats .ps-gone {
+  fill: none;
+  stroke: var(--s2);
+  stroke-width: 1;
+}
+.page-probability-stats .ps-out {
+  fill: var(--bad);
+}
+.page-probability-stats .ps-box {
+  fill: var(--brand);
+  fill-opacity: 0.15;
+  stroke: var(--brand);
+}
+.page-probability-stats .ps-median {
+  stroke: var(--s3);
+  stroke-width: 2.5;
+}
+.page-probability-stats .ps-mean {
+  stroke: var(--s2);
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+}
+.page-probability-stats .ps-resid {
+  stroke: var(--s4);
+  stroke-width: 1.2;
+}
+.page-probability-stats .ps-tp {
+  fill: var(--s3);
+  background: var(--s3);
+}
+.page-probability-stats .ps-fn {
+  fill: var(--s4);
+  background: var(--s4);
+}
+.page-probability-stats .ps-fp {
+  fill: var(--s2);
+  background: var(--s2);
+}
+.page-probability-stats .ps-tn {
+  fill: var(--line2);
+  background: var(--line2);
+}
+.page-probability-stats .ps-legend {
+  line-height: 1.9;
+}
+.page-probability-stats .ps-key {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin: 0 3px 0 8px;
+}
+.page-probability-stats .ps-key:first-child {
+  margin-left: 0;
+}
+.page-probability-stats .ps-box-key {
+  background: var(--brand-soft);
+  border: 1px solid var(--brand);
+}
+.page-probability-stats .ps-median-key {
+  background: var(--s3);
+}
+.page-probability-stats .ps-mean-key {
+  background: var(--s2);
+}
+.page-probability-stats .ps-curve-key {
+  background: var(--s1);
+}
+.page-probability-stats .ps-curve2-key {
+  background: var(--s2);
+}
+.page-probability-stats .ps-bad {
+  color: var(--bad);
+}
+.page-probability-stats .ps-best td {
+  background: var(--brand-soft);
+}

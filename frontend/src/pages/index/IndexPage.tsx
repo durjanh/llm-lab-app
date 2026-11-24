@@ -281,6 +281,18 @@ export default function IndexPage() {
           </span>
           <span className="dl">No download</span>
         </a>
+        <a className="lab-card" href="/ml-course">
+          <span className="num">Lab 57</span>
+          <h3>Machine learning and AI in 25 weeks</h3>
+          <p>
+            A course from vectors and Bayes' rule to neural networks, language models and reinforcement learning, with a
+            Python exercise and a quiz each week and a black-box optimisation capstone.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> what to learn next, in what order, and whether you have understood it.
+          </span>
+          <span className="dl">No download; the exercises need Python</span>
+        </a>{' '}
       </div>
       <h2>Building</h2>
       <p className="muted">The three patterns most LLM features are made of.</p>
@@ -735,6 +747,18 @@ export default function IndexPage() {
           </p>
           <span className="decides">
             <b>Helps you decide:</b> how to ship a prompt or model change safely and prove it helped.
+          </span>
+          <span className="dl">No download</span>
+        </a>{' '}
+        <a className="lab-card" href="/pareto">
+          <span className="num">Lab 58</span>
+          <h3>Quality, cost and time</h3>
+          <p>
+            The Pareto frontier of models in three dimensions, what a flat chart hides, and the best model under a
+            budget and a deadline.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> which models are worth considering at all for a task.
           </span>
           <span className="dl">No download</span>
         </a>{' '}

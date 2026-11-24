@@ -1,0 +1,162 @@
+/* Interpretability, fairness and documentation. Colours come from the shared variables, so both themes work. */
+
+.page-interpretability .in-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.page-interpretability .in-section {
+  scroll-margin-top: 70px;
+}
+.page-interpretability .in-tags {
+  margin-top: -2px;
+}
+.page-interpretability .in-flush {
+  margin-top: 0;
+}
+.page-interpretability .in-good {
+  color: var(--good);
+}
+.page-interpretability .in-bad {
+  color: var(--bad);
+}
+
+/* Horizontal bars: importance and correlations */
+.page-interpretability .in-bar-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 140px) minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+.page-interpretability .in-bar-track {
+  position: relative;
+  height: 14px;
+  background: var(--soft);
+  border-radius: 4px;
+}
+.page-interpretability .in-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--s1);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.page-interpretability .in-whisker {
+  position: absolute;
+  top: 6px;
+  height: 2px;
+  background: var(--ink);
+}
+.page-interpretability .in-bar-value {
+  text-align: right;
+  font-size: 13px;
+}
+
+/* Charts */
+.page-interpretability .in-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 10px 0;
+}
+.page-interpretability .in-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.page-interpretability .in-axis {
+  fill: var(--muted);
+  font-size: 12px;
+}
+.page-interpretability .in-strong {
+  fill: var(--ink);
+  font-weight: 700;
+}
+.page-interpretability .in-ice {
+  fill: none;
+  stroke: var(--s1);
+  stroke-width: 1;
+  opacity: 0.3;
+}
+.page-interpretability .in-pd {
+  fill: none;
+  stroke: var(--s2);
+  stroke-width: 3;
+}
+.page-interpretability .in-up {
+  fill: var(--good);
+}
+.page-interpretability .in-down {
+  fill: var(--bad);
+}
+.page-interpretability .in-pred {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+/* The applicant explainer */
+.page-interpretability .in-explainer {
+  margin: 12px 0;
+}
+.page-interpretability .in-wide {
+  grid-column: 1 / -1;
+}
+.page-interpretability .in-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+}
+.page-interpretability .in-slider input {
+  width: 100%;
+}
+.page-interpretability .in-explainer .stat {
+  flex: 1 1 140px;
+  margin: 6px 0 12px;
+}
+
+/* Fairness */
+.page-interpretability .in-gaps {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 8px;
+  font-size: 14px;
+}
+.page-interpretability .in-gaps li {
+  margin: 4px 0;
+}
+.page-interpretability .chips {
+  margin: 4px 0 12px;
+}
+
+/* Model card and datasheet form */
+.page-interpretability .in-fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px 4px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.page-interpretability .in-fieldset legend {
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0 6px;
+}
+.page-interpretability .in-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.page-interpretability .in-md {
+  white-space: pre-wrap;
+  max-height: 640px;
+}
+.page-interpretability details summary {
+  cursor: pointer;
+  margin: 8px 0;
+}
