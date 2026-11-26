@@ -48,6 +48,22 @@ def route_shape(path: str) -> tuple[str, str]:
     return shaped[0], "/" + "/".join(shaped)
 
 
+class use_area:
+    """Runs a block as if a request from another area made it: the control layer's proxy names its calls after the
+    virtual key that sent them, so their usage, cost and policies are that key's."""
+
+    def __init__(self, area: str, route: str = ""):
+        self.area, self.route = area, route
+
+    def __enter__(self) -> None:
+        self._tokens = (_area.set(self.area), _route.set(self.route or _route.get()),
+                        _trace.set(_trace.get() or uuid.uuid4().hex[:12]))
+
+    def __exit__(self, *exc: Any) -> None:
+        for var, token in zip((_area, _route, _trace), self._tokens):
+            var.reset(token)
+
+
 def current() -> dict[str, str]:
     """Where the running code was asked from: the lab area, the route and the request's trace id."""
     return {"area": _area.get(), "route": _route.get(), "trace": _trace.get()}

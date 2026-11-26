@@ -1,0 +1,207 @@
+"""Files a person attaches to a site builder message: a screenshot to work from, a data file for the site, a PDF brief.
+
+They are uploaded before the message is sent, often before the site exists (the first message makes it), so they wait
+in generated/site-uploads/<id>/ until a message uses them. Each upload is checked by its content, not only its name:
+images must open as the image they claim to be (and are shrunk if very large), text files must be UTF-8, PDFs must
+start like one. Uploads are deleted once a message has used them, and any left unused for a day are deleted too.
+"""
+from __future__ import annotations
+
+import io
+import json
+import re
+import secrets
+import shutil
+import threading
+import time
+from dataclasses import dataclass
+from pathlib import Path, PurePath
+from typing import Any
+
+from ..core.errors import ApiError
+
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+               ".gif": "image/gif"}
+DATA_TYPES = {".csv": "text/csv", ".json": "application/json", ".md": "text/markdown", ".txt": "text/plain",
+              ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml"}
+PDF_TYPES = {".pdf": "application/pdf"}
+MAX_IMAGE_BYTES = 5 * 2**20
+MAX_PDF_BYTES = 10 * 2**20
+MAX_DATA_BYTES = 300_000  # a data file is copied into the site, whose files may each be at most this size
+MAX_FILES = 6  # per upload, and per message
+MAX_IMAGE_EDGE = 1568  # longer than this, a picture is shrunk: the model would scale it down anyway
+TTL_S = 24 * 3600
+UPLOAD_ID = re.compile(r"^[0-9a-f]{32}$")
+PIL_FORMATS = {"image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WEBP", "image/gif": "GIF"}
+
+
+@dataclass
+class Upload:
+    id: str
+    name: str
+    media_type: str
+    kind: str  # image, data or pdf
+    size: int
+    path: Path
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "name": self.name, "size": self.size, "media_type": self.media_type, "kind": self.kind}
+
+
+def clean_name(name: str) -> str:
+    """A safe file name: no folders, only ordinary characters, no leading dot, at most 80 characters."""
+    base = PurePath(name.replace("\\", "/")).name
+    base = re.sub(r"[^\w.\- ]", "_", base).strip().lstrip(".")
+    stem, dot, ext = base.rpartition(".")
+    if not dot:
+        stem, ext = base, ""
+    stem = stem[: 80 - len(ext) - 1] or "file"
+    return f"{stem}.{ext.lower()}" if ext else stem
+
+
+def kind_of(name: str) -> tuple[str, str] | None:
+    """The kind and media type a file name stands for, or None when it is not accepted."""
+    ext = PurePath(name).suffix.lower()
+    if ext in IMAGE_TYPES:
+        return "image", IMAGE_TYPES[ext]
+    if ext in DATA_TYPES:
+        return "data", DATA_TYPES[ext]
+    if ext in PDF_TYPES:
+        return "pdf", PDF_TYPES[ext]
+    return None
+
+
+def checked_image(raw: bytes, media_type: str) -> tuple[bytes, str]:
+    """The picture, opened to prove it is one of the accepted formats, and shrunk if its longer side is over
+    MAX_IMAGE_EDGE. A GIF becomes a PNG of its first frame. Raises ValueError for anything that is not a picture."""
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(io.BytesIO(raw)) as probe:
+            probe.verify()
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
+        raise ValueError("it is not a picture this page can read") from exc
+    actual = {v: k for k, v in PIL_FORMATS.items()}.get(image.format or "")
+    if actual is None:
+        raise ValueError(f"it is a {image.format or 'file'} picture; use PNG, JPEG, WebP or GIF")
+    if actual == "image/gif":
+        image.seek(0)
+        image = image.convert("RGBA")
+        actual = "image/png"
+    elif actual != media_type and not (actual == "image/jpeg" and media_type == "image/jpeg"):
+        media_type = actual  # the content decides: a PNG named .jpg is sent as a PNG
+    if max(image.size) <= MAX_IMAGE_EDGE and actual == media_type and PIL_FORMATS[actual] == image.format:
+        return raw, media_type
+    image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE))
+    out = io.BytesIO()
+    if actual == "image/jpeg":
+        image.convert("RGB").save(out, "JPEG", quality=88)
+    else:
+        image.save(out, PIL_FORMATS[actual])
+    return out.getvalue(), actual
+
+
+class SiteUploads:
+    """The waiting uploads, one folder each: the file under its clean name and meta.json describing it."""
+
+    def __init__(self, root: Path, ttl_s: float = TTL_S):
+        self.root, self.ttl_s = root, ttl_s
+        self._lock = threading.Lock()
+
+    def save(self, files: list[tuple[str, bytes]]) -> list[Upload]:
+        """Checks and keeps the files of one upload. All or nothing: one bad file refuses the whole upload, with
+        the reason for each."""
+        self.prune()
+        if not files:
+            raise ApiError(400, "invalid_request", "Choose at least one file.")
+        if len(files) > MAX_FILES:
+            raise ApiError(400, "invalid_request", f"Attach at most {MAX_FILES} files at once.")
+        ready: list[tuple[str, str, str, bytes]] = []
+        problems: list[str] = []
+        for raw_name, raw in files:
+            name = clean_name(raw_name or "file")
+            kind = kind_of(name)
+            if kind is None:
+                problems.append(f"{name}: attach pictures (PNG, JPEG, WebP, GIF), data or text files (CSV, JSON, "
+                                "Markdown, text, HTML, CSS, JavaScript, SVG) or a PDF.")
+                continue
+            what, media_type = kind
+            limit = {"image": MAX_IMAGE_BYTES, "data": MAX_DATA_BYTES, "pdf": MAX_PDF_BYTES}[what]
+            if not raw:
+                problems.append(f"{name}: the file is empty.")
+            elif len(raw) > limit:
+                problems.append(f"{name}: {len(raw):,} bytes is over the {limit:,}-byte limit for "
+                                + ("a picture." if what == "image" else "a PDF." if what == "pdf" else
+                                   "a data file, which is copied into the site and must fit its file limit."))
+            elif what == "image":
+                try:
+                    raw, media_type = checked_image(raw, media_type)
+                    ready.append((name, what, media_type, raw))
+                except ValueError as exc:
+                    problems.append(f"{name}: {exc}.")
+            elif what == "pdf":
+                if raw[:5] != b"%PDF-":
+                    problems.append(f"{name}: it is not a PDF.")
+                else:
+                    ready.append((name, what, media_type, raw))
+            else:
+                try:
+                    raw.decode("utf-8")
+                    ready.append((name, what, media_type, raw))
+                except UnicodeDecodeError:
+                    problems.append(f"{name}: a data or text file must be UTF-8 text.")
+        if problems:
+            raise ApiError(400, "invalid_request", " ".join(problems))
+        saved = []
+        for name, what, media_type, raw in ready:
+            upload_id = secrets.token_hex(16)
+            folder = self.root / upload_id
+            folder.mkdir(parents=True)
+            (folder / name).write_bytes(raw)
+            meta = {"name": name, "media_type": media_type, "kind": what, "size": len(raw), "created": time.time()}
+            (folder / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+            saved.append(Upload(upload_id, name, media_type, what, len(raw), folder / name))
+        return saved
+
+    def get(self, upload_id: str) -> Upload | None:
+        """A waiting upload, or None for an id that is malformed, unknown, used up or expired."""
+        if not isinstance(upload_id, str) or not UPLOAD_ID.match(upload_id):
+            return None
+        folder = self.root / upload_id
+        try:
+            meta = json.loads((folder / "meta.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if time.time() - meta.get("created", 0) > self.ttl_s:
+            shutil.rmtree(folder, ignore_errors=True)
+            return None
+        path = folder / meta["name"]
+        if not path.is_file() or path.parent != folder:
+            return None
+        return Upload(upload_id, meta["name"], meta["media_type"], meta["kind"], meta["size"], path)
+
+    def discard(self, upload_id: str) -> None:
+        """Deletes an upload once a message has used it."""
+        if UPLOAD_ID.match(upload_id):
+            shutil.rmtree(self.root / upload_id, ignore_errors=True)
+
+    def prune(self) -> int:
+        """Deletes uploads left unused for longer than the time limit. Returns how many it deleted."""
+        if not self.root.is_dir():
+            return 0
+        gone = 0
+        now = time.time()
+        with self._lock:
+            for folder in self.root.iterdir():
+                if not folder.is_dir() or not UPLOAD_ID.match(folder.name):
+                    continue
+                try:
+                    created = json.loads((folder / "meta.json").read_text(encoding="utf-8")).get("created", 0)
+                except (OSError, ValueError):
+                    created = folder.stat().st_mtime
+                if now - created > self.ttl_s:
+                    shutil.rmtree(folder, ignore_errors=True)
+                    gone += 1
+        return gone

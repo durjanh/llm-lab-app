@@ -39,6 +39,8 @@ MAX_CHATS = 100  # retention: older idle chats are deleted when a new one is mad
 MAX_FILES = 10  # per upload request
 MAX_FILE_BYTES = 20 * 1024 * 1024
 MAX_CHAT_UPLOAD_BYTES = 500 * 1024 * 1024  # all of one chat's uploads together
+MAX_OUTPUT_FILE_BYTES = 200 * 1024 * 1024  # a made file larger than this is not offered (nor hashed, nor copied)
+CHUNK = 1024 * 1024
 MAX_TITLE = 120
 SKILLS = ["pptx", "xlsx", "docx", "pdf", "number-profile"]
 UPLOAD_EXTENSIONS = ["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "csv", "tsv", "txt", "md", "json", "xml",
@@ -65,6 +67,23 @@ def safe_name(name: str) -> str:
 def content_id(rel: str, data: bytes) -> str:
     """An id for one version of a file: its path and content, so a changed file gets a new id."""
     return hashlib.sha256(rel.encode() + b"\0" + data).hexdigest()[:16]
+
+
+def file_content_id(rel: str, path: Path) -> str:
+    """content_id of a file on disk, read in chunks so a large file never sits in memory whole."""
+    h = hashlib.sha256(rel.encode() + b"\0")
+    with path.open("rb") as f:
+        while chunk := f.read(CHUNK):
+            h.update(chunk)
+    return h.hexdigest()[:16]
+
+
+class TooLarge(Exception):
+    """A made file over MAX_OUTPUT_FILE_BYTES: it is left where it is and not offered to the page."""
+
+    def __init__(self, size: int):
+        super().__init__(size)
+        self.size = size
 
 
 def inside(root: Path, rel: str) -> Path | None:
@@ -166,6 +185,16 @@ class ChatStore:
         return [m["id"] for m in self.list()[MAX_CHATS if keep is None else keep:]]
 
     # ----- files -----
+    def add_uploads(self, chat_id: str, files: list[tuple[str, bytes]], cap: int) -> list[dict[str, Any]]:
+        """Saves several uploads, checking the chat's total against `cap` under the lock, so two uploads at once cannot
+        pass the check together and go over it."""
+        with self._lock:
+            total = self.upload_bytes(chat_id) + sum(len(d) for _, d in files)
+            if total > cap:
+                raise ApiError(413, "too_large", f"A chat can hold at most {cap // 2**20} MB of uploads. Start a new "
+                                                 "chat for more files.")
+            return [self.add_upload(chat_id, name, data) for name, data in files]
+
     def add_upload(self, chat_id: str, name: str, data: bytes) -> dict[str, Any]:
         """Saves an upload in inputs/. A name already there gets a number, so nothing earlier is overwritten."""
         ws = self.workspace(chat_id)
@@ -190,24 +219,35 @@ class ChatStore:
         kept as this version: a later turn writing the same name gets a new id, and the old id still returns this."""
         folder = self.chat_dir(chat_id)
         try:
-            data = path.read_bytes()
+            size = path.stat().st_size
+            if size > MAX_OUTPUT_FILE_BYTES:
+                raise TooLarge(size)
             rel = path.resolve().relative_to(folder.resolve()).as_posix()
+            file_id = file_content_id(rel, path)
+            kept = self._keep_version(chat_id, file_id, path.name, source=path)
         except (OSError, ValueError):
-            return None
-        record = {"id": content_id(rel, data), "name": path.name, "size": len(data), "media_type": media_type(path.name),
-                  "source": rel, "previews": [], "created_at": now_iso(), "turn_id": turn_id, "agent": agent}
-        record["path"] = self._keep_version(chat_id, record["id"], path.name, data)
+            return None  # gone or unreadable since it was seen: nothing to offer
+        record = {"id": file_id, "name": path.name, "size": size, "media_type": media_type(path.name),
+                  "source": rel, "previews": [], "created_at": now_iso(), "turn_id": turn_id, "agent": agent,
+                  "path": kept}
         if record["media_type"] in IMAGE_TYPES or record["media_type"] == "image/svg+xml":
             record["previews"] = ["self"]
         self.update(chat_id, lambda m: m["files"].__setitem__(record["id"], record))
         return record
 
-    def _keep_version(self, chat_id: str, file_id: str, name: str, data: bytes) -> str:
-        """A copy of this version of a file, outside the sandbox's folder, so nothing the agent does changes it."""
+    def _keep_version(self, chat_id: str, file_id: str, name: str, data: bytes | None = None,
+                      source: Path | None = None) -> str:
+        """A copy of this version of a file, outside the sandbox's folder, so nothing the agent does changes it.
+        Copied from `source` by streaming, or written from `data` (an upload, already in memory)."""
         target = self.chat_dir(chat_id) / "versions" / f"{file_id}{Path(name).suffix.lower()[:12]}"
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
+            tmp = target.with_name(target.name + ".tmp")
+            if source is not None:
+                shutil.copyfile(source, tmp)
+            else:
+                tmp.write_bytes(data or b"")
+            tmp.replace(target)
         return target.relative_to(self.chat_dir(chat_id)).as_posix()
 
     def upload_bytes(self, chat_id: str) -> int:
@@ -274,7 +314,16 @@ def copy_skills(root: Path) -> None:
 
 
 def file_hash(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """A file's content hash, read in chunks. Over MAX_OUTPUT_FILE_BYTES its size and time stand in for it: such a file
+    is never offered, so reading gigabytes to tell versions apart would be wasted."""
+    st = path.stat()
+    if st.st_size > MAX_OUTPUT_FILE_BYTES:
+        return f"large:{st.st_size}:{st.st_mtime_ns}"
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(CHUNK):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def snapshot(outputs: Path, previous: dict[Path, tuple[int, int, str]] | None = None) -> dict[Path, tuple[int, int, str]]:

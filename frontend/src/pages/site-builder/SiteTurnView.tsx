@@ -36,7 +36,21 @@ export function SiteTurnView({
   const text = turn.state === 'running' && turn.draft ? turn.draft : turn.reply;
   return (
     <article className="sb-turn">
-      <div className="sb-user">{turn.prompt}</div>
+      <div className="sb-user">
+        {turn.attachments.length > 0 && (
+          <ul className="sb-attached" aria-label="Attached">
+            {turn.attachments.map((a) => (
+              <li key={a.name} className={`k-${a.kind}`}>
+                <span className="sb-attached-kind">
+                  {a.kind === 'image' ? 'picture' : a.kind === 'pdf' ? 'PDF' : 'data'}
+                </span>
+                {a.name}
+              </li>
+            ))}
+          </ul>
+        )}
+        {turn.prompt}
+      </div>
       <div className={`sb-reply ${turn.state}`}>
         <div className="sb-avatar" aria-hidden="true" />
         <div className="sb-reply-body">

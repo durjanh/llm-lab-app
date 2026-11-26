@@ -596,9 +596,62 @@
   position: relative;
   z-index: 2;
 }
-.page-assistant .as-dock .as-composer {
+.page-assistant .as-dock .chat-composer {
   width: min(760px, 100%);
   margin: 0 auto;
+}
+
+/* ---------- Attachment chips (on messages; the composer has its own) ---------- */
+.page-assistant .as-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.page-assistant .as-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  font-size: 12.5px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 5px 8px;
+  overflow: hidden;
+}
+.page-assistant .as-chip-ext {
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.page-assistant .as-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.page-assistant .as-chip-size {
+  color: var(--muted);
+}
+.page-assistant .as-chip-x {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.page-assistant .as-chip-x:hover {
+  color: var(--bad);
 }
 
 /* ---------- Start screen ---------- */
@@ -689,275 +742,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
   gap: 12px;
-}
-
-/* ---------- Composer ---------- */
-.page-assistant .as-composer {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--line2);
-  border-radius: 22px;
-  padding: 10px 10px 8px 14px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-.page-assistant .as-composer:focus-within {
-  border-color: var(--brand-line);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-}
-.page-assistant .as-composer.hero {
-  border-radius: 26px;
-  padding: 14px 12px 10px 18px;
-}
-.page-assistant .as-composer.drag {
-  border-color: var(--brand);
-}
-.page-assistant .as-drop {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  border-radius: inherit;
-  background: color-mix(in srgb, var(--brand-soft) 88%, transparent);
-  color: var(--brand);
-  font-weight: 700;
-  border: 2px dashed var(--brand);
-  pointer-events: none;
-}
-.page-assistant .as-text {
-  display: block;
-  width: 100%;
-  border: 0;
-  outline: none;
-  resize: none;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 15px;
-  line-height: 1.5;
-  padding: 6px 2px;
-  max-height: 320px;
-}
-.page-assistant .as-text::placeholder {
-  color: var(--faint);
-}
-.page-assistant .as-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-.page-assistant .as-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--ink2);
-  background: var(--soft);
-  border-radius: 999px;
-  padding: 3px 9px;
-}
-.page-assistant .as-tag .as-i {
-  width: 14px;
-  height: 14px;
-}
-.page-assistant .as-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 8px 6px 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  max-width: 260px;
-}
-.page-assistant .as-pill:hover {
-  background: var(--soft);
-}
-.page-assistant .as-pill > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.page-assistant .as-pill-effort {
-  color: var(--muted);
-  font-weight: 500;
-}
-.page-assistant .as-plus-menu {
-  bottom: calc(100% + 8px);
-  left: 0;
-  width: 300px;
-}
-.page-assistant .as-model-menu {
-  bottom: calc(100% + 8px);
-  right: 0;
-  width: 290px;
-}
-.page-assistant .as-composer.hero .as-plus-menu,
-.page-assistant .as-composer.hero .as-model-menu {
-  bottom: auto;
-  top: calc(100% + 8px);
-}
-.page-assistant .as-seg {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 2px 8px 6px;
-}
-.page-assistant .as-seg button {
-  flex: 1 1 auto;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink2);
-  font: inherit;
-  font-size: 12px;
-  padding: 5px 8px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.page-assistant .as-seg button.on {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-  color: var(--ink);
-  font-weight: 600;
-}
-.page-assistant .as-budget-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  font-size: 14px;
-}
-.page-assistant .as-budget {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--muted);
-}
-.page-assistant .as-budget input {
-  width: 76px;
-  border: 1px solid var(--line2);
-  border-radius: 8px;
-  background: var(--surface2);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  padding: 4px 6px;
-}
-.page-assistant .as-send {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 0;
-  background: var(--brand);
-  color: #fff;
-  cursor: pointer;
-  flex: none;
-  transition:
-    transform 0.12s,
-    opacity 0.15s,
-    background 0.15s;
-}
-.page-assistant .as-send:hover:not(:disabled) {
-  background: var(--brand-hover);
-}
-.page-assistant .as-send:active:not(:disabled) {
-  transform: scale(0.94);
-}
-.page-assistant .as-send:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.page-assistant .as-send.stop {
-  background: var(--ink);
-  color: var(--bg);
-}
-.page-assistant .as-blocked {
-  margin: 0 0 6px;
-  font-size: 13px;
-  color: var(--warn);
-}
-.page-assistant .as-problems {
-  margin: 4px 0;
-  padding-left: 18px;
-  font-size: 13px;
-  color: var(--bad);
-}
-.page-assistant .as-attach-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.page-assistant .as-chips {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.page-assistant .as-chip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  max-width: 100%;
-  font-size: 12.5px;
-  background: var(--surface2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 5px 8px;
-  overflow: hidden;
-}
-.page-assistant .as-chip-ext {
-  text-transform: uppercase;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--brand);
-  background: var(--brand-soft);
-  border-radius: 5px;
-  padding: 1px 5px;
-}
-.page-assistant .as-chip-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 220px;
-}
-.page-assistant .as-chip-size {
-  color: var(--muted);
-}
-.page-assistant .as-chip-x {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
-  padding: 0 2px;
-}
-.page-assistant .as-chip-x:hover {
-  color: var(--bad);
-}
-.page-assistant .as-chip-up .as-chip-bar {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 2px;
-  background: var(--brand);
-  transition: width 0.2s;
 }
 
 /* ---------- Messages ---------- */
@@ -2002,27 +1786,6 @@
   .page-assistant .as-reply-mark {
     display: none;
   }
-  .page-assistant .as-pill {
-    max-width: 190px;
-  }
-  .page-assistant .as-composer:not(.hero) .as-pill-effort {
-    display: none;
-  }
-  .page-assistant .as-plus-menu,
-  .page-assistant .as-model-menu {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: 84px;
-    top: auto;
-    width: auto;
-    max-width: none;
-  }
-  .page-assistant .as-composer.hero .as-plus-menu,
-  .page-assistant .as-composer.hero .as-model-menu {
-    top: auto;
-    bottom: 84px;
-  }
 }
 @media (min-width: 861px) and (max-width: 1180px) {
   .page-assistant.viewing .as-drawer {
@@ -2126,4 +1889,53 @@
   .page-assistant.drawer-open .as-drawer {
     transition: none;
   }
+}
+
+/* The confirmation dialog: narrower than the MCP dialog, with its two buttons at the bottom right. */
+.page-assistant .as-confirm {
+  width: min(440px, calc(100vw - 32px));
+}
+.page-assistant .as-confirm .as-dialog-intro p {
+  margin: 0 0 10px;
+}
+.page-assistant .as-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* A hint inside a menu, such as where brand kits come from. */
+.page-assistant .as-pop-note {
+  margin: 2px 10px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 260px;
+}
+
+/* In the drawer the log fills only the space under the drawer's title and scrolls inside it; at 100% height it was
+   taller than that space, so its end was cut off with no scrollbar. Inline ("Show work") the log keeps its own height. */
+.page-assistant .as-drawer {
+  overflow: hidden;
+  min-height: 0;
+}
+.page-assistant .as-drawer .as-activity {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+.page-assistant .as-drawer .as-log {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line2) transparent;
+}
+.page-assistant .as-drawer .as-log::-webkit-scrollbar {
+  width: 8px;
+}
+.page-assistant .as-drawer .as-log::-webkit-scrollbar-thumb {
+  background: var(--line2);
+  border-radius: 4px;
+}
+.page-assistant .as-drawer-head {
+  flex: none;
 }

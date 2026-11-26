@@ -1,6 +1,6 @@
 /* The site builder's state, kept free of React so it can be tested: turns from the server or the stream, the
    errors the running app reports, and the sizes of the split view. */
-import type { FileChange, SiteEvent, SiteShot, SiteVersion, StoredTurn } from '@/services/sitesService';
+import type { FileChange, SiteEvent, SiteShot, SiteVersion, StoredTurn, TurnAttachment } from '@/services/sitesService';
 
 export interface Step {
   kind: 'request' | 'write' | 'read' | 'check' | 'error';
@@ -25,13 +25,15 @@ export interface Turn {
   model: string;
   /** The files were saved but not kept as a version. */
   snapshotError?: string;
+  /** What the person attached to the message. */
+  attachments: TurnAttachment[];
 }
 
 let nextId = 1;
 const id = () => nextId++;
 
 /** A new turn for a message the person has just sent. */
-export function startTurn(prompt: string, model: string): Turn {
+export function startTurn(prompt: string, model: string, attachments: TurnAttachment[] = []): Turn {
   return {
     id: id(),
     kind: 'message',
@@ -43,6 +45,7 @@ export function startTurn(prompt: string, model: string): Turn {
     changed: [],
     version: null,
     model,
+    attachments,
   };
 }
 
@@ -61,6 +64,7 @@ export function fromStored(turns: StoredTurn[]): Turn[] {
     version: t.version ?? null,
     model: t.model,
     snapshotError: t.snapshot_error,
+    attachments: t.attachments ?? [],
   }));
 }
 

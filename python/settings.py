@@ -181,6 +181,11 @@ class EnvSettings:
     assistant_max_parallel_agents: int = 4
     assistant_run_time_limit_s: int = 1800
     assistant_compact_at_tokens: int = 80000
+    # The software factory (/software-factory): what one change may spend, how long it may take, and how long it
+    # waits for a person's decision before treating silence as a no.
+    software_factory_change_budget_usd: float = 0.5
+    software_factory_time_limit_s: int = 900
+    software_factory_decision_timeout_s: int = 900
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
@@ -292,6 +297,11 @@ class EnvSettings:
             assistant_max_parallel_agents=num("ASSISTANT_MAX_PARALLEL_AGENTS", cls.assistant_max_parallel_agents, 1, 8),
             assistant_run_time_limit_s=num("ASSISTANT_RUN_TIME_LIMIT_S", cls.assistant_run_time_limit_s, 60, 7200),
             assistant_compact_at_tokens=num("ASSISTANT_COMPACT_AT_TOKENS", cls.assistant_compact_at_tokens, 4000),
+            software_factory_change_budget_usd=num("SOFTWARE_FACTORY_CHANGE_BUDGET_USD",
+                                                   cls.software_factory_change_budget_usd, 0.05, 10),
+            software_factory_time_limit_s=num("SOFTWARE_FACTORY_TIME_LIMIT_S", cls.software_factory_time_limit_s, 60, 7200),
+            software_factory_decision_timeout_s=num("SOFTWARE_FACTORY_DECISION_TIMEOUT_S",
+                                                    cls.software_factory_decision_timeout_s, 30, 86400),
         )
 
 

@@ -1,3 +1,4 @@
+import type { AxiosProgressEvent } from 'axios';
 import { api, type ApiClient } from './apiClient';
 
 export interface SiteFile {
@@ -31,6 +32,29 @@ export interface SiteVersion {
   files: number;
 }
 
+/** A file waiting to be attached to a message (uploaded, not yet sent). */
+export interface SiteUpload {
+  id: string;
+  name: string;
+  size: number;
+  media_type: string;
+  kind: 'image' | 'data' | 'pdf';
+}
+
+/** What a turn carried, as stored with it. */
+export interface TurnAttachment {
+  name: string;
+  media_type: string;
+  kind: 'image' | 'data' | 'pdf';
+}
+
+/** What a model can take: pictures (null: not known until tried), PDFs, and its effort levels. */
+export interface ModelCaps {
+  images: boolean | null;
+  pdf: boolean;
+  efforts: string[];
+}
+
 export interface StoredTurn {
   /** "restore" marks a version the person restored between messages; it has no prompt. */
   kind?: 'restore';
@@ -43,6 +67,8 @@ export interface StoredTurn {
   cost?: number;
   /** Set when the turn's files were saved but could not be kept as a version. */
   snapshot_error?: string;
+  effort?: string;
+  attachments?: TurnAttachment[];
 }
 
 export interface SiteDetail {
@@ -52,6 +78,8 @@ export interface SiteDetail {
   files: SiteFile[];
   versions: SiteVersion[];
   running: boolean;
+  /** The model and effort of the last message, offered again. */
+  settings?: { model?: string; effort?: string };
 }
 
 export interface SiteShot {
@@ -64,12 +92,16 @@ export interface SiteTurnRequest {
   siteId?: string | null;
   prompt: string;
   model?: string;
+  /** Ids from upload(). */
+  attachments?: string[];
+  /** '' for a model that takes no effort; omitted for the model's default. */
+  effort?: string;
 }
 
 /** One line of a site builder turn. file_start and file_delta carry the code as Claude writes it. */
 export type SiteEvent =
   | { type: 'run'; run_id: string }
-  | { type: 'site'; site_id: string; title: string; turn: number; model: string }
+  | { type: 'site'; site_id: string; title: string; turn: number; model: string; effort?: string }
   | { type: 'text'; text: string }
   | { type: 'file_start'; id: string; tool: 'write_file' | 'edit_file' }
   | { type: 'file_delta'; id: string; path: string | null; text: string }
@@ -96,7 +128,7 @@ export class SitesService {
   constructor(private readonly client: ApiClient) {}
 
   /** Your sites, most recently changed first, and whether the server can take screenshots. */
-  list(): Promise<{ sites: SiteSummary[]; screenshots: boolean }> {
+  list(): Promise<{ sites: SiteSummary[]; screenshots: boolean; models?: Record<string, ModelCaps> }> {
     return this.client.get('/api/sites');
   }
 
@@ -110,6 +142,8 @@ export class SitesService {
       prompt: req.prompt,
       ...(req.siteId ? { site_id: req.siteId } : {}),
       ...(req.model ? { model: req.model } : {}),
+      ...(req.attachments?.length ? { attachments: req.attachments } : {}),
+      ...(req.effort !== undefined ? { effort: req.effort } : {}),
     };
     return this.client.stream('/api/sites/turn', body, onEvent, signal);
   }
@@ -131,6 +165,15 @@ export class SitesService {
         .replace(/^-|-$/g, '')
         .slice(0, 40) || 'site';
     return this.client.saveFile(`/api/sites/${enc(id)}/zip`, `${name}.zip`);
+  }
+
+  /** Uploads files for the next message, before its site exists if need be. Free: nothing reaches a model yet. */
+  upload(files: File[], onProgress?: (fraction: number) => void): Promise<SiteUpload[]> {
+    const form = new FormData();
+    for (const f of files) form.append('files', f, f.name);
+    return this.client.post('/api/sites/uploads', form, {
+      onUploadProgress: (e: AxiosProgressEvent) => onProgress?.(e.total ? e.loaded / e.total : 0),
+    });
   }
 
   rename(id: string, title: string): Promise<SiteDetail> {

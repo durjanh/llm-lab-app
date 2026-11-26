@@ -30,6 +30,7 @@ class Send(BaseModel):
     run_budget_usd: float = 1.0
     approve_plans: bool = False
     mcp_servers: list[str] | None = Field(default=None, max_length=20)
+    deck_brand: str | None = Field(default=None, max_length=40)  # a brand kit's id; "" for the house style
 
 
 class McpAdd(BaseModel):
@@ -111,7 +112,8 @@ async def upload(chat_id: str, files: list[UploadFile] = File(...),
 def send(chat_id: str, body: Send, service: AssistantService = Depends(assistant)) -> StreamingResponse:
     """One message: the agent plans, works in the sandbox and answers; every step is streamed as it happens."""
     return StreamingResponse(service.send(chat_id, body.text, body.attachments, body.model, body.effort,
-                                          body.run_budget_usd, body.approve_plans, body.mcp_servers), **NDJSON)
+                                          body.run_budget_usd, body.approve_plans, body.mcp_servers,
+                                          body.deck_brand), **NDJSON)
 
 
 @router.post("/assistant/approve")

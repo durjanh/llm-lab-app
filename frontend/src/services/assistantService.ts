@@ -28,6 +28,19 @@ export interface AssistantInfo {
   compact_at_tokens: number;
   sandbox: { available: boolean; kind: string; message: string };
   upload: { max_files: number; max_file_bytes: number; extensions: string[] };
+  /** Company deck templates on this machine (generated/brands/), offered as deck styles. */
+  brands?: BrandKit[];
+}
+
+/** A brand kit: a template, logo and notes kept on this machine, which the agent uses instead of the house style. */
+export interface BrandKit {
+  id: string;
+  name: string;
+  template: string | null;
+  logo: string | null;
+  guidelines: string | null;
+  colours: Record<string, string>;
+  fonts: Record<string, string>;
 }
 
 export interface ChatSummary {
@@ -75,6 +88,8 @@ export interface ChatSettings {
   approve_plans: boolean;
   /** MCP servers enabled in this chat; absent on chats made before MCP servers existed (then: every enabled one). */
   mcp_servers?: string[];
+  /** The brand kit decks follow in this chat; '' or absent for the house style. */
+  deck_brand?: string;
 }
 
 export interface McpTool {
@@ -229,6 +244,8 @@ export interface SendRequest {
   approve_plans: boolean;
   /** The chat's MCP servers, sent only when the person changed them; left out, the chat keeps its saved list. */
   mcp_servers?: string[];
+  /** The brand kit for decks, '' for the house style. */
+  deck_brand?: string;
 }
 
 export interface ApproveRequest {

@@ -30,10 +30,11 @@ from .assistant_agent import (Agent, Stopped, Turn, cheapest_claude, compaction_
                               new_turn_id, provider, summary_of, window_for)
 from . import assistant_store as store_rules
 from .assistant_store import (DEFAULT_TITLE, IMAGE_TYPES, MAX_FILE_BYTES, MAX_FILES, MAX_TITLE, UPLOAD_EXTENSIONS,
-                              ChatStore, content_id, now_iso, public_file, safe_name)
+                              ChatStore, content_id, file_content_id, now_iso, public_file, safe_name)
 from .conversation_store import Conflict, Step
 from .model_failover import estimate_tokens, latest_summary, visible
 from .model_failover import build_messages as _build
+from .assistant_brands import BrandKits
 from .assistant_mcp import McpServers
 from .runs import Run, RunRegistry, RunStreamer
 from .spend import RunBudget, SpendTracker
@@ -49,9 +50,11 @@ NAMES = {"claude-haiku-5-5": "Claude Haiku 5.5", "claude-sonnet-5-5": "Claude So
 
 class AssistantService:
     def __init__(self, claude: Any, spend: SpendTracker, registry: RunRegistry, streamer: RunStreamer,
-                 store: ChatStore, settings: Settings, mcp: McpServers):
+                 store: ChatStore, settings: Settings, mcp: McpServers, brands: BrandKits | None = None):
         self.claude, self.spend, self.registry, self.streamer, self.store = claude, spend, registry, streamer, store
         self.mcp = mcp  # the person's remote MCP servers, for every agent in a turn
+        # Company deck templates and style notes, kept on this machine only (generated/ is gitignored).
+        self.brands = brands if brands is not None else BrandKits(settings.generated_dir / "brands")
         self.run_budget_usd = settings.assistant_run_budget_usd
         self.max_parallel = settings.assistant_max_parallel_agents
         self.time_limit_s = settings.assistant_run_time_limit_s
@@ -60,6 +63,7 @@ class AssistantService:
         self.sandbox_check: Any = None  # tests put a no-op here; None means sandbox_skills.check_running
         self._claims: dict[str, dict[str, Any]] = {}  # chat id -> the run working on it
         self._approvals: dict[str, dict[str, Any]] = {}  # approval id -> waiter
+        self._uploading: dict[str, int] = {}  # chat id -> uploads being written now
         self._lock = threading.Lock()
 
     # ----- models and the sandbox -----
@@ -121,7 +125,8 @@ class AssistantService:
                 "efforts_all": ["low", "medium", "high", "xhigh", "max"], "run_budget_usd": self.run_budget_usd,
                 "max_parallel_agents": self.max_parallel, "run_time_limit_s": self.time_limit_s,
                 "compact_at_tokens": self.compact_at, "sandbox": self.sandbox_status(),
-                "upload": {"max_files": MAX_FILES, "max_file_bytes": MAX_FILE_BYTES, "extensions": UPLOAD_EXTENSIONS}}
+                "upload": {"max_files": MAX_FILES, "max_file_bytes": MAX_FILE_BYTES, "extensions": UPLOAD_EXTENSIONS},
+                "brands": self.brands.list()}
 
     def _default_model(self) -> str:
         models = self.models()
@@ -172,7 +177,8 @@ class AssistantService:
 
     def create_chat(self) -> dict[str, Any]:
         settings = {"model": self._default_model(), "effort": "medium", "run_budget_usd": self.run_budget_usd,
-                    "approve_plans": False, "mcp_servers": [s["id"] for s in self.mcp.all() if s["enabled"]]}
+                    "approve_plans": False, "mcp_servers": [s["id"] for s in self.mcp.all() if s["enabled"]],
+                    "deck_brand": ""}
         meta = self.store.create(settings)
         self._prune()
         return self._summary(meta, set())
@@ -206,8 +212,13 @@ class AssistantService:
     def delete_chat(self, chat_id: str) -> None:
         self.store.read(chat_id)
         token = new_turn_id()
-        if not self._claim(chat_id, token, "delete", started=True):
-            raise ApiError(409, "running", "This chat is working on a message. Stop it first.")
+        with self._lock:  # one step: no upload can start between the check and the claim
+            if self._uploading.get(chat_id):
+                raise ApiError(409, "running", "Files are being added to this chat. Try again in a moment.")
+            held = self._claims.get(chat_id)
+            if held and (held["started"] or time.monotonic() - held["at"] < START_GRACE_S):
+                raise ApiError(409, "running", "This chat is working on a message. Stop it first.")
+            self._claims[chat_id] = {"run_id": token, "kind": "delete", "started": True, "at": time.monotonic()}
         try:
             self.store.delete(chat_id)
         finally:
@@ -218,25 +229,36 @@ class AssistantService:
         return self.store.read_log(chat_id, turn_id)
 
     def upload(self, chat_id: str, files: list[tuple[str, bytes]]) -> list[dict[str, Any]]:
+        """Saves uploads in the chat's inputs/. Free. Refused while the chat is being deleted, and a delete waits for
+        nothing: it is refused while an upload is being written, so no upload lands in a folder about to go."""
         self.store.read(chat_id)
+        with self._lock:
+            if self._claims.get(chat_id, {}).get("kind") == "delete":
+                raise ApiError(409, "running", "This chat is being deleted.")
+            self._uploading[chat_id] = self._uploading.get(chat_id, 0) + 1
+        try:
+            return self._upload(chat_id, files)
+        finally:
+            with self._lock:
+                self._uploading[chat_id] -= 1
+                if not self._uploading[chat_id]:
+                    del self._uploading[chat_id]
+
+    def _upload(self, chat_id: str, files: list[tuple[str, bytes]]) -> list[dict[str, Any]]:
         if not files:
             raise ApiError(400, "invalid_request", "Choose at least one file.")
         if len(files) > MAX_FILES:
             raise ApiError(400, "invalid_request", f"At most {MAX_FILES} files at a time.")
         for name, data in files:
-            ext = safe_name(name).rpartition(".")[2].lower()
-            if ext not in UPLOAD_EXTENSIONS:
+            stem, dot, ext = safe_name(name).rpartition(".")
+            if not dot or not stem or ext.lower() not in UPLOAD_EXTENSIONS:
                 raise ApiError(400, "invalid_request", f"{safe_name(name)}: this kind of file is not accepted. "
                                                        f"Accepted: {', '.join(UPLOAD_EXTENSIONS)}.")
             if len(data) > MAX_FILE_BYTES:
                 raise ApiError(413, "too_large", f"{safe_name(name)} is over {MAX_FILE_BYTES // 2**20} MB.")
             if not data:
                 raise ApiError(400, "invalid_request", f"{safe_name(name)} is empty.")
-        total = self.store.upload_bytes(chat_id) + sum(len(d) for _, d in files)
-        if total > store_rules.MAX_CHAT_UPLOAD_BYTES:
-            raise ApiError(413, "too_large", f"A chat can hold at most {store_rules.MAX_CHAT_UPLOAD_BYTES // 2**20} MB of "
-                                             "uploads. Start a new chat for more files.")
-        return [public_file(chat_id, self.store.add_upload(chat_id, name, data)) for name, data in files]
+        return [public_file(chat_id, r) for r in self.store.add_uploads(chat_id, files, store_rules.MAX_CHAT_UPLOAD_BYTES)]
 
     def media(self, chat_id: str, file_id: str, preview: int | None = None) -> tuple[Path, str, bool]:
         """The file (or one of its preview pages), its media type, and whether a browser may show it inline."""
@@ -259,7 +281,7 @@ class AssistantService:
 
     # ----- a turn -----
     def send(self, chat_id: str, text: str, attachments: list[str], model: str, effort: str, run_budget_usd: float,
-             approve_plans: bool, mcp_servers: list[str] | None = None) -> Iterator[str]:
+             approve_plans: bool, mcp_servers: list[str] | None = None, deck_brand: str | None = None) -> Iterator[str]:
         meta = self.store.read(chat_id)
         text = (text or "").strip()
         if not text:
@@ -283,6 +305,10 @@ class AssistantService:
         known = {s["id"] for s in self.mcp.all()}
         if any(s not in known for s in mcp_servers):
             raise ApiError(400, "invalid_request", "An MCP server in this message is not one of yours. Reload the page.")
+        if deck_brand is None:  # not sent: the chat keeps its brand (or the house style)
+            deck_brand = str(meta["settings"].get("deck_brand", "") or "")
+        if deck_brand and self.brands.get(deck_brand) is None:
+            raise ApiError(400, "invalid_request", "That deck style is not one of the brand kits on this machine.")
         self._need_sandbox()
         run = Run(APPROVAL_TIMEOUT_FALLBACK)
         if not self._claim(chat_id, run.id, "turn"):
@@ -295,7 +321,8 @@ class AssistantService:
             raise
         previous = meta["settings"].get("model") if meta["turns"] else None
         settings = {"model": model, "effort": effort, "run_budget_usd": float(run_budget_usd),
-                    "approve_plans": bool(approve_plans), "mcp_servers": list(dict.fromkeys(mcp_servers))}
+                    "approve_plans": bool(approve_plans), "mcp_servers": list(dict.fromkeys(mcp_servers)),
+                    "deck_brand": deck_brand}
 
         def work() -> None:
             with self._lock:
@@ -327,25 +354,33 @@ class AssistantService:
             m["settings"] = settings
             m["turns"].append(record)
         self.store.update(chat_id, start)
-        t.append("user", "user", self._user_content(chat_id, text, attachments))
-        t.emit({"type": "turn", "turn_id": turn_id})
-        if previous and previous != model:
-            t.emit({"type": "model_switch", "from": previous, "to": model})
-        t.mcp_defs, t.mcp_names, notes = self.mcp.tools_for(settings["mcp_servers"])
-        for note in notes:
-            t.emit({"type": "note", "agent": "main", "text": note})
-        main = Agent(t, "main", self.store.workspace(chat_id))
+        main: Agent | None = None
         stopped, error, reply = "finished", None, ""
+
+        def said() -> str:
+            return "\n\n".join(x for x in (main.texts if main else []) if x)
+        # From here on the turn is stored as running, so everything, set-up included, ends through the same path:
+        # a failure anywhere still stores the turn as an error and sends done.
         try:
+            t.emit({"type": "turn", "turn_id": turn_id})
+            # The chosen brand kit goes into inputs/brand/ (or is cleared from it) before the agent starts.
+            kit = self.brands.install(settings.get("deck_brand", ""), self.store.workspace(chat_id))
+            t.append("user", "user", self._user_content(chat_id, text, attachments, BrandKits.note(kit) if kit else ""))
+            if previous and previous != model:
+                t.emit({"type": "model_switch", "from": previous, "to": model})
+            t.mcp_defs, t.mcp_names, notes = self.mcp.tools_for(settings["mcp_servers"])
+            for note in notes:
+                t.emit({"type": "note", "agent": "main", "text": note})
+            main = Agent(t, "main", self.store.workspace(chat_id))
             reply = main.run()
         except Stopped as exc:
-            stopped, reply = exc.reason, "\n\n".join(x for x in main.texts if x)
+            stopped, reply = exc.reason, said()
             if exc.reason in ("error", "refused", "budget", "time"):
                 error = exc.message
         except ApiError as exc:
-            stopped, error, reply = "error", exc.message, "\n\n".join(x for x in main.texts if x)
-        except Exception as exc:  # noqa: BLE001  (an API error part-way through): the turn is still stored
-            stopped, error, reply = "error", f"{type(exc).__name__}: {exc}", "\n\n".join(x for x in main.texts if x)
+            stopped, error, reply = "error", exc.message, said()
+        except Exception as exc:  # noqa: BLE001  (an API error part-way through, a file that vanished): still stored
+            stopped, error, reply = "error", f"{type(exc).__name__}: {exc}", said()
         if error and stopped == "error":
             t.emit({"type": "error", "message": error})
         if stopped == "finished" and t.plan:
@@ -354,7 +389,10 @@ class AssistantService:
                 t.emit({"type": "note", "agent": "main",
                         "text": f"The turn finished, but the plan still has {len(open_steps)} of "
                                 f"{len(t.plan['steps'])} steps not marked done: " + "; ".join(open_steps[:5])})
-        self._previews(t)
+        try:
+            self._previews(t)
+        except Exception as exc:  # noqa: BLE001  (previews are a nicety: the files are there to download)
+            t.emit({"type": "note", "agent": "main", "text": f"Page previews could not be made: {exc}"})
         if len(meta["turns"]) == 0 and meta["title"] == DEFAULT_TITLE:
             self._title(t, text, stopped)
 
@@ -367,10 +405,13 @@ class AssistantService:
         self.store.update(chat_id, finish)
         t.emit({"type": "done", "stopped": stopped, "cost_usd": round(t.cost, 6), "text": reply})
 
-    def _user_content(self, chat_id: str, text: str, attachments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _user_content(self, chat_id: str, text: str, attachments: list[dict[str, Any]],
+                      brand_note: str = "") -> list[dict[str, Any]]:
         """The person's message as stored: their text, the attached files' paths, and small pictures themselves so
         the model can see them."""
         content: list[dict[str, Any]] = []
+        if brand_note:
+            content.append({"type": "text", "text": brand_note})
         if attachments:
             listed = "\n".join(f"- inputs/{Path(a.get('source', a['path'])).name} ({a['media_type']}, {a['size']:,} bytes)"
                                for a in attachments)
@@ -397,7 +438,8 @@ class AssistantService:
             if rec is None or rec.get("previews") or left < 10 or not source.startswith("workspace/"):
                 continue
             current = self.store.file_path(t.chat_id, source)
-            if current is None or content_id(source, current.read_bytes()) != file_id:
+            if current is None or current.stat().st_size > store_rules.MAX_OUTPUT_FILE_BYTES \
+                    or file_content_id(source, current) != file_id:
                 continue  # changed again since: the newer version has its own id and its own previews
             try:
                 pages = make_previews(self.box(), root, source[len("workspace/"):], file_id,
@@ -509,27 +551,39 @@ class AssistantService:
     def _recover(self, chat_id: str) -> None:
         """A turn left "running" with no run behind it (the server stopped part-way) is closed as an error, and any
         tool call it left unanswered gets an interrupted result, so the chat can carry on."""
-        if chat_id in self._running():
+        token = new_turn_id()
+        # The whole repair holds the chat, so a send cannot start a live turn in the middle of it (and have that turn
+        # closed as an error), and two tabs reading the chat cannot both repair it.
+        if not self._claim(chat_id, token, "recover", started=True):
             return
-        meta = self.store.read(chat_id)
-        if not any(t["assistant"].get("stopped") == "running" for t in meta["turns"]):
-            return
-        conv = self.store.steps.load(meta["conv_id"])
-        from .model_failover import pending_tool_uses
-        pending = pending_tool_uses(conv.steps)
-        if pending:
-            last = max(conv.steps, key=lambda s: (s.turn, s.step))
-            step = Step(last.turn if last.step < 99 else last.turn + 1, last.step + 1 if last.step < 99 else 1, "tool",
-                        "user", [{"type": "tool_result", "tool_use_id": b["id"], "is_error": True,
-                                  "content": "Interrupted: the server stopped before this tool ran."} for b in pending],
-                        created_at=now_iso(), tool="interrupted")
-            self.store.steps.append_step(meta["conv_id"], step, conv.etag)
+        try:
+            meta = self.store.read(chat_id)
+            if not any(t["assistant"].get("stopped") == "running" for t in meta["turns"]):
+                return
+            from .model_failover import pending_tool_uses
+            for _ in range(3):
+                conv = self.store.steps.load(meta["conv_id"])
+                pending = pending_tool_uses(conv.steps)
+                if not pending:
+                    break
+                last = max(conv.steps, key=lambda s: (s.turn, s.step))
+                step = Step(last.turn if last.step < 99 else last.turn + 1, last.step + 1 if last.step < 99 else 1,
+                            "tool", "user", [{"type": "tool_result", "tool_use_id": b["id"], "is_error": True,
+                                              "content": "Interrupted: the server stopped before this tool ran."}
+                                             for b in pending], created_at=now_iso(), tool="interrupted")
+                try:
+                    self.store.steps.append_step(meta["conv_id"], step, conv.etag)
+                    break
+                except Conflict:  # written meanwhile: read it again and see what is still unanswered
+                    continue
 
-        def close(m: dict[str, Any]) -> None:
-            for t in m["turns"]:
-                if t["assistant"].get("stopped") == "running":
-                    t["assistant"].update(stopped="error", error="The server stopped during this turn.")
-        self.store.update(chat_id, close)
+            def close(m: dict[str, Any]) -> None:
+                for t in m["turns"]:
+                    if t["assistant"].get("stopped") == "running":
+                        t["assistant"].update(stopped="error", error="The server stopped during this turn.")
+            self.store.update(chat_id, close)
+        finally:
+            self._release(chat_id, token)
 
     # ----- the plan approval and Stop -----
     def wait_for_plan(self, t: Turn, plan: dict[str, Any]) -> dict[str, Any]:

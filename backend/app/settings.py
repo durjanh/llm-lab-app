@@ -113,6 +113,9 @@ class Settings:
     assistant_max_parallel_agents: int = 4
     assistant_run_time_limit_s: int = 1800
     assistant_compact_at_tokens: int = 80000
+    software_factory_change_budget_usd: float = 0.5
+    software_factory_time_limit_s: int = 900
+    software_factory_decision_timeout_s: int = 900
 
     @classmethod
     def from_env(cls, env: EnvSettings | None = None) -> "Settings":
@@ -184,6 +187,9 @@ class Settings:
             assistant_max_parallel_agents=env.assistant_max_parallel_agents,
             assistant_run_time_limit_s=env.assistant_run_time_limit_s,
             assistant_compact_at_tokens=env.assistant_compact_at_tokens,
+            software_factory_change_budget_usd=env.software_factory_change_budget_usd,
+            software_factory_time_limit_s=env.software_factory_time_limit_s,
+            software_factory_decision_timeout_s=env.software_factory_decision_timeout_s,
         )
 
     @property

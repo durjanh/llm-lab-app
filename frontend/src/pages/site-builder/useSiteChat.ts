@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { modelName } from '@/lib/models';
 import { ApiError } from '@/services/apiClient';
-import { sitesService, type SiteDetail, type SiteFile, type SiteVersion } from '@/services/sitesService';
+import {
+  sitesService,
+  type SiteDetail,
+  type SiteFile,
+  type SiteUpload,
+  type SiteVersion,
+} from '@/services/sitesService';
 import { applyEvent, fromStored, startTurn, type Turn } from './model';
 
 /** The file Claude is writing at this moment, as far as it has got. */
@@ -26,6 +32,7 @@ export function useSiteChat(model: string) {
   const [reload, setReload] = useState(0); // goes up whenever a file is saved, so the preview reloads
   const [problem, setProblem] = useState('');
   const [busyElsewhere, setBusyElsewhere] = useState(false); // a turn running from another tab
+  const [settings, setSettings] = useState<SiteDetail['settings']>(undefined); // the model and effort last used
   const controller = useRef<AbortController | null>(null);
   const siteRef = useRef<string | null>(null);
   const sending = useRef(false); // set at once on Send, so a double click cannot start two turns
@@ -47,6 +54,7 @@ export function useSiteChat(model: string) {
     setVersions(site.versions);
     setTurns(fromStored(site.turns));
     setBusyElsewhere(site.running);
+    setSettings(site.settings);
     setReload((v) => v + 1);
   }, []);
 
@@ -65,6 +73,7 @@ export function useSiteChat(model: string) {
         setFiles([]);
         setVersions([]);
         setBusyElsewhere(false);
+        setSettings(undefined);
         return;
       }
       try {
@@ -78,18 +87,24 @@ export function useSiteChat(model: string) {
     [setLive, show],
   );
 
+  /** Sends a message with its attachments (already uploaded) and effort ('' for none); false if one is under way. */
   const send = useCallback(
-    async (prompt: string) => {
-      if (sending.current) return;
+    async (prompt: string, opts: { attachments?: SiteUpload[]; effort?: string } = {}) => {
+      if (sending.current) return false;
       sending.current = true;
-      const turn = startTurn(prompt, model);
+      const attached = opts.attachments ?? [];
+      const turn = startTurn(
+        prompt,
+        model,
+        attached.map((a) => ({ name: a.name, media_type: a.media_type, kind: a.kind })),
+      );
       const c = (controller.current = new AbortController());
       setProblem('');
       setTurns((ts) => [...ts, turn]);
       const who = modelName(model);
       try {
         await sitesService.turn(
-          { siteId: siteRef.current, prompt, model },
+          { siteId: siteRef.current, prompt, model, attachments: attached.map((a) => a.id), effort: opts.effort },
           (ev) => {
             if (ev.type === 'site') {
               siteRef.current = ev.site_id;
@@ -147,6 +162,7 @@ export function useSiteChat(model: string) {
             .catch(() => undefined);
         }
       }
+      return true;
     },
     [model, update, setLive],
   );
@@ -191,6 +207,7 @@ export function useSiteChat(model: string) {
     problem,
     running,
     busyElsewhere: busyElsewhere && !running,
+    settings,
     open,
     send,
     stop,

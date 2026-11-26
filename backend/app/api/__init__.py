@@ -119,3 +119,11 @@ from . import assistant  # noqa: E402  (the assistant: plans, works in the sandb
 
 router.include_router(assistant.router)
 router.include_router(assistant.media)  # made files and their previews, for <img>, <iframe> and download links
+
+from . import software_factory  # noqa: E402  (agents deliver tickets; people approve by risk tier)
+
+router.include_router(software_factory.router)
+
+from . import control_layer  # noqa: E402  (usage, cost and access: policies, virtual keys and figures)
+
+router.include_router(control_layer.router)

@@ -56,82 +56,6 @@
   margin: 0 auto;
   max-width: 52ch;
 }
-.page-sites .sb-startbox {
-  width: min(720px, 100%);
-  margin-top: 26px;
-  border: 1px solid var(--line2);
-  border-radius: 20px;
-  background: var(--surface);
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--ink) 10%, transparent);
-  padding: 14px 14px 10px;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-.page-sites .sb-startbox:focus-within {
-  border-color: var(--brand-line);
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--brand) 18%, transparent);
-}
-.page-sites .sb-startbox textarea,
-.page-sites .sb-composer textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 0;
-  outline: 0;
-  resize: none;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 16px;
-  line-height: 1.5;
-}
-.page-sites .sb-startbar,
-.page-sites .sb-composebar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-  min-width: 0;
-}
-.page-sites .sb-model {
-  max-width: 220px;
-  min-width: 0;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 13px;
-  border: 1px solid var(--line2);
-  background: var(--surface2);
-  color: var(--ink);
-}
-.page-sites .sb-send {
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border-radius: 50%;
-  border: 0;
-  background: var(--brand);
-  color: #fff;
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    transform 0.12s,
-    opacity 0.12s,
-    background 0.12s;
-}
-.page-sites .sb-send:hover:not(:disabled) {
-  background: var(--brand-hover);
-  transform: translateY(-1px);
-}
-.page-sites .sb-send:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.page-sites .sb-send.stop {
-  background: var(--ink);
-  color: var(--surface);
-  font-size: 13px;
-}
 .page-sites .sb-startnote {
   width: min(720px, 100%);
   margin: 8px 0 0;
@@ -608,29 +532,6 @@
 .page-sites .sb-shot-wait.phone {
   width: 39px;
 }
-.page-sites .sb-composer {
-  margin: 8px 12px 12px;
-  border: 1px solid var(--line2);
-  border-radius: 18px;
-  background: var(--surface);
-  padding: 10px 12px 8px;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-.page-sites .sb-composer:focus-within {
-  border-color: var(--brand-line);
-  box-shadow: 0 6px 24px color-mix(in srgb, var(--brand) 14%, transparent);
-}
-.page-sites .sb-composer textarea {
-  font-size: 15px;
-}
-.page-sites .sb-hint {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
 
 .page-sites .sb-divider {
   cursor: col-resize;
@@ -950,9 +851,6 @@
     border-bottom: 1px solid var(--line);
     max-height: 120px;
   }
-  .page-sites .sb-hint {
-    display: none;
-  }
   .page-sites .sb-apptitle {
     max-width: 140px;
   }
@@ -963,8 +861,44 @@
     animation: none;
   }
   .page-sites .sb-tile,
-  .page-sites .sb-frame,
-  .page-sites .sb-send {
+  .page-sites .sb-frame {
     transition: none;
   }
+}
+
+/* The shared message box sits in these wrappers; it brings its own card. */
+.page-sites .sb-startbox {
+  width: min(720px, 100%);
+  margin-top: 26px;
+}
+.page-sites .sb-composer {
+  margin: 8px 12px 12px;
+}
+.page-sites .sb-attached {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.page-sites .sb-attached li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-sites .sb-attached-kind {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--brand);
 }

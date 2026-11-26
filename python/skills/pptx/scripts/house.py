@@ -129,6 +129,9 @@ class Deck:
         self.text(s, MARGIN, Inches(1.0), CONTENT_W, Inches(0.85), headline, size=28, bold=True,
                   color=self.t["ink"], spacing=1.0, anchor="top")
         self.rect(s, MARGIN, Inches(6.95), CONTENT_W, Emu(Pt(0.75)), self.t["line"])
+        source = source.strip()
+        if source.lower().startswith("source:"):  # the model often writes the prefix itself
+            source = source[7:].strip()
         left = "  ·  ".join(x for x in (self.footer, f"Source: {source}" if source else "") if x)
         if left:
             self.text(s, MARGIN, Inches(7.05), CONTENT_W - Inches(1), Inches(0.3), left, size=10,
@@ -309,7 +312,8 @@ class Deck:
         pw = CONTENT_W - cw - Inches(0.35)
         self.rect(s, px, TOP, pw, BOTTOM - TOP, self.t["panel"], rounded=True, radius=0.04)
         points = list(points)[:4]
-        row = int((BOTTOM - TOP - Inches(0.5)) / max(1, len(points)))
+        # Points sit together at the top of the panel; spread over its full height, two points look lost.
+        row = min(Inches(1.25), int((BOTTOM - TOP - Inches(0.5)) / max(1, len(points))))
         for i, p in enumerate(points):
             y = TOP + Inches(0.3) + i * row
             self.text(s, px + Inches(0.3), y, Inches(0.5), Inches(0.5), f"{i + 1}", size=20, bold=True,

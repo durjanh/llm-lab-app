@@ -171,6 +171,33 @@
 
 **What I built:** a chat page with stored chats, uploads, model and effort per message, and a live activity panel. Behind it, one streaming loop for Claude, GPT and the local model that plans, runs bash and file tools in the lab's Docker sandbox, reads the office-file skills, starts up to four parallel sub-agents in folders of their own, makes PDF, deck, spreadsheet and chart previews, compacts long chats, and stops on a shared budget, a time limit or Stop.
 
+## Software Factory (`/software-factory`)
+**In one line:** agents take tickets from plan to merge, and people step in by risk: low-risk changes run dark, medium ones wait for a person at the diff, high ones at the plan and the diff, and each area earns autonomy with a clean record.
+
+**Key terms**
+- **Risk tier**: low, medium or high, set by an explicit policy from the ticket's kind and area, and raised (never lowered) by what the work turns out to touch.
+- **Running dark**: a change that plans, builds, passes every gate and merges with no person involved.
+- **Gate**: an automatic check every change must pass: no new failing tests, no tests deleted or skipped, no secrets, nothing outside the project, the diff size, and an independent reviewer agent.
+- **Baseline**: the tests already failing on main before a change starts; a change is judged on the failures it adds.
+- **Earned autonomy**: an area's level (probation, standard, trusted) moves up after a run of clean changes and down at once when a defect escapes.
+- **Escape**: a merged change that turns out to be wrong; reverting it records one.
+
+**Questions they could ask**
+- **Q:** How do you decide which changes an agent may merge without a person?
+  **A:** With a written policy, not the model's judgement. The ticket's kind and area set a starting tier; evidence from the plan and the diff (a sensitive path, a new dependency, a big diff, edited tests, code no test covers) can only raise it. Only low-risk changes that pass every gate merge on their own, and high-risk changes always need a person, whatever the record.
+- **Q:** What stops an agent from making the tests pass by changing the tests?
+  **A:** A gate that compares the test files before and after: fewer test functions, a deleted file or a new skip marker blocks the change, and editing tests raises its tier so a person must look. The implementer is also told never to weaken a test.
+- **Q:** Why a separate reviewer agent rather than asking the implementer to check its own work?
+  **A:** The implementer has its own reasoning in context and tends to agree with it. The reviewer starts fresh, sees only the ticket, the diff and the test output, works from a checklist, and must return a verdict in a fixed format; no verdict counts as a fail.
+- **Q:** How does a team earn more autonomy, and how does it lose it?
+  **A:** Each area keeps a ledger. Three clean changes in a row (merged with no person correcting them) move it up a level, so medium-risk work there may run dark. A reverted change is an escaped defect: the area drops a level at once and its streak starts again. Trust is earned slowly and lost quickly, on purpose.
+- **Q:** What happens when the project already has failing tests?
+  **A:** The factory runs the tests on main before each change and records what already fails. A change passes the test gate if it adds no new failure; fixing old ones is shown as progress. Otherwise a docs change would be blocked by unrelated bugs, or an agent would be pushed to fix them out of scope.
+- **Q:** How do you keep an audit trail you could defend?
+  **A:** Every decision is recorded with who or what made it and why: the policy's tier and reasons, the planner, each gate's result and detail, the reviewer's findings, and each person's approval, note, edit or takeover. The full event stream is kept per change, and each merge is a git commit whose message names the ticket and the change.
+
+**What I built:** a factory on a copy of the practice project with an invented backlog, a tested risk policy, a read-only planner, an implementer in the sandbox, seven gates including an independent reviewer, person decisions on plans and diffs, real git merges and reverts, a per-area autonomy ledger, a flow board, metrics and a full audit trail per change.
+
 ## Coding Agent (`/coding-agent`)
 **In one line:** a coding agent built the way Claude Code is, where the short loop is easy and the rules that make it safe to point at code are the real work.
 
@@ -230,6 +257,7 @@
 - **Version**: a snapshot of the site's files after a turn that changed them; restoring one is itself a new version, so nothing is lost.
 - **Error reporter**: a small script added to every served page that only sends uncaught errors, rejected promises and console errors to the page that frames it.
 - **Visual check**: after a turn, the server screenshots the site at desktop and phone widths and shows the model the pictures and console errors so it can fix what it sees.
+- **Effort**: how long the model thinks before answering, chosen per message; Claude takes five levels, GPT three, and the local model none.
 
 **Questions they could ask**
 - **Q:** How do you let a model build a web app without risking the system it runs on?
@@ -242,6 +270,8 @@
   **A:** The whole conversation, including its own tool calls and results, which is cached, plus anything the person did meanwhile, such as restoring a version, as a short notice before their next message. When it is unsure what a file contains, it reads it first.
 - **Q:** Why screenshot the result and show it to the model?
   **A:** Code that parses is not a page that looks right. Showing the model its page at 1280 and 390 pixels, with the console errors, lets it catch overflow, contrast and layout mistakes it cannot see from the source. It is limited to two rounds so a turn cannot loop.
+- **Q:** How do you build "something like this" from a screenshot without copying it?
+  **A:** The picture goes to the model with an instruction to match layout, spacing, colours and typography in its own code and words, never copying text, logos or images. Uploads are checked by content and shrunk before use, and a model that can't read pictures is refused clearly.
 - **Q:** What stops two tabs from changing the same site at once?
   **A:** A per-site lock: a second message, a restore or a delete while a turn is running is refused with 409, and the list of sites shows which ones are being built.
 

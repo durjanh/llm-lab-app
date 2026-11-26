@@ -1,0 +1,193 @@
+/* Usage, cost and access: totals, a chart of spending by day, tables, the policy editor and keys. Colours come only
+   from the shared variables, so light and dark both work. */
+
+.page-control-layer .cl-stats {
+  margin-top: 18px;
+}
+.page-control-layer .cl-stats .stat b {
+  display: block;
+  font-size: 20px;
+}
+.page-control-layer .cl-error {
+  color: var(--bad);
+}
+.page-control-layer .cl-bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+/* The chart */
+.page-control-layer .cl-chart {
+  margin: 8px 0 0;
+}
+.page-control-layer .cl-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.page-control-layer .cl-axis {
+  stroke: var(--line2);
+}
+.page-control-layer .cl-tick {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.page-control-layer .cl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 6px;
+}
+.page-control-layer .cl-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+/* Tables */
+.page-control-layer .cl-consumers td {
+  vertical-align: middle;
+}
+.page-control-layer .cl-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.page-control-layer .cl-burn {
+  display: inline-block;
+  width: 90px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--soft);
+  overflow: hidden;
+  vertical-align: middle;
+}
+.page-control-layer .cl-burn span {
+  display: block;
+  height: 100%;
+  background: var(--good);
+}
+.page-control-layer .cl-burn span.high {
+  background: var(--warn);
+}
+.page-control-layer .cl-burn span.full {
+  background: var(--bad);
+}
+.page-control-layer .cl-row-actions {
+  white-space: nowrap;
+}
+.page-control-layer .cl-row-actions .btn + .btn {
+  margin-left: 6px;
+}
+.page-control-layer .cl-danger {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.page-control-layer .cl-revoked td {
+  color: var(--muted);
+}
+.page-control-layer .cl-actions {
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 10px 0;
+}
+.page-control-layer .cl-actions input {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+/* The policy editor */
+.page-control-layer .cl-editor {
+  margin: 12px 0;
+}
+.page-control-layer .cl-editor h3 {
+  margin-top: 0;
+}
+.page-control-layer .cl-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+.page-control-layer .cl-form fieldset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.page-control-layer .cl-form legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.page-control-layer .cl-form label:not(.cl-check) {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.page-control-layer .cl-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+}
+.page-control-layer .cl-check input {
+  margin-top: 3px;
+}
+.page-control-layer .cl-models {
+  display: grid;
+  gap: 4px;
+  padding-left: 22px;
+}
+.page-control-layer .cl-inline {
+  display: grid;
+  gap: 6px;
+}
+.page-control-layer .cl-inline input {
+  width: 64px;
+}
+
+/* Keys and lists */
+.page-control-layer .cl-made {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.page-control-layer .cl-made p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.page-control-layer .cl-key {
+  word-break: break-all;
+  flex: 1 1 280px;
+}
+.page-control-layer .cl-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  font-size: 14px;
+}
+.page-control-layer .cl-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.page-control-layer .cl-when {
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: 6px;
+}
+.page-control-layer pre.code {
+  overflow-x: auto;
+}

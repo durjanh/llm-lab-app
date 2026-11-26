@@ -531,3 +531,227 @@ def test_finding_5_the_list_of_sites_uses_the_remembered_screenshot(tmp_path: Pa
     assert json.loads((tmp_path / "sites" / site_id / "chat.json").read_text())["thumb"] == thumb
     shutil.rmtree(tmp_path / "sites" / site_id / "shots")  # the list must not scan the folder again
     assert client.get("/api/sites", headers=LAB).json()["sites"][0]["thumb"] == thumb
+
+
+def test_finding_6_restore_to_before_a_message_uses_the_files_the_person_saw(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]            # message 0 -> version 1 (navy)
+    turn(client, "Teal", site_id)                              # message 1 -> version 2 (teal)
+    assert client.post(f"/api/sites/{site_id}/versions/1/restore", headers=LAB).status_code == 200  # a note, not a message
+    site_dir = tmp_path / "sites" / site_id
+    r = client.post(f"/api/sites/{site_id}/restore", json={"keep": 1}, headers=LAB)  # back to before "Teal"
+    assert r.status_code == 200, r.text
+    assert (site_dir / "site" / "css" / "site.css").read_text() == "h1{color:navy}"  # as after message 0
+    assert (site_dir / "site" / "index.html").read_text() == PAGE
+    assert [t["prompt"] for t in r.json()["turns"]] == ["A page"]
+    # The note about the restored version is not a message: there are only two messages to choose from.
+    (tmp_path / "b").mkdir()
+    client2, _, _ = lab(tmp_path / "b", BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    other = turn(client2, "A page")[1]["site_id"]
+    turn(client2, "Teal", other)
+    client2.post(f"/api/sites/{other}/versions/1/restore", headers=LAB)
+    assert client2.post(f"/api/sites/{other}/restore", json={"keep": 2}, headers=LAB).status_code == 400
+
+
+def test_finding_6_restore_to_before_the_first_message_empties_the_site(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    r = client.post(f"/api/sites/{site_id}/restore", json={"keep": 0}, headers=LAB)
+    assert r.status_code == 200 and r.json()["files"] == [] and r.json()["turns"] == []
+    assert list((tmp_path / "sites" / site_id / "backups").glob("*/site/index.html"))  # the files were kept aside
+
+
+def test_finding_6_a_site_from_before_versions_is_rebuilt_by_replay_unless_a_version_was_restored(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    saved = tmp_path / "sites" / site_id / "chat.json"
+    data = json.loads(saved.read_text())
+    for t in data["turns"]:
+        t.pop("version")  # as turns saved before versions existed
+    saved.write_text(json.dumps(data))
+    again, _, _ = lab(tmp_path)
+    assert again.post(f"/api/sites/{site_id}/restore", json={"keep": 1}, headers=LAB).status_code == 200
+    assert (tmp_path / "sites" / site_id / "site" / "css" / "site.css").read_text() == "h1{color:navy}"
+    # With a version restored after such turns, replaying would give the wrong files, so it is refused.
+    data = json.loads(saved.read_text())
+    data["turns"].append({"kind": "restore", "prompt": "", "reply": "Restored version 1.", "model": "", "time": 1,
+                          "start": len(data["history"]), "changed": [], "version": None, "cost": 0})
+    data["turns"].append({"prompt": "More", "reply": "ok", "model": "m", "time": 2, "start": len(data["history"])})
+    saved.write_text(json.dumps(data))
+    third, _, _ = lab(tmp_path)
+    assert third.post(f"/api/sites/{site_id}/restore", json={"keep": 1}, headers=LAB).status_code == 409
+
+
+def test_finding_6_a_version_no_longer_kept_is_refused_clearly(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    site = client.app.state.container.sites.store.get(site_id)
+    site.versions = [v for v in site.versions if v["n"] != 1]  # as if version 1 had been dropped by the limit
+    r = client.post(f"/api/sites/{site_id}/restore", json={"keep": 1}, headers=LAB)
+    assert r.status_code == 409 and "no longer kept" in r.json()["error"]["message"]
+    assert (tmp_path / "sites" / site_id / "site" / "css" / "site.css").read_text() == "h1{color:teal}"
+
+
+# ----- Attachments and effort -----
+
+def png(width: int = 40, height: int = 30, colour: tuple = (20, 120, 200)) -> bytes:
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", (width, height), colour).save(out, "PNG")
+    return out.getvalue()
+
+
+def upload(client: TestClient, *files: tuple[str, bytes, str]) -> Any:
+    return client.post("/api/sites/uploads", headers=LAB, files=[("files", f) for f in files])
+
+
+def test_uploads_are_checked_by_content_and_name(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    ok = upload(client, ("../../shot.png", png(), "image/png"), ("data.csv", b"day,high\nMon,4.2\n", "text/csv"))
+    assert ok.status_code == 200, ok.text
+    assert [(u["name"], u["kind"]) for u in ok.json()] == [("shot.png", "image"), ("data.csv", "data")]
+    assert all(len(u["id"]) == 32 for u in ok.json())
+    bad = [
+        (("run.exe", b"MZ", "application/octet-stream"), "attach pictures"),
+        (("fake.png", b"not a picture", "image/png"), "not a picture"),
+        (("empty.csv", b"", "text/csv"), "empty"),
+        (("latin.csv", "café".encode("latin-1"), "text/csv"), "UTF-8"),
+        (("brief.pdf", b"hello", "application/pdf"), "not a PDF"),
+        (("big.json", b"[" + b"1," * 160_000 + b"1]", "application/json"), "limit"),
+    ]
+    for file, why in bad:
+        r = upload(client, file)
+        assert r.status_code == 400 and why in r.json()["error"]["message"], (file[0], r.text)
+    many = upload(client, *[(f"{i}.txt", b"x", "text/plain") for i in range(7)])
+    assert many.status_code == 400
+
+
+def test_a_large_picture_is_shrunk_and_a_gif_becomes_a_png(tmp_path: Path) -> None:
+    from PIL import Image
+
+    client, _, _ = lab(tmp_path)
+    gif = io.BytesIO()
+    Image.new("RGB", (10, 10), (255, 0, 0)).save(gif, "GIF")
+    r = upload(client, ("wide.png", png(3000, 1000), "image/png"), ("anim.gif", gif.getvalue(), "image/gif"))
+    assert r.status_code == 200, r.text
+    wide, anim = r.json()
+    stored = client.app.state.container.sites.uploads.get(wide["id"])
+    assert max(Image.open(stored.path).size) == 1568
+    assert anim["media_type"] == "image/png"
+
+
+def test_unused_uploads_expire_after_a_day(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    uploads = client.app.state.container.sites.uploads
+    up = upload(client, ("a.txt", b"hello", "text/plain")).json()[0]
+    meta = uploads.root / up["id"] / "meta.json"
+    data = json.loads(meta.read_text())
+    data["created"] -= 25 * 3600
+    meta.write_text(json.dumps(data))
+    assert uploads.prune() == 1 and uploads.get(up["id"]) is None
+    assert not (uploads.root / up["id"]).exists()
+
+
+def test_a_picture_reaches_the_model_and_is_kept_on_the_turn(tmp_path: Path) -> None:
+    client, fake, _ = lab(tmp_path, BUILD, DONE)
+    up = upload(client, ("mock.png", png(), "image/png")).json()[0]
+    r = client.post("/api/sites/turn", json={"prompt": "Build something like this", "attachments": [up["id"]]}, headers=LAB)
+    assert r.status_code == 200, r.text
+    site_id = json.loads(r.text.splitlines()[1])["site_id"]
+    sent = fake.messages.calls[0]["messages"][-1]["content"]
+    kinds = [b["type"] for b in sent]
+    assert "image" in kinds and sent[-1]["text"] == "Build something like this"
+    image = next(b for b in sent if b["type"] == "image")
+    assert image["source"]["media_type"] == "image/png" and image["source"]["data"]
+    assert any("your own original code" in b.get("text", "") for b in sent)
+    assert client.app.state.container.sites.uploads.get(up["id"]) is None  # used up
+    again, _, _ = lab(tmp_path)  # after a restart, the page still shows what was attached
+    turn0 = again.get(f"/api/sites/{site_id}", headers=LAB).json()["turns"][0]
+    assert turn0["attachments"] == [{"name": "mock.png", "media_type": "image/png", "kind": "image"}]
+
+
+def test_a_data_file_is_copied_into_the_site_and_listed(tmp_path: Path) -> None:
+    client, fake, _ = lab(tmp_path, DONE)
+    up = upload(client, ("tides.csv", b"day,high\nMon,4.2\n", "text/csv")).json()[0]
+    events = turn_with(client, "Chart these tides", attachments=[up["id"]])
+    site_id = events[1]["site_id"]
+    assert (tmp_path / "sites" / site_id / "site" / "assets" / "tides.csv").read_text() == "day,high\nMon,4.2\n"
+    sent = fake.messages.calls[0]["messages"][-1]["content"]
+    assert any("assets/tides.csv" in b.get("text", "") for b in sent)
+    assert {"path": "assets/tides.csv", "change": "added"} in events[-1]["changed"]
+
+
+def turn_with(client: TestClient, prompt: str, site_id: str | None = None, **extra: Any) -> list[dict]:
+    r = client.post("/api/sites/turn", json={"prompt": prompt, **({"site_id": site_id} if site_id else {}), **extra}, headers=LAB)
+    assert r.status_code == 200, r.text
+    return [json.loads(line) for line in r.text.splitlines() if line.strip()]
+
+
+def test_a_pdf_goes_to_claude_as_a_document_and_is_refused_for_other_models(tmp_path: Path) -> None:
+    client, fake, _ = lab(tmp_path, DONE)
+    up = upload(client, ("brief.pdf", b"%PDF-1.4\n% test\n", "application/pdf")).json()[0]
+    service = client.app.state.container.sites
+    with pytest.raises(Exception) as refused:
+        service._attachments([up["id"]], "gpt-5.4-mini")
+    assert getattr(refused.value, "status", None) == 400 and "only Claude" in str(refused.value)
+    turn_with(client, "Use the brief", attachments=[up["id"]])
+    sent = fake.messages.calls[0]["messages"][-1]["content"]
+    assert any(b["type"] == "document" and b["source"]["media_type"] == "application/pdf" for b in sent)
+
+
+def test_unknown_repeated_or_too_many_attachments_are_refused_before_a_site_is_made(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    r = client.post("/api/sites/turn", json={"prompt": "A page", "attachments": ["0" * 32]}, headers=LAB)
+    assert r.status_code == 400 and "unknown or has expired" in r.json()["error"]["message"]
+    up = upload(client, ("a.txt", b"hi", "text/plain")).json()[0]
+    assert client.post("/api/sites/turn", json={"prompt": "A", "attachments": [up["id"], up["id"]]}, headers=LAB).status_code == 400
+    assert client.post("/api/sites/turn", json={"prompt": "A", "attachments": ["../../etc/passwd"]}, headers=LAB).status_code == 400
+    assert client.post("/api/sites/turn", json={"prompt": "A", "attachments": ["a" * 32] * 7}, headers=LAB).status_code == 400
+    assert client.get("/api/sites", headers=LAB).json()["sites"] == []  # no empty site was left behind
+
+
+def test_effort_reaches_the_model_and_is_saved_with_the_site(tmp_path: Path) -> None:
+    client, fake, _ = lab(tmp_path, DONE, DONE)
+    site_id = turn_with(client, "A page", effort="high")[1]["site_id"]
+    assert fake.messages.calls[0]["output_config"] == {"effort": "high"}
+    turn_with(client, "More", site_id)  # no effort given: medium, which Claude takes
+    assert fake.messages.calls[-1]["output_config"] == {"effort": "medium"}
+    again, _, _ = lab(tmp_path)
+    assert again.get(f"/api/sites/{site_id}", headers=LAB).json()["settings"]["effort"] == "medium"
+    assert again.post("/api/sites/turn", json={"prompt": "A", "effort": "turbo"}, headers=LAB).status_code == 400
+
+
+def test_effort_is_checked_per_model_and_the_local_model_takes_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.app.services import sites as sites_module
+
+    client, _, _ = lab(tmp_path)
+    service = client.app.state.container.sites
+    listed = client.get("/api/sites", headers=LAB).json()["models"]
+    assert listed["claude-haiku-5-5"] == {"images": True, "pdf": True, "efforts": ["low", "medium", "high", "xhigh", "max"]}
+    with pytest.raises(Exception) as refused:
+        service._effort("gpt-5.4-mini", "max")  # GPT takes low, medium and high
+    assert getattr(refused.value, "status", None) == 400
+    assert service._effort("gpt-5.4-mini", None) == "medium"
+    monkeypatch.setattr(sites_module, "efforts_for", lambda m: [] if m == "local-test" else ["low", "medium", "high"])
+    assert service._effort("local-test", None) == ""
+    with pytest.raises(Exception):
+        service._effort("local-test", "low")
+    assert service.capabilities("local-test")["images"] is None  # unknown until it has been tried
+
+
+def test_a_model_that_cannot_read_pictures_is_remembered_and_refused(tmp_path: Path) -> None:
+    from backend.app.shared import NoVision
+
+    client, fake, _ = lab(tmp_path)
+    fake.messages.stream = lambda **params: (_ for _ in ()).throw(NoVision("The local model cannot read images."))
+    up = upload(client, ("mock.png", png(), "image/png")).json()[0]
+    events = turn_with(client, "Like this", attachments=[up["id"]])
+    assert any(e["type"] == "error" and "cannot read images" in e["message"] for e in events)
+    service = client.app.state.container.sites
+    assert service.capabilities("claude-haiku-5-5")["images"] is False
+    second = upload(client, ("mock.png", png(), "image/png")).json()[0]
+    r = client.post("/api/sites/turn", json={"prompt": "Again", "attachments": [second["id"]]}, headers=LAB)
+    assert r.status_code == 400 and "cannot read pictures" in r.json()["error"]["message"]

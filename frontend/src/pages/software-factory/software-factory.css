@@ -1,0 +1,234 @@
+/* The software factory: backlog and live run side by side, a flow board, and the change in full. Colours come from
+   the shared variables, so light and dark both work. */
+
+.page-software-factory .sf-metrics {
+  margin: 14px 0;
+}
+.page-software-factory .sf-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .page-software-factory .sf-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.page-software-factory .sf-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.page-software-factory .sf-section-head h2 {
+  margin: 0;
+  flex: 1 1 auto;
+}
+.page-software-factory .sf-tickets {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+.page-software-factory .sf-ticket {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+}
+.page-software-factory .sf-ticket-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.page-software-factory .sf-grow {
+  flex: 1 1 auto;
+}
+.page-software-factory .sf-why {
+  margin: 4px 0 0;
+}
+.page-software-factory .sf-tier {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line2);
+}
+.page-software-factory .sf-tier.low {
+  color: var(--good);
+  border-color: var(--good);
+}
+.page-software-factory .sf-tier.medium {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+.page-software-factory .sf-tier.high {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+.page-software-factory .sf-status {
+  font-size: 12px;
+  color: var(--ink2);
+}
+.page-software-factory .sf-status.merged {
+  color: var(--good);
+}
+.page-software-factory .sf-status.blocked,
+.page-software-factory .sf-status.failed,
+.page-software-factory .sf-status.reverted,
+.page-software-factory .sf-status.rejected {
+  color: var(--bad);
+}
+.page-software-factory .sf-bad {
+  color: var(--bad);
+}
+.page-software-factory .sf-field {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.page-software-factory .sf-field textarea,
+.page-software-factory .sf-field input {
+  width: 100%;
+  font: inherit;
+}
+.page-software-factory .sf-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.page-software-factory .sf-decision {
+  border-color: var(--brand);
+  margin: 10px 0;
+}
+.page-software-factory .sf-decision h3 {
+  margin-top: 0;
+}
+.page-software-factory .sf-log {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  max-height: 420px;
+  overflow: auto;
+  font-size: 13px;
+}
+.page-software-factory .sf-log li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.page-software-factory .sf-log-good b {
+  color: var(--good);
+}
+.page-software-factory .sf-log-bad b {
+  color: var(--bad);
+}
+.page-software-factory .sf-log-person b {
+  color: var(--brand);
+}
+.page-software-factory .sf-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(180px, 1fr);
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.page-software-factory .sf-col {
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 80px;
+}
+.page-software-factory .sf-col h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+.page-software-factory .sf-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: 0 0 6px;
+  cursor: pointer;
+}
+.page-software-factory .sf-card:hover {
+  border-color: var(--brand);
+}
+.page-software-factory .sf-change-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.page-software-factory .sf-change-head h3 {
+  margin: 0;
+}
+.page-software-factory .sf-change details {
+  margin: 10px 0;
+}
+.page-software-factory .sf-pre,
+.page-software-factory .sf-diff {
+  max-height: 420px;
+  overflow: auto;
+  font-size: 12px;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  border-radius: 8px;
+  padding: 10px;
+  white-space: pre;
+}
+.page-software-factory .sf-d-add {
+  color: var(--good);
+}
+.page-software-factory .sf-d-del {
+  color: var(--bad);
+}
+.page-software-factory .sf-d-file,
+.page-software-factory .sf-d-hunk {
+  color: var(--muted);
+}
+.page-software-factory .sf-gates {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+}
+.page-software-factory .sf-gate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 14px;
+}
+.page-software-factory .sf-gate.ok b {
+  color: var(--good);
+}
+.page-software-factory .sf-gate.no b {
+  color: var(--bad);
+}
+.page-software-factory .sf-audit {
+  font-size: 13px;
+  padding-left: 20px;
+}
+.page-software-factory .sf-audit li {
+  margin: 3px 0;
+  overflow-wrap: anywhere;
+}
+.page-software-factory .sf-rules {
+  margin: 14px 0;
+}
+.page-software-factory .sf-new {
+  margin-top: 10px;
+}

@@ -67,6 +67,7 @@ from .gateways.phone import CallAutomation, PhoneLine
 from .services.casework import CaseworkService
 from .services.coding import CodingService
 from .services.assistant import AssistantService
+from .services.software_factory import SoftwareFactoryService
 from .services.assistant_store import ChatStore
 from .services.assistant_mcp import McpServers
 from .gateways.remote_mcp import StreamableHttpMcp
@@ -99,7 +100,9 @@ from .services.tutor_people import TutorPeopleService
 from .gateways.personal_voice import AzurePersonalVoice
 from .services.storewatch import StoreWatchService
 from .services.workflows import WorkflowService
-from .settings import Settings
+from .settings import MODELS, Settings
+from .services.control_layer import ControlLayer, ControlledClient
+from .services.control_layer_service import ControlLayerService
 
 
 @dataclass(frozen=True)
@@ -164,9 +167,13 @@ class Container:
     dataagent: DataAgentService
     coding: CodingService
     assistant: AssistantService
+    software_factory: SoftwareFactoryService
     runs: RunRegistry
     observability: ObservabilityService
     video_translate: VideoTranslateService
+    # The control layer: usage, cost and access policies for every model call, and the proxy for outside agents.
+    control: ControlLayer | None = None
+    control_layer: ControlLayerService | None = None
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,
@@ -178,7 +185,9 @@ class Container:
               history: ConversationStore | None = None) -> "Container":
         # Every model call is timed by the client wrapper and written to the call log when it is charged.
         calls = CallLog(settings.generated_dir / "observability" / "calls.jsonl")
-        direct = ClaudeGateway(TimedClient(client, calls))  # straight to the model asked for
+        # Every call is checked against its consumer's policy first; a consumer with no policy is only counted.
+        control = ControlLayer(settings.generated_dir / "control-layer", lambda: list(MODELS))
+        direct = ClaudeGateway(TimedClient(ControlledClient(client, control), calls))  # straight to the model asked for
         spend = SpendTracker(settings.budget_usd, calls)
         local_embeddings = LocalEmbeddings(settings.local_embed_model, settings.local_openai_url)
         registry = RunRegistry()
@@ -320,6 +329,8 @@ class Container:
             assistant=AssistantService(claude, spend, registry, streamer, ChatStore(settings.generated_dir / "assistant"),
                                        settings, McpServers(settings.generated_dir / "assistant" / "mcp.json",
                                                             StreamableHttpMcp(), {settings.port, *settings.extra_ports})),
+            software_factory=SoftwareFactoryService(claude, spend, registry, streamer,
+                                                    settings.generated_dir / "software-factory", settings, gpt=gpt),
             searchlab=SearchLabService(tools, search, understanding, spend, settings.generated_dir / "search"),
             imagegen=imagegen,
             runs=registry,
@@ -327,6 +338,8 @@ class Container:
             video_translate=VideoTranslateService(
                 AzureSpeechRest(settings.azure_language_endpoint) if settings.azure_language_endpoint else None,
                 translate, spend, streamer, settings.generated_dir / "video-translate"),
+            control=control,
+            control_layer=ControlLayerService(control, claude, spend),
         )
 
 

@@ -6,8 +6,9 @@ model or passed to the sandbox. The page sees `token_set` instead.
 
 A URL must be http or https, with no user name or password in it, and must not reach a link-local address
 (169.254.0.0/16, fe80::/10) or a cloud metadata host. localhost is allowed (the lab's own MCP server runs there), but not
-this backend's own ports, so a server cannot point the backend at its own API. The host is resolved again before every
-connection, so a name that later resolves somewhere forbidden is refused then.
+this backend's own ports, so a server cannot point the backend at its own API. Private network ranges (10/8, 172.16/12,
+192.168/16 and the IPv6 equivalents) are allowed on purpose: an MCP server on the local network is an intended use. The
+host is resolved again before every connection, so a name that later resolves somewhere forbidden is refused then.
 
 Tool names and descriptions come from the server and are untrusted text: the page shows them, the log records each
 tool's description the first time a turn uses it, and the model is told that tool output is data. Each tool appears to

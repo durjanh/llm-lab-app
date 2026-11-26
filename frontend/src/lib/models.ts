@@ -12,6 +12,21 @@ export function modelName(model: string | undefined): string {
   return isLocalModel(model) ? 'the local model' : 'Claude';
 }
 
+/**
+ * A model's full name for a picker or a label: "Claude Sonnet 5.5", "GPT-5.4 mini", "Local · qwen3.5:9b".
+ * modelName() is the short form for sentences ("the local model will not see screenshots").
+ */
+export function modelLabel(model: string): string {
+  const claude = model.match(/^claude-([a-z]+)-(\d+)-(\d+)$/);
+  if (claude) return `Claude ${claude[1][0].toUpperCase()}${claude[1].slice(1)} ${claude[2]}.${claude[3]}`;
+  if (model.startsWith('gpt-')) {
+    const [version, ...rest] = model.slice(4).split('-');
+    return [`GPT-${version}`, ...rest].join(' ');
+  }
+  if (isLocalModel(model)) return `Local · ${model.replace(/^ai\//, '')}`;
+  return model;
+}
+
 /** The same, for the start of a sentence. */
 export function modelNameStart(model: string | undefined): string {
   const name = modelName(model);

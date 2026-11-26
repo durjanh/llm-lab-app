@@ -1,0 +1,502 @@
+/* The shared chat composer. Every rule sits under .chat-composer and uses only the shared colour variables, so it
+   looks the same on every page that uses it, in light and dark. */
+.chat-composer {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line2);
+  border-radius: 22px;
+  padding: 10px 10px 8px 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  text-align: left;
+}
+.chat-composer:focus-within {
+  border-color: var(--brand-line);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+.chat-composer.hero {
+  border-radius: 26px;
+  padding: 14px 12px 10px 18px;
+}
+.chat-composer.drag {
+  border-color: var(--brand);
+}
+.chat-composer .cc-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.chat-composer .cc-grow {
+  flex: 1;
+}
+.chat-composer .cc-i {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+.chat-composer .cc-i .fill {
+  fill: currentColor;
+  stroke: none;
+}
+.chat-composer .cc-drop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--brand-soft) 88%, transparent);
+  color: var(--brand);
+  font-weight: 700;
+  border: 2px dashed var(--brand);
+  pointer-events: none;
+}
+.chat-composer .cc-text {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 6px 2px;
+  max-height: 320px;
+}
+.chat-composer .cc-text::placeholder {
+  color: var(--faint);
+}
+.chat-composer .cc-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  min-width: 0;
+}
+.chat-composer .cc-iconbtn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink2);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.chat-composer .cc-iconbtn:hover {
+  background: var(--soft);
+  color: var(--ink);
+}
+.chat-composer .cc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink2);
+  background: var(--soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+.chat-composer .cc-tag .cc-i {
+  width: 14px;
+  height: 14px;
+}
+.chat-composer .cc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 8px 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  max-width: 260px;
+  min-width: 0;
+}
+.chat-composer .cc-pill:hover:not(:disabled) {
+  background: var(--soft);
+}
+.chat-composer .cc-pill:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.chat-composer .cc-pill > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-composer .cc-pill-effort {
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Menus */
+.chat-composer .cc-pop-wrap {
+  position: relative;
+}
+.chat-composer .cc-pop {
+  position: absolute;
+  z-index: 30;
+  min-width: 240px;
+  max-width: min(320px, calc(100vw - 32px));
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line2);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  padding: 6px;
+  animation: cc-pop 0.14s ease-out;
+}
+.chat-composer .cc-plus-menu {
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 300px;
+}
+.chat-composer .cc-model-menu {
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 290px;
+}
+.chat-composer.hero .cc-plus-menu,
+.chat-composer.hero .cc-model-menu {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+.chat-composer .cc-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.chat-composer .cc-item-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-composer .cc-item:hover:not(:disabled),
+.chat-composer .cc-item.on {
+  background: var(--soft);
+}
+.chat-composer .cc-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.chat-composer .cc-pop-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chat-composer .cc-pop-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.chat-composer .cc-pop-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--line);
+}
+.chat-composer .cc-pop-note {
+  margin: 2px 10px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: none;
+}
+.chat-composer .cc-tick {
+  color: var(--brand);
+  font-weight: 700;
+}
+.chat-composer .cc-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px 8px 6px;
+}
+.chat-composer .cc-seg button {
+  flex: 1 1 auto;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink2);
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.chat-composer .cc-seg button.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.chat-composer .cc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 14px;
+  position: relative;
+}
+.chat-composer .cc-toggle:hover {
+  background: var(--soft);
+}
+.chat-composer .cc-toggle-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.chat-composer .cc-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.chat-composer .cc-switch {
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--line2);
+  position: relative;
+  flex: none;
+  transition: background 0.18s;
+}
+.chat-composer .cc-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s;
+}
+.chat-composer .cc-toggle input:checked + .cc-switch {
+  background: var(--brand);
+}
+.chat-composer .cc-toggle input:checked + .cc-switch::after {
+  transform: translateX(14px);
+}
+.chat-composer .cc-toggle input:focus-visible + .cc-switch {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.chat-composer .cc-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.chat-composer .cc-field input {
+  margin-left: auto;
+  width: 76px;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+}
+
+/* Send and stop */
+.chat-composer .cc-send {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+  flex: none;
+  transition:
+    transform 0.12s,
+    opacity 0.15s,
+    background 0.15s;
+}
+.chat-composer .cc-send:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+.chat-composer .cc-send:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.chat-composer .cc-send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.chat-composer .cc-send.stop {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* Messages and attachments */
+.chat-composer .cc-blocked,
+.chat-composer .cc-notice {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--warn);
+  max-width: none;
+}
+.chat-composer .cc-problems {
+  margin: 4px 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--bad);
+}
+.chat-composer .cc-chips {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chat-composer .cc-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  font-size: 12.5px;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 5px 8px;
+  overflow: hidden;
+}
+.chat-composer .cc-chip-ext {
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.chat-composer .cc-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.chat-composer .cc-chip-size {
+  color: var(--muted);
+}
+.chat-composer .cc-chip-x {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.chat-composer .cc-chip-x:hover {
+  color: var(--bad);
+}
+.chat-composer .cc-chip-up .cc-chip-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--brand);
+  transition: width 0.2s;
+}
+@keyframes cc-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-composer,
+  .chat-composer .cc-send,
+  .chat-composer .cc-switch,
+  .chat-composer .cc-switch::after {
+    transition: none;
+  }
+  .chat-composer .cc-pop {
+    animation: none;
+  }
+}
+/* Phones: the menus become sheets across the bottom of the screen, and the docked box keeps to essentials. */
+@media (max-width: 860px) {
+  .chat-composer .cc-pill {
+    max-width: 190px;
+  }
+  .chat-composer:not(.hero) .cc-pill-effort {
+    display: none;
+  }
+  .chat-composer .cc-plus-menu,
+  .chat-composer .cc-model-menu,
+  .chat-composer.hero .cc-plus-menu,
+  .chat-composer.hero .cc-model-menu {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 84px;
+    top: auto;
+    width: auto;
+    max-width: none;
+  }
+}
+@media (max-width: 520px) {
+  .chat-composer .cc-tag {
+    display: none;
+  }
+}

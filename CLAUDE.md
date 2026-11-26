@@ -10,7 +10,7 @@ Run everything from the repo root, with the virtual environment active (`source 
 
 ```sh
 python -m backend --budget 1 --reload   # backend on 127.0.0.1:8000, restarts on changes in backend/ and python/
-cd frontend && npm run dev              # Vite on :5173, proxies /api, /models and /sites/ to :8000
+cd frontend && npm run dev              # Vite on :5173, proxies /api, /models, /sites/ and /site-versions/ to :8000
 
 pytest backend                                          # all backend tests (fake Claude client: no key, no cost)
 cd frontend && npm run build            # typecheck + production build into frontend/dist (served by the backend on :8000)

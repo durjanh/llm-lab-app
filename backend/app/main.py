@@ -24,8 +24,10 @@ from .container import Container
 from .core.body_limit import FORM_OVERHEAD, MB, BodyLimit
 from .core.errors import ApiError, error_response
 from .core.telemetry import RequestContext
+from .api.control_layer import proxy as control_proxy
 from .services.mcp_lab import PATH as MCP_LAB_PATH
 from .services.sites import TEXT_TYPES, FileProblem, with_reporter
+from .services.site_uploads import MAX_FILES as SITE_UPLOAD_MAX_FILES, MAX_PDF_BYTES as SITE_UPLOAD_MAX_PDF_BYTES
 from .services.image_to_3d import MAX_IMAGE_BYTES as MAX_3D_IMAGE_BYTES
 from .services.voice_agent import MAX_AUDIO_BYTES
 from .settings import Settings
@@ -93,6 +95,7 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
         return error_response(400, "invalid_request", f"{where}: {text}" if where else text)
 
     app.include_router(router)
+    app.include_router(control_proxy)  # /control/v1/...: the Messages API for outside agents, by virtual key
     app.mount(MCP_LAB_PATH, app.state.container.mcp_lab.app)  # the example MCP server, with its own token auth
 
     @app.middleware("http")
@@ -122,6 +125,8 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
         (r"/api/assistant/chats/[0-9a-f]{32}/files", ASSISTANT_UPLOAD_BYTES + FORM_OVERHEAD),
         (r"/api/voice-agent/conversations/[0-9a-f]{12}/audio", MAX_AUDIO_BYTES + FORM_OVERHEAD),
         (r"/api/image-to-3d/generate", MAX_3D_IMAGE_BYTES + FORM_OVERHEAD),
+        (r"/api/sites/uploads", SITE_UPLOAD_MAX_FILES * SITE_UPLOAD_MAX_PDF_BYTES + FORM_OVERHEAD),
+        (r"/control/v1/messages(/count_tokens)?", 32 * MB),  # a long conversation with pictures, not a video
     ])
     app.add_middleware(RequestContext)  # outermost: names each request's area and trace for the call log
 

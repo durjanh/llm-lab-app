@@ -20,6 +20,7 @@ import { Composer, effortToSend, fitEffort, type Uploading } from './Composer';
 import { FileViewer } from './FileViewer';
 import { chatMcp, dollars } from './helpers';
 import { McpDialog } from './McpDialog';
+import { ConfirmDialog } from './ConfirmDialog';
 import { Message } from './Message';
 import { Icon } from './parts';
 import { Sidebar } from './Sidebar';
@@ -40,6 +41,7 @@ function defaults(info: AssistantInfo): ChatSettings {
     effort: fitEffort(info, info.default_model, 'medium'),
     run_budget_usd: info.run_budget_usd,
     approve_plans: false,
+    deck_brand: '',
   };
 }
 
@@ -75,6 +77,7 @@ export default function AssistantPage() {
   const [view, setView] = useState<'chat' | 'files'>('chat');
   const [viewer, setViewer] = useState<{ files: AssistantFile[]; active: string } | null>(null);
   const [drawer, setDrawer] = useState(false);
+  const [confirmCompact, setConfirmCompact] = useState(false);
   const [mcp, setMcp] = useState<McpServer[]>([]);
   const [mcpProblem, setMcpProblem] = useState<string | null>(null);
   const [mcpOpen, setMcpOpen] = useState(false);
@@ -280,6 +283,8 @@ export default function AssistantPage() {
             effort: effortToSend(info, settingsNow.model, settingsNow.effort),
             run_budget_usd: settingsNow.run_budget_usd,
             approve_plans: settingsNow.approve_plans,
+            // A kit removed from this machine since it was chosen falls back to the house style.
+            deck_brand: info.brands?.some((b) => b.id === settingsNow.deck_brand) ? settingsNow.deck_brand : '',
             // Sent only when the person changed the chat's servers; left out, the chat keeps its saved list.
             ...(mcpProblem || !mcpChanged.current.has(id)
               ? {}
@@ -533,7 +538,7 @@ export default function AssistantPage() {
             <button
               type="button"
               className="as-ghost"
-              onClick={() => void compact()}
+              onClick={() => setConfirmCompact(true)}
               disabled={runningNow || elsewhere}
               title="Summarise older turns now"
             >
@@ -661,6 +666,26 @@ export default function AssistantPage() {
         </aside>
       }
 
+      {confirmCompact && (
+        <ConfirmDialog
+          title="Compact this chat?"
+          confirmLabel="Compact"
+          onCancel={() => setConfirmCompact(false)}
+          onConfirm={() => {
+            setConfirmCompact(false);
+            void compact();
+          }}
+        >
+          <p>
+            Older turns will be replaced, in what the model is sent, by a short summary written by a small model. Your
+            recent turns stay word for word.
+          </p>
+          <p>
+            Nothing is deleted: every message, file and log stays in this chat. It costs one small model call, and
+            details only in the older turns may be lost from the model&apos;s view.
+          </p>
+        </ConfirmDialog>
+      )}
       {mcpOpen && <McpDialog servers={mcp} onServers={setMcp} onClose={() => setMcpOpen(false)} />}
     </main>
   );

@@ -28,12 +28,14 @@ from jiter import from_json
 from ..core.errors import ApiError
 from ..gateways.browser import DESKTOP, PHONE, Screenshotter
 from ..gateways.claude import ClaudeGateway
-from ..shared import DEFAULT_MODEL, cost_usd, describe_usage, text_of
+from ..shared import DEFAULT_MODEL, NoVision, cost_usd, describe_usage, text_of
+from .assistant_agent import efforts_for
+from .site_uploads import MAX_FILES as MAX_ATTACHMENTS, SiteUploads, Upload
 from .runs import Run, RunStreamer
 from .spend import SpendTracker, money
 
 TEXT_TYPES = {
-    ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript",
+    ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".csv": "text/csv",
     ".json": "application/json", ".svg": "image/svg+xml", ".txt": "text/plain", ".md": "text/markdown",
     ".xml": "application/xml", ".webmanifest": "application/manifest+json",
 }
@@ -232,6 +234,7 @@ class Site:
     next_version: int = 1
     notice: str | None = None  # told to Claude with the next message, such as a version the person restored
     thumb: str | None = None  # the newest desktop screenshot's file name, for the list of sites
+    settings: dict = field(default_factory=dict)  # the model and effort of the last message, shown again on reload
     busy: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
@@ -276,7 +279,8 @@ class SiteStore:
             data = json.loads(saved.read_text(encoding="utf-8"))
             site = Site(site_id, data["title"], self.root / site_id, data["created"], data["history"],
                         data["turns"], data.get("checked"), data.get("versions", []), data.get("next_version", 1),
-                        data.get("notice"), data["thumb"] if "thumb" in data else thumbnail(self.root / site_id))
+                        data.get("notice"), data["thumb"] if "thumb" in data else thumbnail(self.root / site_id),
+                        data.get("settings") or {})
             if not site.versions and site.files.listing():
                 # A site made before versions existed: once, as it is loaded, its files become version 1, so no
                 # read of it ever has to write.
@@ -288,7 +292,7 @@ class SiteStore:
     def save(self, site: Site) -> None:
         data = {"title": site.title, "created": site.created, "turns": site.turns, "checked": site.checked,
                 "history": site.history, "versions": site.versions, "next_version": site.next_version,
-                "notice": site.notice, "thumb": site.thumb}
+                "notice": site.notice, "thumb": site.thumb, "settings": site.settings}
         with self._save_lock:
             tmp = site.dir / "chat.json.tmp"
             tmp.write_text(json.dumps(data), encoding="utf-8")
@@ -405,9 +409,57 @@ def review_message(capture: Any, last: bool) -> list[dict]:
 
 class SiteService:
     def __init__(self, claude: ClaudeGateway, spend: SpendTracker, streamer: RunStreamer, store: SiteStore,
-                 browser: Screenshotter, preview_origin: str):
+                 browser: Screenshotter, preview_origin: str, uploads: SiteUploads | None = None):
         self.claude, self.spend, self.streamer, self.store = claude, spend, streamer, store
         self.browser, self.preview_origin = browser, preview_origin
+        # Attachments wait beside the lab's other generated files: generated/site-uploads next to sites/.
+        self.uploads = uploads or SiteUploads(store.root.parent / "generated" / "site-uploads")
+        self.no_vision: set[str] = set()  # models that refused a picture in this run of the server
+
+    def capabilities(self, model: str) -> dict[str, Any]:
+        """What a model can take as an attachment, and the efforts it accepts. Pictures: Claude and GPT read them;
+        a local model may or may not (None until it has been tried), and False once it has refused one. PDFs: only
+        Claude reads them as documents."""
+        images: bool | None = True
+        if model in self.no_vision:
+            images = False
+        elif not model.startswith("claude-") and efforts_for(model) == []:
+            images = None  # the local model: it depends on which model the local server runs
+        return {"images": images, "pdf": model.startswith("claude-"), "efforts": efforts_for(model)}
+
+    def _attachments(self, ids: list[str], model: str) -> list[Upload]:
+        """The uploads a message attaches, each checked against what the model can take. Raises 400 with the
+        reason for an unknown id, a repeat, too many, or a kind the model cannot read."""
+        if len(ids) > MAX_ATTACHMENTS:
+            raise ApiError(400, "invalid_request", f"A message can carry at most {MAX_ATTACHMENTS} attachments.")
+        if len(set(ids)) != len(ids):
+            raise ApiError(400, "invalid_request", "The same attachment is listed twice.")
+        found: list[Upload] = []
+        can = self.capabilities(model)
+        for upload_id in ids:
+            upload = self.uploads.get(upload_id)
+            if upload is None:
+                raise ApiError(400, "invalid_request", "An attachment is unknown or has expired (uploads are kept "
+                                                       "for a day). Attach the file again.")
+            if upload.kind == "pdf" and not can["pdf"]:
+                raise ApiError(400, "invalid_request", f"{upload.name}: only Claude models read PDFs. Choose a Claude "
+                                                       "model, or attach the pages as pictures.")
+            if upload.kind == "image" and can["images"] is False:
+                raise ApiError(400, "invalid_request", f"{upload.name}: {model} cannot read pictures. Choose Claude or "
+                                                       "GPT for a message with a picture.")
+            found.append(upload)
+        return found
+
+    def _effort(self, model: str, effort: str | None) -> str:
+        """The effort for this message: as asked if the model takes it, medium by default where it is accepted,
+        and none ('') for a model that takes no effort setting."""
+        accepted = efforts_for(model)
+        if effort is None:
+            return "medium" if "medium" in accepted else ""
+        if effort and effort not in accepted:
+            raise ApiError(400, "invalid_request", f"{model} does not take effort {effort!r}. It takes: "
+                                                   f"{', '.join(accepted) or 'none'}.")
+        return effort
 
     def site(self, site_id: str) -> Site:
         site = self.store.get(site_id)
@@ -415,31 +467,80 @@ class SiteService:
             raise ApiError(404, "not_found", "There is no site with that id.")
         return site
 
-    def turn(self, site_id: str | None, prompt: str, model: str | None) -> Iterator[str]:
-        """Checks the request, then starts one turn of the conversation and returns its stream of events."""
+    def turn(self, site_id: str | None, prompt: str, model: str | None, attachments: list[str] | None = None,
+             effort: str | None = None) -> Iterator[str]:
+        """Checks the request, then starts one turn of the conversation and returns its stream of events. Everything
+        is checked before a site is made, so a refused first message leaves no empty site behind."""
         prompt = prompt.strip()
         if not prompt or len(prompt) > MAX_PROMPT_CHARS:
             raise ApiError(400, "invalid_request", f"Write a request of 1 to {MAX_PROMPT_CHARS:,} characters.")
+        model = model or DEFAULT_MODEL
+        effort = self._effort(model, effort)
+        self.uploads.prune()
+        attached = self._attachments(list(attachments or []), model)
         site = self.site(site_id) if site_id else self.store.new(prompt.splitlines()[0][:70])
         if not site.busy.acquire(blocking=False):
             raise ApiError(409, "busy", "Claude is still working on this site. Wait for it, or press Stop.")
-        model = model or DEFAULT_MODEL
+        try:
+            content = self._attachment_blocks(site, attached)
+        except BaseException:
+            site.busy.release()
+            raise
+        site.settings = {"model": model, "effort": effort}
+        for upload in attached:
+            self.uploads.discard(upload.id)  # used: its content is in the message now
         run = Run()
+        record = [{"name": u.name, "media_type": u.media_type, "kind": u.kind} for u in attached]
 
         def work() -> None:
             try:
-                self._turn(site, model, run, prompt)
+                self._turn(site, model, run, prompt, effort, content, record)
             finally:
                 site.busy.release()
 
         return self.streamer.lines(run, work)
 
-    def _turn(self, site: Site, model: str, run: Run, prompt: str) -> None:
+    def _attachment_blocks(self, site: Site, attached: list[Upload]) -> list[dict]:
+        """The message blocks for the attachments: pictures and PDFs as image and document blocks, and data files
+        copied into the site under assets/, with a note saying where they are. Raises 400 if a data file breaks the
+        site's file rules (count or total size)."""
+        blocks: list[dict] = []
+        copied: list[str] = []
+        pictures = [u for u in attached if u.kind == "image"]
+        for upload in attached:
+            raw = upload.path.read_bytes()
+            if upload.kind == "data":
+                path = f"assets/{upload.name}"
+                try:
+                    site.files.write(path, raw.decode("utf-8"))
+                except FileProblem as problem:
+                    raise ApiError(400, "invalid_request", f"{upload.name} could not be added to the site: {problem}") from problem
+                copied.append(f"{path} ({len(raw):,} bytes)")
+                continue
+            data = base64.b64encode(raw).decode()
+            kind = "image" if upload.kind == "image" else "document"
+            blocks += [{"type": "text", "text": f"Attached: {upload.name}"},
+                       {"type": kind, "source": {"type": "base64", "media_type": upload.media_type, "data": data}}]
+        if pictures:
+            blocks.append({"type": "text", "text": (
+                f"The person attached {'a picture' if len(pictures) == 1 else f'{len(pictures)} pictures'}. If they ask "
+                "for something like it, match its layout, spacing, colours and typography with your own original "
+                "code and text: do not copy its words, logos or images.")})
+        if copied:
+            blocks.append({"type": "text", "text": "The person attached data files, now copied into the site: "
+                                                   + ", ".join(copied) + ". Read them with read_file before using them."})
+        return blocks
+
+    def _turn(self, site: Site, model: str, run: Run, prompt: str, effort: str = "",
+              attachments: list[dict] | None = None, attached: list[dict] | None = None) -> None:
         run.publish({"type": "site", "site_id": site.id, "title": site.title, "turn": len(site.turns) + 1,
-                     "model": model})
+                     "model": model, "effort": effort})
         start = len(site.history)  # where this turn begins in the conversation, for restoring to before it
+        # Files from data attachments were copied in before the turn started; they count as this turn's changes.
         before = hashes(site.files)
-        content = [{"type": "text", "text": prompt}]
+        if attached:
+            before = {p: h for p, h in before.items() if not any(p == f"assets/{a['name']}" for a in attached)}
+        content = [*(attachments or []), {"type": "text", "text": prompt}]
         if site.notice:  # something the person did between messages, such as restoring a version
             content.insert(0, {"type": "text", "text": site.notice})
             site.notice = None
@@ -453,7 +554,12 @@ class SiteService:
                     run.publish({"type": "error", "message": f"The server's {money(self.spend.budget_usd)} budget "
                                                              "is used up. Restart it with a higher --budget."})
                     break
-                final, done = self._request(messages, model, run, site)
+                try:
+                    final, done = self._request(messages, model, run, site, effort)
+                except NoVision as exc:  # the local model cannot read pictures: remember it, and say so
+                    self.no_vision.add(model)
+                    run.publish({"type": "error", "message": str(exc)})
+                    break
                 if final is None:  # stopped while Claude was writing
                     break
                 spent = cost_usd(final.usage, model) or 0.0
@@ -497,7 +603,8 @@ class SiteService:
             except Exception as exc:  # noqa: BLE001 - disk errors of any kind
                 snapshot_error = f"The files were saved, but not kept as a version: {exc}"
             entry = {"prompt": prompt, "reply": reply, "model": model, "time": time.time(), "start": start,
-                     "changed": changed, "version": version["n"] if version else None, "cost": round(cost, 4)}
+                     "changed": changed, "version": version["n"] if version else None, "cost": round(cost, 4),
+                     "effort": effort, "attachments": attached or []}
             if snapshot_error:
                 entry["snapshot_error"] = snapshot_error
             site.turns.append(entry)
@@ -519,6 +626,7 @@ class SiteService:
         """What the page shows for a site: its conversation, files and versions (the newest is the current one).
         It only reads: the one-off version of a site made before versions existed is taken when it is loaded."""
         return {"id": site.id, "title": site.title, "turns": site.turns, "files": site.files.listing(),
+                "settings": site.settings,
                 "versions": [public_version(version) for version in site.versions],
                 "running": site.busy.locked()}
 
@@ -577,24 +685,45 @@ class SiteService:
             site.busy.release()
 
     def restore(self, site_id: str, keep: int) -> Site:
-        """Puts the site back as it was before message number `keep` (0 is the first): the conversation
-        is cut there and the files are rebuilt by replaying every file change Claude made before it.
-        The current files are moved to backups/, never deleted."""
+        """Puts the site back as it was before message number `keep` (0 is the first message; notes about restored
+        versions are not messages and are not counted). The conversation is cut there. The files come from the
+        version kept for the last turn before it that changed files (none before the first change: an empty site),
+        so a version restored in between is accounted for. Only a site saved before versions existed is rebuilt by
+        replaying the conversation's file changes. The current files are moved to backups/, never deleted."""
         site = self.site(site_id)
-        if not 0 <= keep < len(site.turns):
-            raise ApiError(400, "invalid_request", f"Choose a message from 0 to {len(site.turns) - 1}.")
+        messages = [i for i, t in enumerate(site.turns) if t.get("kind") != "restore"]
+        if not 0 <= keep < len(messages):
+            raise ApiError(400, "invalid_request", f"Choose a message from 0 to {len(messages) - 1}.")
         if not site.busy.acquire(blocking=False):
             raise ApiError(409, "busy", "Claude is still working on this site. Stop it first.")
         try:
-            start = turn_start(site, keep)
-            history = site.history[:start]
+            index = messages[keep]  # where that message is among all the turns, notes included
+            history = site.history[:turn_start(site, index)]
+            source = self._files_before(site, index)
             backup = site.dir / "backups" / time.strftime("%Y%m%d-%H%M%S")
             backup.mkdir(parents=True, exist_ok=True)
-            if (site.dir / "site").exists():
-                shutil.move(str(site.dir / "site"), str(backup / "site"))
-            (site.dir / "site").mkdir()
-            replay(history, site.files)
-            site.history, site.turns, site.checked = history, site.turns[:keep], None
+            live = site.files.root
+            if source == "replay":
+                if live.exists():
+                    shutil.move(str(live), str(backup / "site"))
+                live.mkdir()
+                replay(history, site.files)
+            else:
+                incoming = site.dir / f".restore-{uuid.uuid4().hex[:8]}"
+                try:  # copied aside first: the live site is only moved once the copy is complete
+                    if source is None:
+                        incoming.mkdir()
+                    else:
+                        shutil.copytree(source, incoming)
+                    if live.exists():
+                        shutil.move(str(live), str(backup / "site"))
+                    incoming.replace(live)
+                except Exception as exc:  # noqa: BLE001 - the site is left as it was
+                    if not live.exists() and (backup / "site").exists():
+                        shutil.move(str(backup / "site"), str(live))
+                    shutil.rmtree(incoming, ignore_errors=True)
+                    raise ApiError(500, "restore_failed", f"The site could not be restored; it is unchanged. {exc}") from exc
+            site.history, site.turns, site.checked = history, site.turns[:index], None
             # The conversation and the files now match again, so an earlier notice about a restored version would
             # only mislead Claude.
             site.notice = None
@@ -604,12 +733,34 @@ class SiteService:
         finally:
             site.busy.release()
 
-    def _request(self, messages: list[dict], model: str, run: Run, site: Site) -> tuple[Any, dict[str, dict]]:
+    @staticmethod
+    def _files_before(site: Site, index: int) -> Path | None | str:
+        """Where the files as they were before turn `index` come from: a kept version's folder, None for an empty
+        site (nothing had changed files yet), or "replay" for a site saved before versions existed."""
+        before = site.turns[:index]
+        unknown = [t for t in before if t.get("kind") != "restore" and ("version" not in t or t.get("snapshot_error"))]
+        if unknown:  # turns whose files were never kept as a version
+            if any(t.get("kind") == "restore" for t in before):
+                raise ApiError(409, "conflict", "That message is from before versions were kept, and a version was "
+                                                "restored since, so the site cannot be rebuilt as it was then.")
+            return "replay"
+        n = next((t["version"] for t in reversed(before) if t.get("version")), None)
+        if n is None:
+            return None
+        if not any(v["n"] == n for v in site.versions):
+            raise ApiError(409, "conflict", f"The files from then were version {n}, which is no longer kept; a site "
+                                            f"keeps its last {MAX_VERSIONS} versions.")
+        return site.dir / "versions" / str(n)
+
+    def _request(self, messages: list[dict], model: str, run: Run, site: Site,
+                 effort: str = "") -> tuple[Any, dict[str, dict]]:
         """One streamed request. Code is sent to the page as Claude writes it, and each tool call runs as soon
         as Claude has finished writing it, so the preview updates file by file instead of at the end.
         Returns the response, or None if the run was stopped, and the results of the calls that ran."""
         params = {"model": model, "max_tokens": MAX_TOKENS, "system": SYSTEM, "tools": TOOLS,
                   "messages": messages, "cache_control": {"type": "ephemeral"}}  # caches the whole conversation
+        if effort and effort in efforts_for(model):  # GPT's mapping and the local model's "none" as the Assistant's
+            params["output_config"] = {"effort": effort}
         live: dict[str, Any] | None = None
         done: dict[str, dict] = {}
         with self.claude.stream(**params) as stream:

@@ -11,7 +11,7 @@ Write Python with python-pptx in a script in `work/`, run it, and keep it: on a 
 
 Every deck must look professionally designed. Choose the style in this order:
 
-1. **The person's template.** A `.pptx` or `.potx` in `inputs/`, or one they point to: build from it (`reference/editing.md`) and use its theme (`theme.py`).
+1. **The person's template.** A brand kit in `inputs/brand/` (the chat's chosen deck style: a template, logo, `guidelines.md` and `brand.json`), a `.pptx` or `.potx` elsewhere in `inputs/`, or one they point to: build from it (`reference/editing.md`), use its theme (`theme.py`), and follow `guidelines.md` when there is one.
 2. **The person's brand.** Colours, fonts or a style guide they give in the message, in an uploaded file, or through a connected MCP server that offers brand guidelines or templates: follow it. With only a brand colour, use the house style with `Deck(accent="#hex")`.
 3. **Otherwise, the house style** in `scripts/house.py`. Do not hand-place plain text boxes on white slides.
 

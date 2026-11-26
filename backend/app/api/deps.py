@@ -41,6 +41,7 @@ from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
 from ..services.coding import CodingService
 from ..services.assistant import AssistantService
+from ..services.software_factory import SoftwareFactoryService
 from ..services.data_model import VIEWERS, Viewer
 from ..services.dataagent import DataAgentService
 from ..services.decks import DeckService
@@ -313,6 +314,10 @@ def coding(c: Container = Depends(container)) -> CodingService:
 
 def assistant(c: Container = Depends(container)) -> AssistantService:
     return c.assistant
+
+
+def software_factory(c: Container = Depends(container)) -> SoftwareFactoryService:
+    return c.software_factory
 
 
 def data_viewer(request: Request) -> Viewer:

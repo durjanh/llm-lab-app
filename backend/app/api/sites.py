@@ -4,12 +4,15 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 
 from ..core.errors import ApiError
 from ..schemas import SiteRenameRequest, SiteRestoreRequest, SiteTurnRequest
+from ..services.site_uploads import MAX_FILES, MAX_PDF_BYTES
 from ..services.sites import FileProblem, SiteService
+from ..settings import MODELS
 from .deps import require_budget, require_lab_page, site_service
 
 router = APIRouter(dependencies=[Depends(require_lab_page)])
@@ -18,13 +21,26 @@ SHOT_NAME = re.compile(r"^[\w.-]+\.png$")
 
 @router.post("/sites/turn", dependencies=[Depends(require_budget)])
 def site_turn(body: SiteTurnRequest, service: SiteService = Depends(site_service)) -> StreamingResponse:
-    lines = service.turn(body.site_id, body.prompt, body.model)
+    lines = service.turn(body.site_id, body.prompt, body.model, body.attachments, body.effort)
     return StreamingResponse(lines, media_type="application/x-ndjson", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/sites")
 def site_list(service: SiteService = Depends(site_service)) -> dict[str, Any]:
-    return {"sites": service.store.list(), "screenshots": service.browser.available}
+    """The sites, whether screenshots work, and what each model can take: pictures, PDFs and effort levels."""
+    return {"sites": service.store.list(), "screenshots": service.browser.available,
+            "models": {m: service.capabilities(m) for m in MODELS}}
+
+
+@router.post("/sites/uploads")
+async def site_uploads(files: list[UploadFile] = File(...), service: SiteService = Depends(site_service)) -> list[dict[str, Any]]:
+    """Files for a message that has not been sent yet, so a first message can carry them before its site exists.
+    Free: nothing reaches a model until a message attaches them."""
+    if len(files) > MAX_FILES:
+        raise ApiError(400, "invalid_request", f"Attach at most {MAX_FILES} files at once.")
+    read = [(f.filename or "file", await f.read(MAX_PDF_BYTES + 1)) for f in files]
+    saved = await run_in_threadpool(service.uploads.save, read)  # checking and shrinking pictures is blocking work
+    return [u.public() for u in saved]
 
 
 @router.get("/sites/{site_id}")

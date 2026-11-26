@@ -885,6 +885,8 @@ MAX_STOP_CHECKS = 3  # times a request can be sent back to work before the harne
 def tests_pass(agent: "CodingAgent") -> str | None:
     """Stop: an agent that changed files is not done until the tests pass. Without this, "done" means only that the
     model stopped calling tools. Run by the harness, like any hook, so it needs no permission."""
+    if getattr(agent, "own_test_gate", False):
+        return None  # a caller with its own test check (the software factory compares with a baseline) replaces this
     if agent.ws.fingerprint() == agent.started_with:
         return None  # nothing changed: a question, a plan, or every edit refused
     if not any(fnmatch.fnmatch(PurePosixPath(f).name, "test_*.py") for f in agent.ws.files()):

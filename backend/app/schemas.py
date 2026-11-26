@@ -25,6 +25,10 @@ class SiteTurnRequest(ModelChoice):
     """One message to the site builder. Leave site_id out to start a new site."""
     site_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{12}$")
     prompt: str = Field(min_length=1, max_length=4000)
+    # Upload ids from POST /api/sites/uploads; checked against what the model can read when the message is sent.
+    attachments: list[Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]] = Field(default_factory=list, max_length=6)
+    # None: medium where the model takes effort; "" for none; otherwise one of the model's levels.
+    effort: Literal["", "low", "medium", "high", "xhigh", "max"] | None = None
 
 
 class DocumentChatLine(BaseModel):

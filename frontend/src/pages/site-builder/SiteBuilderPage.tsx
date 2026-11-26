@@ -8,10 +8,12 @@ import {
   type PointerEvent,
 } from 'react';
 import { useSearchParams } from 'react-router';
-import { isLocalModel, modelName, modelNameStart } from '@/lib/models';
+import { ChatComposer, fitEffortFor, type Uploading } from '@/components/chat/ChatComposer';
+import { isLocalModel, modelName } from '@/lib/models';
 import { useNavHeight } from '@/lib/useNavHeight';
 import { statusService, type LiveStatus } from '@/services';
-import { sitesService, type SiteSummary } from '@/services/sitesService';
+import { sitesService, type ModelCaps, type SiteSummary, type SiteUpload } from '@/services/sitesService';
+import { ACCEPT, MAX_ATTACHMENTS, blockedFor, checkFiles, noticeFor, pickerModels } from './attachments';
 import { AppPane } from './AppPane';
 import { clampSplit, fixPrompt, type PreviewError } from './model';
 import { SiteTurnView } from './SiteTurnView';
@@ -30,7 +32,12 @@ export default function SiteBuilderPage() {
   const [model, setModel] = useState('');
   const [sites, setSites] = useState<SiteSummary[]>([]);
   const [screenshots, setScreenshots] = useState(true);
+  const [caps, setCaps] = useState<Record<string, ModelCaps>>({});
+  const [effort, setEffort] = useState('medium');
   const [prompt, setPrompt] = useState('');
+  const [attachments, setAttachments] = useState<SiteUpload[]>([]);
+  const [uploading, setUploading] = useState<Uploading[]>([]);
+  const [problems, setProblems] = useState<string[]>([]);
   const [split, setSplit] = useState(420); // the chat pane's width
   const [tab, setTab] = useState<'chat' | 'app'>('chat'); // on phones, one pane at a time
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
@@ -46,6 +53,7 @@ export default function SiteBuilderPage() {
       .then((r) => {
         setSites(r.sites);
         setScreenshots(r.screenshots);
+        if (r.models) setCaps(r.models);
       })
       .catch(() => undefined);
   }, []);
@@ -84,25 +92,89 @@ export default function SiteBuilderPage() {
     if (!chat.running) refreshSites();
   }, [chat.running, refreshSites]);
 
+  // An opened site brings back the model and effort its last message used.
+  const saved = chat.settings;
+  useEffect(() => {
+    if (saved?.model && status?.models?.includes(saved.model)) setModel(saved.model);
+    if (saved?.effort !== undefined) setEffort(saved.effort || 'medium');
+  }, [saved, status?.models]);
+  const efforts = caps[model]?.efforts ?? [];
+  const effortNow = fitEffortFor(efforts, effort);
+
   useEffect(() => {
     const el = log.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [chat.turns]);
 
   const ready = !!(status?.available && status.has_credentials);
-  const send = (text: string) => {
+  const blocked = !ready
+    ? (status?.reason ?? 'Checking the lab backend…')
+    : chat.busyElsewhere
+      ? 'This app is being changed in another tab.'
+      : blockedFor(attachments, caps[model], model);
+
+  /** Sends the message with its attachments; true when it started, so the box clears. */
+  const send = (text: string): boolean => {
     const t = text.trim();
-    if (!ready || chat.running || !t) return;
+    if (!ready || chat.running || !t || uploading.length || blockedFor(attachments, caps[model], model)) return false;
     stick.current = true;
     setPrompt('');
-    void chat.send(t);
+    const sent = attachments;
+    setAttachments([]);
+    setProblems([]);
+    void chat.send(t, { attachments: sent, effort: efforts.length ? effortNow : '' });
+    return true;
   };
-  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      send(prompt);
-    }
+
+  /** Checks picked, dropped or pasted files, then uploads them; they wait for the next message. */
+  const pick = (files: File[]) => {
+    const { ok, problems: refused } = checkFiles(files, attachments.length + uploading.length);
+    setProblems(refused);
+    if (!ok.length) return;
+    const names = ok.map((f) => f.name);
+    setUploading((u) => [...u, ...names.map((name) => ({ name, progress: 0 }))]);
+    sitesService
+      .upload(ok, (fraction) =>
+        setUploading((u) => u.map((x) => (names.includes(x.name) ? { ...x, progress: fraction } : x))),
+      )
+      .then((done) => setAttachments((a) => [...a, ...done].slice(0, MAX_ATTACHMENTS)))
+      .catch((err: Error) => setProblems((p) => [...p, err.message]))
+      .finally(() => setUploading((u) => u.filter((x) => !names.includes(x.name))));
   };
+
+  const composer = (hero: boolean) => (
+    <ChatComposer
+      idBase="sb"
+      hero={hero}
+      text={prompt}
+      onText={setPrompt}
+      onSend={send}
+      onStop={chat.stop}
+      running={chat.running}
+      blocked={blocked}
+      notice={noticeFor(attachments, caps[model], model)}
+      attachments={attachments}
+      uploading={uploading}
+      problems={problems}
+      onPick={pick}
+      onRemove={(id) => setAttachments((a) => a.filter((x) => x.id !== id))}
+      accept={ACCEPT}
+      maxFiles={MAX_ATTACHMENTS}
+      models={pickerModels(status?.models ?? [], caps)}
+      model={model}
+      effort={effortNow}
+      onModel={(m, e) => {
+        setModel(m);
+        if (e) setEffort(e);
+      }}
+      onEffort={setEffort}
+      placeholder={
+        hero
+          ? 'Describe an app, or paste a screenshot and ask for something like it…'
+          : 'Ask for a change, such as “make the header sticky”'
+      }
+    />
+  );
   const askFix = (errors: PreviewError[]) => {
     setTab('chat');
     send(fixPrompt(errors));
@@ -135,41 +207,20 @@ export default function SiteBuilderPage() {
             : `Spends real credit: about $${(status.spent_usd ?? 0).toFixed(2)} of $${(status.budget_usd ?? 0).toFixed(2)} used.`) +
           (screenshots ? '' : ` No Chrome was found, so ${modelName(model)} will not see screenshots of its work.`);
 
-  const modelPicker = (
-    <select
-      className="sb-model"
-      aria-label="Model"
-      value={model}
-      onChange={(e) => setModel(e.target.value)}
-      disabled={!ready || chat.running}
-    >
-      {status?.models?.length ? (
-        status.models.map((m) => (
-          <option key={m} value={m}>
-            {modelNameStart(m)}
-          </option>
-        ))
-      ) : (
-        <option value="">{status === null ? 'Loading…' : 'No backend'}</option>
-      )}
-    </select>
-  );
-
   const open_ = !!chat.siteId || chat.turns.length > 0;
   return (
     <main className="page-sites" style={{ '--nav-h': `${navHeight}px` } as CSSProperties}>
       {!open_ ? (
         <StartScreen
           sites={sites}
-          ready={ready}
           note={
             <>
               {note}
               {chat.problem && <span className="sb-problem"> {chat.problem}</span>}
             </>
           }
-          modelPicker={modelPicker}
-          onStart={(text) => send(text)}
+          composer={composer(true)}
+          onIdea={setPrompt}
           onOpen={(id) => setParams({ site: id })}
           onRename={(id, title) => void sitesService.rename(id, title).then(refreshSites, () => undefined)}
           onDelete={(id) => void sitesService.delete(id).then(refreshSites, (err: Error) => window.alert(err.message))}
@@ -268,37 +319,7 @@ export default function SiteBuilderPage() {
 
             <div className="sb-composer">
               {chat.problem && <div className="small sb-problem">{chat.problem}</div>}
-              <label className="sr-only" htmlFor="sb-prompt">
-                Ask for a change
-              </label>
-              <textarea
-                id="sb-prompt"
-                rows={2}
-                value={prompt}
-                placeholder="Ask for a change, such as “make the header sticky”"
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={onKey}
-                disabled={!ready}
-              />
-              <div className="sb-composebar">
-                {modelPicker}
-                <span className="small muted sb-hint">Enter to send · Shift+Enter for a new line</span>
-                <span className="spacer" />
-                {chat.running ? (
-                  <button className="sb-send stop" onClick={chat.stop} aria-label="Stop">
-                    ■
-                  </button>
-                ) : (
-                  <button
-                    className="sb-send"
-                    onClick={() => send(prompt)}
-                    disabled={!ready || !prompt.trim() || chat.busyElsewhere}
-                    aria-label="Send"
-                  >
-                    ↑
-                  </button>
-                )}
-              </div>
+              {composer(false)}
             </div>
           </section>
 

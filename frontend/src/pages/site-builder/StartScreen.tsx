@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { sitesService, type SiteSummary } from '@/services/sitesService';
 import { tileHue } from './model';
 
@@ -9,72 +9,40 @@ export const IDEAS = [
   'A bakery landing page with a menu, opening hours and an order form',
 ];
 
-/** The first screen: one prompt box, a few ideas, and the sites made before, newest first. */
+/** The first screen: the shared message box, a few ideas, and the sites made before, newest first. */
 export function StartScreen({
   sites,
-  ready,
   note,
-  modelPicker,
-  onStart,
+  composer,
+  onIdea,
   onOpen,
   onRename,
   onDelete,
 }: {
   sites: SiteSummary[];
-  ready: boolean;
   note: ReactNode;
-  modelPicker: ReactNode;
-  onStart: (prompt: string) => void;
+  /** The message box, the same one the conversation uses. */
+  composer: ReactNode;
+  onIdea: (text: string) => void;
   onOpen: (id: string) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const [prompt, setPrompt] = useState('');
-  const go = () => {
-    const text = prompt.trim();
-    if (ready && text) onStart(text);
-  };
-  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      go();
-    }
-  };
   return (
     <div className="sb-start">
       <div className="sb-hero">
         <div className="sb-mark" aria-hidden="true" />
         <h1>What shall we build?</h1>
         <p className="muted">
-          Describe an app or a website. It is written into a folder here, runs beside the conversation, and changes as
-          you ask.
+          Describe an app or a website, or attach a screenshot and ask for something like it. It is written into a
+          folder here, runs beside the conversation, and changes as you ask.
         </p>
       </div>
-      <div className="sb-startbox">
-        <label className="sr-only" htmlFor="sb-start-prompt">
-          Describe your app
-        </label>
-        <textarea
-          id="sb-start-prompt"
-          rows={3}
-          value={prompt}
-          placeholder="A page that…"
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={onKey}
-          disabled={!ready}
-        />
-        <div className="sb-startbar">
-          {modelPicker}
-          <span className="spacer" />
-          <button className="sb-send" onClick={go} disabled={!ready || !prompt.trim()} aria-label="Start building">
-            ↑
-          </button>
-        </div>
-      </div>
+      <div className="sb-startbox">{composer}</div>
       <div className="small muted sb-startnote">{note}</div>
       <div className="sb-ideas" aria-label="Ideas">
         {IDEAS.map((idea) => (
-          <button key={idea} className="sb-idea" onClick={() => setPrompt(idea)}>
+          <button key={idea} className="sb-idea" onClick={() => onIdea(idea)}>
             {idea}
           </button>
         ))}

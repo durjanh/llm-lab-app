@@ -1366,3 +1366,246 @@ def test_terminal_lines_summarise_each_step_and_skip_streamed_text(caplog):
     assert lines[0] == ("INFO", "assistant abcdef/987654 [main] model call 1: claude-haiku-5-5, low effort")
     assert lines[1] == ("WARNING", "assistant abcdef/987654 [main] tool failed (exit 2): No such file")
     assert not any("streamed" in m for _, m in lines)
+
+
+# ----- brand kits (company deck templates kept on this machine) -----
+
+def _kit(tmp_path: Path, kit_id: str = "acme", **files: bytes) -> Path:
+    folder = tmp_path / "generated" / "brands" / kit_id
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, data in files.items():
+        (folder / name.replace("__", ".")).write_bytes(data)
+    return folder
+
+
+def _plain_turn() -> Fake:
+    return Fake(lambda p: title_reply() if "Write a title" in json.dumps(p) else reply(text("Done.")))
+
+
+def test_brand_kits_are_listed_without_paths_and_links_are_ignored(tmp_path: Path) -> None:
+    folder = _kit(tmp_path, "acme", **{"template__potx": b"PK fake", "logo__png": b"\x89PNG",
+                                       "brand__json": b'{"name": "Acme Ltd", "colours": {"primary": "#123456"}}'})
+    outside = tmp_path / "secret.pptx"
+    outside.write_bytes(b"not part of the kit")
+    (folder / "linked.pptx").symlink_to(outside)
+    (tmp_path / "generated" / "brands" / "empty").mkdir()
+    (tmp_path / "generated" / "brands" / "Bad Name").mkdir()
+    client, _, _ = lab(tmp_path, _plain_turn())
+    brands = client.get("/api/assistant/info", headers=LAB).json()["brands"]
+    assert [b["id"] for b in brands] == ["acme"]
+    acme = brands[0]
+    assert acme["name"] == "Acme Ltd" and acme["template"] == "template.potx" and acme["logo"] == "logo.png"
+    assert acme["colours"] == {"primary": "#123456"}
+    assert str(tmp_path) not in json.dumps(brands) and "linked" not in json.dumps(brands)
+
+
+def test_a_chosen_brand_is_copied_into_inputs_and_named_to_the_agent(tmp_path: Path) -> None:
+    _kit(tmp_path, "acme", **{"template__pptx": b"PK template", "guidelines__md": b"Use sentence case."})
+    fake = _plain_turn()
+    client, svc, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    r = client.post(f"/api/assistant/chats/{chat}/send", headers=LAB,
+                    json={"text": "A deck", "model": HAIKU, "effort": "low", "deck_brand": "nope"})
+    assert r.status_code == 400 and "brand kits" in r.json()["error"]["message"]
+    send(client, chat, "Make a deck", deck_brand="acme")
+    brand_dir = svc.store.workspace(chat) / "inputs" / "brand"
+    assert (brand_dir / "template.pptx").read_bytes() == b"PK template"
+    assert (brand_dir / "guidelines.md").exists()
+    first = json.dumps(fake.requests[0]["messages"])
+    assert "inputs/brand/template.pptx" in first and "not the house style" in first
+    assert client.get(f"/api/assistant/chats/{chat}", headers=LAB).json()["settings"]["deck_brand"] == "acme"
+    # Left out of the next message: the chat keeps its brand.
+    send(client, chat, "Another slide")
+    assert (brand_dir / "template.pptx").exists()
+    # Back to the house style: the kit is cleared from the workspace and no longer mentioned.
+    send(client, chat, "Now in the house style", deck_brand="")
+    assert not brand_dir.exists()
+    last_message = fake.requests[-1]["messages"][-1]  # the house-style turn's own message
+    assert "Now in the house style" in json.dumps(last_message) and "inputs/brand/" not in json.dumps(last_message)
+
+
+# ----- code review, round 3: each test recreates one finding -----
+
+def _stale_turn(svc: Any, chat: str, pending: bool = True) -> str:
+    """A chat whose last turn was left running by a server that stopped, with a tool_use that has no result."""
+    from backend.app.services.conversation_store import Step
+    meta = svc.store.read(chat)
+    conv = svc.store.steps.load(meta["conv_id"])
+    etag = svc.store.steps.append_step(meta["conv_id"], Step(1, 1, "user", "user", [{"type": "text", "text": "hi"}]), conv.etag)
+    if pending:
+        svc.store.steps.append_step(meta["conv_id"], Step(1, 2, "model", "assistant", [use("bash", {"command": "x"})],
+                                                          model=HAIKU), etag)
+    svc.store.update(chat, lambda m: m["turns"].append({
+        "id": "b" * 12, "created_at": "", "user": {"text": "hi", "attachments": []},
+        "assistant": {"text": "", "model": HAIKU, "models_used": [], "plan": None, "files": [], "cost_usd": 0,
+                      "stopped": "running"}}))
+    return meta["conv_id"]
+
+
+def test_review3_1_recovery_holds_the_chat_so_a_live_turn_is_never_rewritten(tmp_path: Path) -> None:
+    client, svc, _ = lab(tmp_path, Fake([]))
+    chat = new_chat(client)
+    _stale_turn(svc, chat)
+    real_read = svc.store.read
+    taken: list[bool] = []
+
+    def read_then_a_send_claims(chat_id: str) -> dict:
+        meta = real_read(chat_id)
+        taken.append(svc._claim(chat_id, "live-turn", "turn"))  # a send arriving just as the repair starts
+        return meta
+    svc.store.read = read_then_a_send_claims
+    svc._recover(chat)
+    svc.store.read = real_read
+    assert taken and taken[0] is False  # the send cannot claim while the repair holds the chat (it would get 409)
+    assert chat not in svc._claims  # and the repair's own claim is released
+    assert svc.store.read(chat)["turns"][-1]["assistant"]["stopped"] == "error"
+
+
+def test_review3_1_a_chat_with_a_live_turn_is_not_repaired(tmp_path: Path) -> None:
+    client, svc, _ = lab(tmp_path, Fake([]))
+    chat = new_chat(client)
+    _stale_turn(svc, chat)
+    assert svc._claim(chat, "live", "turn", started=True)
+    client.get(f"/api/assistant/chats/{chat}", headers=LAB)
+    assert svc.store.read(chat)["turns"][-1]["assistant"]["stopped"] == "running"
+
+
+def test_review3_2_a_conflict_while_repairing_reloads_instead_of_failing(tmp_path: Path) -> None:
+    from backend.app.services.conversation_store import Conflict
+    client, svc, _ = lab(tmp_path, Fake([]))
+    chat = new_chat(client)
+    conv_id = _stale_turn(svc, chat)
+    real_append = svc.store.steps.append_step
+    calls = {"n": 0}
+
+    def first_one_conflicts(*a: Any, **k: Any) -> str:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise Conflict("another tab wrote first")
+        return real_append(*a, **k)
+    svc.store.steps.append_step = first_one_conflicts
+    r = client.get(f"/api/assistant/chats/{chat}", headers=LAB)
+    assert r.status_code == 200 and r.json()["turns"][-1]["assistant"]["stopped"] == "error"
+    steps = svc.store.steps.load(conv_id).steps
+    assert steps[-1].kind == "tool" and steps[-1].content[0]["tool_use_id"] == "toolu_bash_0"
+
+
+def test_review3_3_a_failure_in_the_turns_set_up_still_ends_the_turn(tmp_path: Path) -> None:
+    fake = Fake([title_reply(), reply(text("Fine now."))])
+    client, svc, _ = lab(tmp_path, fake)
+
+    def broken(*a: Any, **k: Any) -> Any:
+        raise OSError("brand template is unreadable")
+    svc.brands.install = broken
+    chat = new_chat(client)
+    ev = send(client, chat)
+    assert ev[-1]["type"] == "done" and ev[-1]["stopped"] == "error"
+    assert "unreadable" in next(e for e in ev if e["type"] == "error")["message"]
+    turn = client.get(f"/api/assistant/chats/{chat}", headers=LAB).json()["turns"][0]
+    assert turn["assistant"]["stopped"] == "error" and chat not in svc._claims
+    svc.brands.install = lambda *a, **k: None
+    assert send(client, chat, "again")[-1]["stopped"] == "finished"
+
+
+def test_review3_4_a_tool_whose_result_cannot_be_logged_is_still_answered(tmp_path: Path) -> None:
+    fake = Fake([reply(use("update_plan", PLAN)), reply(use("bash", {"command": "make a.png"}, 1)), reply(text("ok")),
+                 title_reply()])
+    client, svc, _ = lab(tmp_path, fake)
+    real_log = svc.store.append_log
+    failed = {"done": False}
+
+    def log_fails_once(chat_id: str, turn_id: str, event: dict) -> None:
+        if event.get("type") == "tool_call" and event.get("name") == "bash" and not failed["done"]:
+            failed["done"] = True
+            raise OSError("disk full")
+        real_log(chat_id, turn_id, event)
+    svc.store.append_log = log_fails_once
+    chat = new_chat(client)
+    ev = send(client, chat)
+    assert ev[-1]["stopped"] == "finished"
+    conv = svc.store.steps.load(svc.store.read(chat)["conv_id"])
+    uses = {b["id"] for s in conv.steps if s.kind == "model" for b in s.content if b["type"] == "tool_use"}
+    answered = {b["tool_use_id"] for s in conv.steps if s.kind == "tool" for b in s.content}
+    assert uses <= answered
+
+
+def test_review3_4_a_file_that_vanishes_before_it_is_recorded_does_not_break_the_turn(tmp_path: Path) -> None:
+    fake = Fake([reply(use("update_plan", PLAN)), reply(use("bash", {"command": "make a.png"}, 1)), reply(text("ok")),
+                 title_reply()])
+    client, svc, _ = lab(tmp_path, fake)
+
+    def vanish(*a: Any, **k: Any) -> Any:
+        raise OSError("gone")
+    svc.store.register_file = vanish
+    ev = send(client, new_chat(client))
+    assert ev[-1]["stopped"] == "finished" and any(e["type"] == "note" and "Could not record" in e["text"] for e in ev)
+
+
+def test_review3_5_a_refusal_with_tool_calls_leaves_a_valid_conversation(tmp_path: Path) -> None:
+    fake = Fake([reply(use("bash", {"command": "make a.png"}), stop="refusal"), title_reply(), reply(text("Hello."))])
+    client, svc, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    assert send(client, chat)[-1]["stopped"] == "refused"
+    conv = svc.store.steps.load(svc.store.read(chat)["conv_id"])
+    assert not any(b["type"] == "tool_use" for s in conv.steps for b in s.content)
+    assert send(client, chat, "hi")[-1]["stopped"] == "finished"
+
+
+def test_review3_6_a_made_file_over_the_cap_is_noted_and_not_offered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.app.services import assistant_agent, assistant_store
+    monkeypatch.setattr(assistant_store, "MAX_OUTPUT_FILE_BYTES", 5)
+    monkeypatch.setattr(assistant_agent, "MAX_OUTPUT_FILE_BYTES", 5)
+    fake = Fake([reply(use("update_plan", PLAN)), reply(use("bash", {"command": "make huge.bin"}, 1)), reply(text("ok")),
+                 title_reply()])
+    client, svc, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    ev = send(client, chat)
+    assert "file" not in kinds(ev)
+    assert any(e["type"] == "note" and "over the" in e["text"] and "huge.bin" in e["text"] for e in ev)
+    assert not (tmp_path / "generated" / "assistant" / chat / "versions").exists()  # never copied
+
+
+def test_review3_6_hashing_reads_in_chunks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.app.services import assistant_store
+    monkeypatch.setattr(assistant_store, "CHUNK", 4)
+    f = tmp_path / "x.bin"
+    f.write_bytes(b"0123456789abcdef")
+    import hashlib
+    assert assistant_store.file_hash(f) == hashlib.sha256(b"0123456789abcdef").hexdigest()
+    assert assistant_store.file_content_id("a/x.bin", f) == assistant_store.content_id("a/x.bin", b"0123456789abcdef")
+
+
+def test_review3_7_a_name_with_no_extension_is_refused(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, Fake([]))
+    url = f"/api/assistant/chats/{new_chat(client)}/files"
+    for name in ("txt", ".csv"):
+        assert client.post(url, headers=LAB, files=[("files", (name, b"x", "text/plain"))]).status_code == 400
+
+
+def test_review3_7_the_upload_total_is_checked_again_under_the_store_lock(tmp_path: Path) -> None:
+    client, svc, _ = lab(tmp_path, Fake([]))
+    chat = new_chat(client)
+    svc.store.add_uploads(chat, [("a.txt", b"123456")], cap=10)
+    from backend.app.core.errors import ApiError
+    with pytest.raises(ApiError) as caught:
+        svc.store.add_uploads(chat, [("b.txt", b"123456")], cap=10)  # as if a second upload passed the first check
+    assert caught.value.status == 413
+
+
+def test_review3_7_uploads_and_deletes_do_not_overlap(tmp_path: Path) -> None:
+    client, svc, _ = lab(tmp_path, Fake([]))
+    chat = new_chat(client)
+    url = f"/api/assistant/chats/{chat}/files"
+    svc._uploading[chat] = 1  # an upload is being written
+    assert client.delete(f"/api/assistant/chats/{chat}", headers=LAB).status_code == 409
+    del svc._uploading[chat]
+    assert svc._claim(chat, "deleting", "delete", started=True)  # a delete is under way
+    assert client.post(url, headers=LAB, files=[("files", ("a.txt", b"x", "text/plain"))]).status_code == 409
+    svc._release(chat, "deleting")
+    assert client.post(url, headers=LAB, files=[("files", ("a.txt", b"x", "text/plain"))]).status_code == 200
+    assert chat not in svc._uploading
+
+
+def test_review3_mcp_docstring_says_private_ranges_are_allowed() -> None:
+    from backend.app.services import assistant_mcp
+    assert "local network is an intended use" in (assistant_mcp.__doc__ or "")

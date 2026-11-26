@@ -22,6 +22,7 @@ export default defineConfig({
       '/api': api,
       '/models': api,
       '/sites/': api, // /sites/<id>/ serves the site builder's sites
+      '/site-versions/': api, // /site-versions/<id>/<n>/ serves an earlier version of one
     },
   },
   build: { chunkSizeWarningLimit: 800 },
