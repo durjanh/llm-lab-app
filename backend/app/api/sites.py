@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 
@@ -33,13 +33,15 @@ def site_list(service: SiteService = Depends(site_service)) -> dict[str, Any]:
 
 
 @router.post("/sites/uploads")
-async def site_uploads(files: list[UploadFile] = File(...), service: SiteService = Depends(site_service)) -> list[dict[str, Any]]:
+async def site_uploads(files: list[UploadFile] = File(...), caller: str | None = Form(default=None),
+                       service: SiteService = Depends(site_service)) -> list[dict[str, Any]]:
     """Files for a message that has not been sent yet, so a first message can carry them before its site exists.
     Free: nothing reaches a model until a message attaches them."""
     if len(files) > MAX_FILES:
         raise ApiError(400, "invalid_request", f"Attach at most {MAX_FILES} files at once.")
     read = [(f.filename or "file", await f.read(MAX_PDF_BYTES + 1)) for f in files]
-    saved = await run_in_threadpool(service.uploads.save, read)  # checking and shrinking pictures is blocking work
+    # Checking and shrinking pictures is blocking work. `caller` is the page's id for its tab, for a fair share.
+    saved = await run_in_threadpool(service.uploads.save, read, caller)
     return [u.public() for u in saved]
 
 

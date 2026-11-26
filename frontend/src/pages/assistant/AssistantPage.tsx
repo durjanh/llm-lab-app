@@ -279,8 +279,11 @@ export default function AssistantPage() {
           {
             text,
             attachments: attachments.map((a) => a.id),
-            model: settingsNow.model,
-            effort: effortToSend(info, settingsNow.model, settingsNow.effort),
+            // With Auto, the router chooses: no model is sent, so there is no ceiling; the manual choice is kept
+            // in the chat's settings for when Auto is turned off.
+            model: settingsNow.auto ? '' : settingsNow.model,
+            effort: settingsNow.auto ? '' : effortToSend(info, settingsNow.model, settingsNow.effort),
+            auto: Boolean(settingsNow.auto),
             run_budget_usd: settingsNow.run_budget_usd,
             approve_plans: settingsNow.approve_plans,
             // A kit removed from this machine since it was chosen falls back to the house style.
@@ -489,6 +492,7 @@ export default function AssistantPage() {
         mcpProblem={mcpProblem}
         onManageMcp={() => setMcpOpen(true)}
         hero={!currentId}
+        lastRouted={lastTurn?.t.route ? (lastTurn.t.route.escalated_to ?? lastTurn.t.route.model) : null}
       />
     ) : null;
 

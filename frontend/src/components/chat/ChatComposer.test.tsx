@@ -102,3 +102,36 @@ describe('the + menu', () => {
     expect(blocked).toMatch(/<button type="submit" class="cc-send" disabled=""/);
   });
 });
+
+describe('Auto', () => {
+  const auto = (on: boolean, last: string | null = null) => ({ on, onToggle: () => {}, last });
+
+  it('is not offered unless the page asks for it, so the Site Builder is unchanged', () => {
+    const html = renderToString(<ChatComposer {...base({ initialMenu: 'model' })} />);
+    expect(html).not.toContain('Auto');
+    expect(html).toContain('Haiku');
+  });
+
+  it('is the first item in the model menu when offered, with a one-line explanation', () => {
+    const html = renderToString(<ChatComposer {...base({ initialMenu: 'model', auto: auto(false) })} />);
+    expect(html.indexOf('Auto')).toBeGreaterThan(-1);
+    expect(html.indexOf('Auto')).toBeLessThan(html.indexOf('GPT mini'));
+    expect(html).toContain('Picks the model and effort for each message');
+  });
+
+  it('reads Auto on the pill, then Auto with the last model it chose, and hides effort', () => {
+    const on = renderToString(<ChatComposer {...base({ auto: auto(true) })} />);
+    expect(on).toContain('>Auto<');
+    expect(on).not.toContain('cc-pill-effort');
+    const after = renderToString(<ChatComposer {...base({ auto: auto(true, 'Haiku') })} />);
+    expect(after).toContain('Auto · Haiku');
+    const menu = renderToString(<ChatComposer {...base({ initialMenu: 'model', auto: auto(true) })} />);
+    expect(menu).not.toContain('aria-label="Effort"');
+  });
+
+  it('shows the manual choice and its effort when off', () => {
+    const off = renderToString(<ChatComposer {...base({ auto: auto(false, 'Haiku') })} />);
+    expect(off).not.toContain('Auto · Haiku');
+    expect(off).toContain('cc-pill-effort');
+  });
+});

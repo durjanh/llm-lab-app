@@ -158,3 +158,27 @@ export function connectSnippets(origin: string, key: string): { env: string; cur
       `  -d '{"model": "claude-haiku-5-5", "max_tokens": 50, "messages": [{"role": "user", "content": "Say hello"}]}'`,
   };
 }
+
+/** The Auto routing card's figures in words: the share per tier, and what routing saved against the baseline. */
+export function autoRoutingSummary(a: {
+  turns: number;
+  by_tier: Record<'quick' | 'standard' | 'deep', number>;
+  share: Record<'quick' | 'standard' | 'deep', number>;
+  escalations: number;
+  by_classifier: number;
+  actual_usd: number;
+  baseline_usd: number;
+  saved_usd: number;
+}): { tiers: string; saving: string; notes: string } {
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const tiers = (['quick', 'standard', 'deep'] as const)
+    .map((t) => `${t} ${pct(a.share[t])} (${a.by_tier[t]})`)
+    .join(', ');
+  const share = a.baseline_usd > 0 ? a.saved_usd / a.baseline_usd : 0;
+  const saving =
+    a.saved_usd >= 0
+      ? `${usd(a.saved_usd)} saved (${pct(share)}): ${usd(a.actual_usd)} against ${usd(a.baseline_usd)}`
+      : `${usd(-a.saved_usd)} more (${pct(-share)}): ${usd(a.actual_usd)} against ${usd(a.baseline_usd)}`;
+  const notes = `${a.escalations} escalation${a.escalations === 1 ? '' : 's'}, ${a.by_classifier} decided by the classifier`;
+  return { tiers, saving, notes };
+}

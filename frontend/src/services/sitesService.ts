@@ -123,6 +123,26 @@ export type SiteEvent =
 
 const enc = encodeURIComponent;
 
+/** An id for this browser tab, so the server can give each tab a fair share of waiting uploads. Not a secret. */
+let tabId = '';
+export function uploadCaller(): string {
+  if (tabId) return tabId;
+  try {
+    tabId = window.sessionStorage.getItem('site-upload-caller') ?? '';
+  } catch {
+    /* blocked storage: a fresh id for this page load is fine */
+  }
+  if (!tabId) {
+    tabId = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('');
+    try {
+      window.sessionStorage.setItem('site-upload-caller', tabId);
+    } catch {
+      /* as above */
+    }
+  }
+  return tabId;
+}
+
 /** The site builder: Claude writes a website into a folder on the backend, which serves it for the preview. */
 export class SitesService {
   constructor(private readonly client: ApiClient) {}
@@ -171,6 +191,7 @@ export class SitesService {
   upload(files: File[], onProgress?: (fraction: number) => void): Promise<SiteUpload[]> {
     const form = new FormData();
     for (const f of files) form.append('files', f, f.name);
+    form.append('caller', uploadCaller());
     return this.client.post('/api/sites/uploads', form, {
       onUploadProgress: (e: AxiosProgressEvent) => onProgress?.(e.total ? e.loaded / e.total : 0),
     });

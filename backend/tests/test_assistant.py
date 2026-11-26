@@ -1609,3 +1609,235 @@ def test_review3_7_uploads_and_deletes_do_not_overlap(tmp_path: Path) -> None:
 def test_review3_mcp_docstring_says_private_ranges_are_allowed() -> None:
     from backend.app.services import assistant_mcp
     assert "local network is an intended use" in (assistant_mcp.__doc__ or "")
+
+
+# ----- Auto routing -----
+
+from backend.app.services import assistant_router as AR  # noqa: E402
+
+SONNET, OPUS = "claude-sonnet-5-5", "claude-opus-5-5"
+
+
+def models_asked(fake: Fake) -> list[str]:
+    """The model of every main-loop call (not the classifier or the title)."""
+    return [r["model"] for r in fake.requests if "tools" in r]
+
+
+def test_rules_pick_each_tier_for_clear_cases_with_a_reason() -> None:
+    quick = AR.rules("What is the capital of France?", [], None, False)
+    assert quick and quick[0] == "quick" and "short question" in quick[1]
+    standard = AR.rules("Make a bar chart of monthly sales", [], None, False)
+    assert standard and standard[0] == "standard" and "make" in standard[1].lower()
+    with_file = AR.rules("Have a look at this please", [{"name": "a.csv", "media_type": "text/csv"}], None, False)
+    assert with_file and with_file[0] == "standard" and "attached" in with_file[1]
+    deep = AR.rules("Design a migration strategy and reason through the trade-offs step by step", [], None, False)
+    assert deep and deep[0] == "deep" and "reasoning" in deep[1]
+    split = AR.rules("Make a one-page summary for each of these five regions", [], None, False)
+    assert split and split[0] == "deep" and "sub-agents" in split[1]
+    follow = AR.rules("and the other one?", [], "deep", False)
+    assert follow and follow[0] == "deep" and "follow-up" in follow[1]
+    assert AR.rules("Tell me something interesting about the history of tea and its role in trade", [], None, False) is None
+
+
+def test_the_router_never_sends_pictures_to_the_local_model_and_pdfs_go_to_claude(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AR, "is_local", lambda m: m == "local-qwen")
+    r = AR.Router(["local-qwen", "claude-haiku-5-5", SONNET, OPUS, "gpt-5.4-mini"])
+    assert r.pick("quick", AR.Needs(), None)[:2] == ("local-qwen", "")
+    assert r.pick("quick", AR.Needs(images=True), None)[:2] == ("claude-haiku-5-5", "low")
+    assert r.pick("quick", AR.Needs(pdf=True), None)[0].startswith("claude-")
+    assert r.pick("deep", AR.Needs(), None)[:2] == (OPUS, "high")
+    assert r.pick("deep", AR.Needs(), (SONNET, "low"))[:2] == (SONNET, "low")  # the ceiling caps tier and effort
+    # A model that is not offered: down the tiers. GPT only when it is the only choice.
+    assert AR.Router(["claude-haiku-5-5"]).pick("deep", AR.Needs(), None)[0] == "claude-haiku-5-5"
+    assert AR.Router(["gpt-5.4-mini"]).pick("standard", AR.Needs(), None)[0] == "gpt-5.4-mini"
+    assert AR.Router(["local-qwen"]).pick("quick", AR.Needs(images=True), None)[0] == "local-qwen"  # nothing else
+
+
+def test_an_unclear_message_asks_the_classifier_once_and_uses_its_answer(tmp_path: Path) -> None:
+    def respond(p: dict) -> Message:
+        said = json.dumps(p)
+        if "Choose the model tier" in said:
+            return reply(text('{"tier": "deep", "reason": "open-ended historical analysis"}'), tokens=(300, 20))
+        if "Write a title" in said:
+            return title_reply()
+        return reply(text("Tea history."))
+    fake = Fake(respond)
+    client, _, _ = lab(tmp_path, fake)
+    ev = send(client, new_chat(client), "Tell me something interesting about the history of tea and its role in trade",
+              auto=True, model="", effort="")
+    classifier = [r for r in fake.requests if "Choose the model tier" in json.dumps(r)]
+    assert len(classifier) == 1
+    assert classifier[0]["max_tokens"] == 60 and classifier[0]["output_config"]["effort"] == "low"
+    assert classifier[0]["model"] == "claude-haiku-5-5"
+    assert classifier[0]["output_config"]["format"]["type"] == "json_schema"
+    route = next(e for e in ev if e["type"] == "route")
+    assert route["by"] == "classifier" and route["tier"] == "deep" and route["model"] == OPUS and route["effort"] == "high"
+    assert route["reason"] == "open-ended historical analysis" and route["classifier_cost_usd"] > 0
+    main = [r for r in fake.requests if "tools" in r]
+    assert [r["model"] for r in main] == [OPUS] and main[0]["output_config"] == {"effort": "high"}
+
+
+def test_a_classifier_answer_that_cannot_be_read_means_the_middle_tier(tmp_path: Path) -> None:
+    fake = Fake(lambda p: reply(text("not json at all")) if "Choose the model tier" in json.dumps(p)
+                else (title_reply() if "Write a title" in json.dumps(p) else reply(text("ok"))))
+    client, _, _ = lab(tmp_path, fake)
+    ev = send(client, new_chat(client), "Tell me something interesting about the history of tea and its role in trade",
+              auto=True, model="", effort="")
+    route = next(e for e in ev if e["type"] == "route")
+    assert route["tier"] == "standard" and route["model"] == SONNET and "could not be read" in route["reason"]
+
+
+def test_a_clear_message_is_routed_by_the_rules_without_a_classifier_call(tmp_path: Path) -> None:
+    fake = Fake([reply(text("Paris.")), title_reply()])
+    client, svc, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    ev = send(client, chat, "What is the capital of France?", auto=True, model="", effort="")
+    k = kinds(ev)
+    assert k.index("turn") < k.index("route") < k.index("model_call")  # routed before the first model call
+    route = ev[k.index("route")]
+    assert route == {**route, "tier": "quick", "model": "claude-haiku-5-5", "effort": "low", "by": "rules",
+                     "classifier_cost_usd": 0.0}
+    assert not any("Choose the model tier" in json.dumps(r) for r in fake.requests)
+    assert models_asked(fake) == ["claude-haiku-5-5"]
+    turn = client.get(f"/api/assistant/chats/{chat}", headers=LAB).json()["turns"][0]
+    assert turn["assistant"]["model"] == "claude-haiku-5-5" and turn["assistant"]["route"]["tier"] == "quick"
+    settings = client.get(f"/api/assistant/chats/{chat}", headers=LAB).json()["settings"]
+    assert settings["auto"] is True and settings["model"]  # the manual choice is kept for when Auto is turned off
+
+
+@pytest.mark.parametrize("first", [reply(stop="refusal"), reply(), reply(text("cut"), stop="max_tokens")])
+def test_a_refusal_an_empty_reply_or_a_cut_off_escalates_once(tmp_path: Path, first: Message) -> None:
+    fake = Fake([first, reply(text("Here you are.")), title_reply()])
+    client, svc, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    ev = send(client, chat, "What is the capital of France?", auto=True, model="", effort="")
+    esc = next(e for e in ev if e["type"] == "escalate")
+    assert esc["from"] == "claude-haiku-5-5" and esc["to"] == SONNET
+    assert models_asked(fake) == ["claude-haiku-5-5", SONNET] and ev[-1]["stopped"] == "finished"
+    # The stored conversation stays valid for the next message: roles alternate after joining.
+    msgs = fake.requests[1]["messages"]
+    assert all(a["role"] != b["role"] for a, b in zip(msgs, msgs[1:]))
+    assert client.get(f"/api/assistant/chats/{chat}", headers=LAB).json()["turns"][0]["assistant"]["route"]["escalated_to"] == SONNET
+
+
+def test_escalation_happens_only_once(tmp_path: Path) -> None:
+    fake = Fake([reply(stop="refusal"), reply(stop="refusal"), title_reply()])
+    client, _, _ = lab(tmp_path, fake)
+    ev = send(client, new_chat(client), "What is the capital of France?", auto=True, model="", effort="")
+    assert sum(e["type"] == "escalate" for e in ev) == 1 and ev[-1]["stopped"] == "refused"
+
+
+def test_escalation_stops_at_the_ceiling(tmp_path: Path) -> None:
+    fake = Fake([reply(stop="refusal"), title_reply()])
+    client, _, _ = lab(tmp_path, fake)
+    ev = send(client, new_chat(client), "What is the capital of France?", auto=True, model="claude-haiku-5-5", effort="low")
+    assert "escalate" not in kinds(ev) and ev[-1]["stopped"] == "refused"
+
+
+def test_the_ceiling_caps_the_routed_tier(tmp_path: Path) -> None:
+    fake = Fake([reply(text("ok")), title_reply()])
+    client, _, _ = lab(tmp_path, fake)
+    ev = send(client, new_chat(client), "Design a migration strategy and reason through the trade-offs step by step",
+              auto=True, model=SONNET, effort="low")
+    route = next(e for e in ev if e["type"] == "route")
+    assert route["model"] == SONNET and route["effort"] == "low" and "no deep model fits" in route["reason"]
+
+
+def test_two_failed_tool_rounds_escalate(tmp_path: Path) -> None:
+    fake = Fake([reply(use("update_plan", PLAN)), reply(use("bash", {"command": "fail"}, 1)),
+                 reply(use("bash", {"command": "fail"}, 2)), reply(text("Done another way.")), title_reply()])
+    client, _, _ = lab(tmp_path, fake)
+    ev = send(client, new_chat(client), "Make a bar chart of monthly sales", auto=True, model="", effort="")
+    esc = next(e for e in ev if e["type"] == "escalate")
+    assert esc["from"] == SONNET and esc["to"] == OPUS and "two replies" in esc["reason"]
+    assert models_asked(fake) == [SONNET, SONNET, SONNET, OPUS]
+
+
+def test_manual_mode_is_unchanged(tmp_path: Path) -> None:
+    fake = Fake([reply(stop="refusal"), title_reply()])
+    client, _, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    ev = send(client, chat, "What is the capital of France?")
+    assert "route" not in kinds(ev) and "escalate" not in kinds(ev) and models_asked(fake) == [HAIKU]
+    assert "route" not in client.get(f"/api/assistant/chats/{chat}", headers=LAB).json()["turns"][0]["assistant"]
+    assert not (tmp_path / "generated" / "assistant" / "routing.jsonl").exists()
+
+
+def test_a_routed_turn_records_its_cost_against_sonnet_and_the_control_layer_shows_it(tmp_path: Path) -> None:
+    fake = Fake([reply(text("Paris."), tokens=(10_000, 500)), title_reply(),
+                 reply(text("Berlin."), stop="refusal"), reply(text("Berlin."))])
+    client, svc, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    send(client, chat, "What is the capital of France?", auto=True, model="", effort="")
+    send(client, chat, "What is the capital of Germany?", auto=True, model="", effort="")
+    rows = AR.RoutingLog(tmp_path / "generated" / "assistant" / "routing.jsonl").records()
+    assert len(rows) == 2 and rows[0]["tier"] == "quick" and rows[0]["model"] == "claude-haiku-5-5"
+    assert rows[0]["baseline_usd"] > rows[0]["cost_usd"] > 0  # Haiku is cheaper than the same tokens on Sonnet
+    assert rows[0]["tokens"]["input_tokens"] == 10_000 and rows[1]["escalated_to"] == SONNET
+    summary = client.app.state.container.control_layer.overview()["auto_routing"]
+    assert summary["turns"] == 2 and summary["by_tier"]["quick"] == 2 and summary["escalations"] == 1
+    assert summary["share"]["quick"] == 1.0 and summary["saved_usd"] == round(summary["baseline_usd"] - summary["actual_usd"], 6)
+
+
+def test_a_routed_model_change_shows_as_a_model_switch_and_sub_agents_inherit_it(tmp_path: Path) -> None:
+    def respond(p: dict) -> Message:
+        said = json.dumps(p["messages"])
+        if "You are a sub-agent" in json.dumps(p.get("system", "")):
+            return reply(text("part done"))
+        if "Write a title" in said:
+            return title_reply()
+        if "Make one-page summaries" in said and "delegate" not in said:
+            return reply(use("update_plan", PLAN), use("delegate", {"tasks": [{"brief": "North", "expected_output": "x"}]}))
+        return reply(text("done"))
+    fake = Fake(respond)
+    client, _, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    send(client, chat, "What is the capital of France?", auto=True, model="", effort="")
+    ev = send(client, chat, "Make one-page summaries for each of these regions: north, south, east", auto=True,
+              model="", effort="")
+    assert next(e for e in ev if e["type"] == "model_switch") == {**next(e for e in ev if e["type"] == "model_switch"),
+                                                                    "from": "claude-haiku-5-5", "to": OPUS}
+    sub_models = [r["model"] for r in fake.requests if "You are a sub-agent" in json.dumps(r.get("system", ""))]
+    assert sub_models and set(sub_models) == {OPUS}
+
+
+def test_auto_without_a_model_is_accepted_but_an_unknown_ceiling_is_not(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, Fake([]))
+    chat = new_chat(client)
+    url = f"/api/assistant/chats/{chat}/send"
+    assert client.post(url, headers=LAB, json={"text": "hi", "model": "", "auto": False}).status_code == 400
+    assert client.post(url, headers=LAB, json={"text": "hi", "model": "nope", "auto": True}).status_code == 400
+
+
+def test_two_auto_sends_at_once_still_conflict(tmp_path: Path) -> None:
+    fake = Fake(lambda p: title_reply() if "Write a title" in json.dumps(p) else reply(text("slow")), delay=0.6)
+    client, _, _ = lab(tmp_path, fake)
+    chat = new_chat(client)
+    th = threading.Thread(target=lambda: send(client, chat, "What is the capital of France?", auto=True, model="", effort=""))
+    th.start()
+    time.sleep(0.2)
+    r = client.post(f"/api/assistant/chats/{chat}/send", headers=LAB, json={"text": "again", "model": "", "auto": True})
+    assert r.status_code == 409
+    th.join(10)
+
+
+def test_route_and_escalate_have_terminal_lines() -> None:
+    line = G.describe_event({"type": "route", "tier": "quick", "model": "claude-haiku-5-5", "effort": "low",
+                             "by": "classifier", "classifier_cost_usd": 0.0001, "reason": "a fact"})
+    assert line and "route: quick -> claude-haiku-5-5 low by classifier" in line
+    assert "escalate: a -> b" in (G.describe_event({"type": "escalate", "from": "a", "to": "b", "reason": "x"}) or "")
+
+
+def test_a_local_model_that_is_not_running_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(AR, "is_local", lambda m: m == "local-qwen")
+    models = ["local-qwen", "claude-haiku-5-5", SONNET, OPUS]
+    assert AR.Router(models).pick("quick", AR.Needs(), None)[0] == "local-qwen"
+    assert AR.Router(models, unavailable={"local-qwen"}).pick("quick", AR.Needs(), None)[:2] == ("claude-haiku-5-5", "low")
+
+
+def test_the_service_checks_the_local_server_and_caches_the_answer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _, svc, _ = lab(tmp_path, Fake([]))
+    calls: list[int] = []
+    monkeypatch.setattr(A, "local_status", lambda: calls.append(1) or {"running": False, "has_model": False})
+    assert svc.local_up() is False and svc.local_up() is False
+    assert len(calls) == 1  # checked once, then remembered for 30 seconds

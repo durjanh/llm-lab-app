@@ -75,6 +75,7 @@ export function Composer({
   mcpProblem,
   onManageMcp,
   hero = false,
+  lastRouted = null,
 }: {
   info: AssistantInfo;
   settings: ChatSettings;
@@ -99,6 +100,8 @@ export function Composer({
   onManageMcp: () => void;
   /** The large version on the start screen. */
   hero?: boolean;
+  /** The model Auto chose for this chat's last turn, for the pill. */
+  lastRouted?: string | null;
 }) {
   // Servers switched on, plus any this chat chose that are switched off globally (shown as off).
   const liveServers = mcp.servers.filter((s) => s.enabled || mcp.enabled.includes(s.id));
@@ -131,6 +134,11 @@ export function Composer({
       effort={settings.effort}
       onModel={(model) => onSettings({ ...settings, model, effort: fitEffort(info, model, settings.effort) })}
       onEffort={(effort) => onSettings({ ...settings, effort: effort as Effort })}
+      auto={{
+        on: Boolean(settings.auto),
+        onToggle: (on) => onSettings({ ...settings, auto: on }),
+        last: lastRouted ? (info.models.find((m) => m.id === lastRouted)?.name ?? lastRouted) : null,
+      }}
       placeholder={hero ? 'Describe a task, ask a question, or drop in files…' : 'Reply, or ask for something new…'}
       tags={
         <>

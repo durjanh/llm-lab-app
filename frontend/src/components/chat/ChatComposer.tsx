@@ -183,6 +183,12 @@ export interface ChatComposerProps {
   idBase?: string;
   /** Opens a menu when first shown (for tests and previews). */
   initialMenu?: 'plus' | 'model';
+  /**
+   * Opt-in automatic model choice: an Auto switch at the top of the model menu. While on, the pill reads "Auto" (with
+   * the last model it chose) and effort is left to the router; picking a model turns it off. Pages that leave this
+   * out (the Site Builder) are unchanged.
+   */
+  auto?: { on: boolean; onToggle: (on: boolean) => void; last?: string | null };
 }
 
 export function ChatComposer({
@@ -211,6 +217,7 @@ export function ChatComposer({
   hero = false,
   idBase = 'cc',
   initialMenu,
+  auto,
 }: ChatComposerProps) {
   const [drag, setDrag] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
@@ -219,7 +226,8 @@ export function ChatComposer({
   const pill = usePopover(initialMenu === 'model');
   const sending = useRef(false); // a double press must not send twice while the first is being accepted
   const chosen = models.find((m) => m.id === model);
-  const efforts = chosen?.efforts ?? [];
+  const autoOn = Boolean(auto?.on);
+  const efforts = autoOn ? [] : (chosen?.efforts ?? []);
   const canSend = !running && !blocked && text.trim().length > 0 && uploading.length === 0;
   const textId = `${idBase}-text${hero ? '-hero' : ''}`;
 
@@ -388,21 +396,38 @@ export function ChatComposer({
             aria-label="Model and effort"
             disabled={!models.length}
           >
-            <span>{chosen?.name ?? (model || 'No model')}</span>
+            <span>
+              {autoOn ? (auto?.last ? `Auto · ${auto.last}` : 'Auto') : (chosen?.name ?? (model || 'No model'))}
+            </span>
             {efforts.length > 0 && effort && <span className="cc-pill-effort">{EFFORT_LABEL[effort] ?? effort}</span>}
             <ComposerIcon name="down" />
           </button>
           {pill.open && (
             <div className="cc-pop cc-model-menu" role="menu">
+              {auto && (
+                <>
+                  <MenuToggle on={autoOn} onChange={auto.onToggle} label="Auto">
+                    <span className="cc-pop-meta">picks for you</span>
+                  </MenuToggle>
+                  <MenuNote>
+                    Picks the model and effort for each message: quick ones go to a fast model, hard ones to a stronger
+                    one. Pick a model below to choose yourself.
+                  </MenuNote>
+                  <MenuSep />
+                </>
+              )}
               {groupModels(models).map(({ group, models: list }) => (
                 <div key={group} role="group" aria-label={group}>
                   <MenuTitle>{group}</MenuTitle>
                   {list.map((m) => (
                     <MenuItem
                       key={m.id}
-                      checked={m.id === model}
+                      checked={!autoOn && m.id === model}
                       meta={m.meta}
-                      onClick={() => onModel(m.id, fitEffortFor(m.efforts, effort || 'medium'))}
+                      onClick={() => {
+                        if (autoOn) auto?.onToggle(false); // choosing a model is choosing manual
+                        onModel(m.id, fitEffortFor(m.efforts, effort || 'medium'));
+                      }}
                     >
                       {m.name}
                     </MenuItem>

@@ -90,6 +90,20 @@ export interface ChatSettings {
   mcp_servers?: string[];
   /** The brand kit decks follow in this chat; '' or absent for the house style. */
   deck_brand?: string;
+  /** Auto: the lab picks the model and effort for each message. `model` and `effort` stay the manual choice. */
+  auto?: boolean;
+}
+
+export type Tier = 'quick' | 'standard' | 'deep';
+
+/** How Auto chose a turn's model: the tier, the model and effort, why, and whether it moved up a tier part-way. */
+export interface RouteInfo {
+  tier: Tier;
+  model: string;
+  effort: Effort | '';
+  reason: string;
+  by: 'rules' | 'classifier';
+  escalated_to: string | null;
 }
 
 export interface McpTool {
@@ -149,6 +163,8 @@ export interface Turn {
     cost_usd: number;
     stopped: StopReason;
     error?: string;
+    /** Present when Auto chose the model for this turn. */
+    route?: RouteInfo;
   };
   log_count: number;
 }
@@ -226,6 +242,17 @@ export type AssistantEvent = Stamped &
       }
     | { type: 'compaction'; covers_until: string; tokens_before: number; tokens_after: number; model: string }
     | { type: 'model_switch'; from: string; to: string }
+    | {
+        type: 'route';
+        agent: string;
+        model: string;
+        effort: Effort | '';
+        tier: Tier;
+        reason: string;
+        by: 'rules' | 'classifier';
+        classifier_cost_usd: number;
+      }
+    | { type: 'escalate'; agent: string; from: string; to: string; effort: Effort | ''; tier: Tier; reason: string }
     | { type: 'fallback'; agent: string; from: string; to: string; reason: string }
     | { type: 'title'; title: string }
     | { type: 'done'; stopped: StopReason; cost_usd: number; text: string }
@@ -246,6 +273,8 @@ export interface SendRequest {
   mcp_servers?: string[];
   /** The brand kit for decks, '' for the house style. */
   deck_brand?: string;
+  /** Auto routing: the lab picks the model and effort. A `model` sent with it is a ceiling; '' means none. */
+  auto?: boolean;
 }
 
 export interface ApproveRequest {

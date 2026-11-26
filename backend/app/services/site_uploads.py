@@ -14,7 +14,6 @@ import secrets
 import shutil
 import threading
 import time
-import warnings
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import Any
@@ -34,6 +33,9 @@ MAX_IMAGE_EDGE = 1568  # longer than this, a picture is shrunk: the model would 
 MAX_PIXELS = 40_000_000  # read from the header before decoding, so a small file cannot unpack into gigabytes
 MAX_WAITING_FILES = 60  # uploads waiting for a message, all together
 MAX_WAITING_BYTES = 200 * 2**20
+MAX_CALLER_FILES = 20  # and for one caller (one browser tab), so one cannot take the whole allowance
+MAX_CALLER_BYTES = 60 * 2**20
+CALLER = re.compile(r"^[0-9a-zA-Z_-]{8,64}$")
 TTL_S = 24 * 3600
 UPLOAD_ID = re.compile(r"^[0-9a-f]{32}$")
 PIL_FORMATS = {"image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WEBP", "image/gif": "GIF"}
@@ -80,24 +82,24 @@ def checked_image(raw: bytes, media_type: str) -> tuple[bytes, str]:
     MAX_IMAGE_EDGE. A GIF becomes a PNG of its first frame. Raises ValueError for anything that is not a picture."""
     from PIL import Image, UnidentifiedImageError
 
-    with warnings.catch_warnings():
-        # Pillow only warns for a large picture; here every warning about size is a refusal.
-        warnings.simplefilter("error", Image.DecompressionBombWarning)
-        try:
-            with Image.open(io.BytesIO(raw)) as probe:  # reads the header only
-                width, height = probe.size
-                if width * height > MAX_PIXELS:
-                    raise OverflowError(f"at {width:,} × {height:,} pixels it is too large; the most is "
-                                        f"{MAX_PIXELS // 1_000_000} million pixels")
-                probe.verify()
-            image = Image.open(io.BytesIO(raw))
-            image.load()
-        except OverflowError as exc:
-            raise ValueError(str(exc)) from exc
-        except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
-            raise ValueError("it would unpack into a picture too large to read safely") from exc
-        except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
-            raise ValueError("it is not a picture this page can read") from exc
+    # The size is read from the header and checked before anything is decoded. MAX_PIXELS is well under Pillow's own
+    # limit, so Pillow never needs to warn; above its limit it raises DecompressionBombError itself, caught below.
+    # No warning filter is changed: that is process-wide state, and uploads are checked in several threads at once.
+    try:
+        with Image.open(io.BytesIO(raw)) as probe:  # reads the header only
+            width, height = probe.size
+            if width * height > MAX_PIXELS:
+                raise OverflowError(f"at {width:,} × {height:,} pixels it is too large; the most is "
+                                    f"{MAX_PIXELS // 1_000_000} million pixels")
+            probe.verify()
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except OverflowError as exc:
+        raise ValueError(str(exc)) from exc
+    except Image.DecompressionBombError as exc:
+        raise ValueError("it would unpack into a picture too large to read safely") from exc
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
+        raise ValueError("it is not a picture this page can read") from exc
     actual = {v: k for k, v in PIL_FORMATS.items()}.get(image.format or "")
     if actual is None:
         raise ValueError(f"it is a {image.format or 'file'} picture; use PNG, JPEG, WebP or GIF")
@@ -119,31 +121,54 @@ def checked_image(raw: bytes, media_type: str) -> tuple[bytes, str]:
 
 
 class SiteUploads:
-    """The waiting uploads, one folder each: the file under its clean name and meta.json describing it."""
+    """The waiting uploads, one folder each: the file under its clean name and meta.json describing it.
+
+    Two caps bound what may wait for a message: one for everything together, and a smaller one per caller, keyed on
+    an id the page makes for each browser tab. The per-caller cap is about fairness, not security: a caller could
+    make up new ids, so the overall cap is what bounds the disk. In a lab on one machine that is the right trade-off;
+    a shared deployment would key callers on a signed-in identity instead.
+    """
 
     def __init__(self, root: Path, ttl_s: float = TTL_S, max_waiting_files: int = MAX_WAITING_FILES,
-                 max_waiting_bytes: int = MAX_WAITING_BYTES):
+                 max_waiting_bytes: int = MAX_WAITING_BYTES, max_caller_files: int = MAX_CALLER_FILES,
+                 max_caller_bytes: int = MAX_CALLER_BYTES):
         self.root, self.ttl_s = root, ttl_s
         self.max_waiting_files, self.max_waiting_bytes = max_waiting_files, max_waiting_bytes
+        self.max_caller_files, self.max_caller_bytes = max_caller_files, max_caller_bytes
         self._lock = threading.Lock()
 
-    def waiting(self) -> tuple[int, int]:
-        """How many uploads are waiting for a message, and their total size in bytes."""
+    def _metas(self) -> list[tuple[Path, dict]]:
+        out = []
         if not self.root.is_dir():
-            return 0, 0
-        count = size = 0
-        for meta in self.root.glob("*/meta.json"):
-            try:
-                size += int(json.loads(meta.read_text(encoding="utf-8")).get("size", 0))
-                count += 1
-            except (OSError, ValueError):
+            return out
+        for folder in self.root.iterdir():
+            if not folder.is_dir() or not UPLOAD_ID.match(folder.name):
                 continue
+            try:
+                out.append((folder, json.loads((folder / "meta.json").read_text(encoding="utf-8"))))
+            except (OSError, ValueError):
+                out.append((folder, {"created": folder.stat().st_mtime}))
+        return out
+
+    def waiting(self, caller: str | None = None) -> tuple[int, int]:
+        """How many uploads are waiting for a message (only those of `caller`, if given) and their total size.
+        Expired uploads never count, even before they are pruned."""
+        now = time.time()
+        count = size = 0
+        for _, meta in self._metas():
+            if now - meta.get("created", 0) > self.ttl_s or "size" not in meta:
+                continue
+            if caller is not None and meta.get("caller") != caller:
+                continue
+            count += 1
+            size += int(meta.get("size", 0))
         return count, size
 
-    def save(self, files: list[tuple[str, bytes]]) -> list[Upload]:
+    def save(self, files: list[tuple[str, bytes]], caller: str | None = None) -> list[Upload]:
         """Checks and keeps the files of one upload. All or nothing: one bad file refuses the whole upload, with
-        the reason for each."""
-        self.prune()
+        the reason for each. `caller` is the page's id for the browser tab; one that is missing or malformed shares
+        the anonymous allowance."""
+        caller = caller if caller and CALLER.match(caller) else "anonymous"
         if not files:
             raise ApiError(400, "invalid_request", "Choose at least one file.")
         if len(files) > MAX_FILES:
@@ -184,23 +209,30 @@ class SiteUploads:
                     problems.append(f"{name}: a data or text file must be UTF-8 text.")
         if problems:
             raise ApiError(400, "invalid_request", " ".join(problems))
-        with self._lock:  # the check and the write together, so two uploads at once cannot both slip under the cap
-            count, size = self.waiting()
+        with self._lock:  # prune, count and write together, so two uploads at once cannot both slip under a cap
+            self._prune_locked()
             adding = sum(len(raw) for *_, raw in ready)
+            mine_count, mine_size = self.waiting(caller)
+            if mine_count + len(ready) > self.max_caller_files or mine_size + adding > self.max_caller_bytes:
+                raise ApiError(413, "too_large", f"You have too many files waiting to be sent (at most "
+                                                 f"{self.max_caller_files} files, {self.max_caller_bytes // 2**20} MB). "
+                                                 "Send a message with them, or remove some.")
+            count, size = self.waiting()
             if count + len(ready) > self.max_waiting_files or size + adding > self.max_waiting_bytes:
                 raise ApiError(413, "too_large", f"Too many files are waiting to be sent (at most "
                                                  f"{self.max_waiting_files} files, {self.max_waiting_bytes // 2**20} MB "
                                                  "in all). Send a message with them, or wait for unused ones to expire.")
-            return self._write(ready)
+            return self._write(ready, caller)
 
-    def _write(self, ready: list[tuple[str, str, str, bytes]]) -> list[Upload]:
+    def _write(self, ready: list[tuple[str, str, str, bytes]], caller: str) -> list[Upload]:
         saved = []
         for name, what, media_type, raw in ready:
             upload_id = secrets.token_hex(16)
             folder = self.root / upload_id
             folder.mkdir(parents=True)
             (folder / name).write_bytes(raw)
-            meta = {"name": name, "media_type": media_type, "kind": what, "size": len(raw), "created": time.time()}
+            meta = {"name": name, "media_type": media_type, "kind": what, "size": len(raw), "created": time.time(),
+                    "caller": caller}
             (folder / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
             saved.append(Upload(upload_id, name, media_type, what, len(raw), folder / name))
         return saved
@@ -229,19 +261,14 @@ class SiteUploads:
 
     def prune(self) -> int:
         """Deletes uploads left unused for longer than the time limit. Returns how many it deleted."""
-        if not self.root.is_dir():
-            return 0
+        with self._lock:
+            return self._prune_locked()
+
+    def _prune_locked(self) -> int:
         gone = 0
         now = time.time()
-        with self._lock:
-            for folder in self.root.iterdir():
-                if not folder.is_dir() or not UPLOAD_ID.match(folder.name):
-                    continue
-                try:
-                    created = json.loads((folder / "meta.json").read_text(encoding="utf-8")).get("created", 0)
-                except (OSError, ValueError):
-                    created = folder.stat().st_mtime
-                if now - created > self.ttl_s:
-                    shutil.rmtree(folder, ignore_errors=True)
-                    gone += 1
+        for folder, meta in self._metas():
+            if now - meta.get("created", 0) > self.ttl_s:
+                shutil.rmtree(folder, ignore_errors=True)
+                gone += 1
         return gone

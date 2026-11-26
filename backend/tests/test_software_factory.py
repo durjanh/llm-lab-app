@@ -526,3 +526,85 @@ def test_review_3_effort_is_checked_against_the_model_before_anything_starts(tmp
     r = client.post("/api/software-factory/changes", headers=LAB,
                     json={"ticket_id": "T1", "model": "local-model", "effort": "low"})
     assert r.status_code == 400 and "no effort" in r.json()["error"]["message"]
+
+
+# ----- sync_tree review fixes -----
+
+def tracked(svc: Any) -> dict[str, str]:
+    """Path -> mode for every file tracked on the project's main branch."""
+    _, out = F.git(["ls-files", "-s"], svc.project)
+    return {line.split("\t", 1)[1]: line.split()[0] for line in out.splitlines() if "\t" in line}
+
+
+def test_review_sync_1_a_big_file_held_back_from_the_agents_is_not_deleted_by_the_merge(tmp_path: Path,
+                                                                                        project: Path) -> None:
+    big = b"date,amount\n" + b"2026-01-01,1.00\n" * 200_000  # about 3 MB, over the 2 MB copy limit
+    (project / "data").mkdir()
+    (project / "data" / "big.csv").write_bytes(big)
+    client, svc, _ = lab(tmp_path, {"planner": plan("README.md"), "implementer": add_readme, "reviewer": PASS})
+    c = final(run(client, "T1"))
+    assert c["status"] == "merged" and svc.change(c["id"])["files"] == ["README.md"]
+    assert "data/big.csv" in tracked(svc)
+    assert (svc.project / "data" / "big.csv").read_bytes() == big
+    assert any(a["what"] == "held back from the agents" and "data/big.csv" in a["why"]
+               for a in svc.change(c["id"])["audit"])
+
+
+def test_review_sync_2_git_files_anywhere_never_reach_the_repo(tmp_path: Path, project: Path) -> None:
+    def implement(root: Path, prompt: str, n: int) -> str:
+        (root / ".git").write_text("gitdir: /etc\n")  # a .git FILE at the top
+        (root / "sub").mkdir()
+        (root / "sub" / ".git").write_text("gitdir: ../../repo/.git\n")  # and one deeper down
+        (root / "sub" / "real.txt").write_text("plain file\n")
+        (root / ".gitmodules").write_text('[submodule "sub"]\n\tpath = sub\n\turl = https://example.com/x.git\n')
+        return add_readme(root, prompt, n)
+
+    client, svc, _ = lab(tmp_path, {"planner": plan("README.md"), "implementer": implement, "reviewer": PASS})
+    c = final(run(client, "T1"))
+    assert c["status"] == "merged"
+    files = tracked(svc)
+    assert ".gitmodules" not in files and not any(p.endswith(".git") for p in files)
+    assert files["sub/real.txt"] == "100644" and "160000" not in files.values()  # a plain file, no gitlink
+    full = svc.change(c["id"])
+    assert "Subproject commit" not in full["diff"]
+    left = next(a["why"] for a in full["audit"] if a["what"] == "left out of the change")
+    assert ".git (git's own files)" in left and "sub/.git" in left and ".gitmodules" in left
+
+
+def test_review_sync_3_a_directory_and_a_file_can_swap_places(tmp_path: Path, project: Path) -> None:
+    (project / "notes").mkdir()
+    (project / "notes" / "a.md").write_text("A note.\n")
+
+    def implement(root: Path, prompt: str, n: int) -> str:
+        import shutil as sh
+        sh.rmtree(root / "notes")
+        (root / "notes").write_text("The notes are now one file.\n")  # a directory became a file
+        (root / "CLAUDE.md").unlink()
+        (root / "CLAUDE.md").mkdir()
+        (root / "CLAUDE.md" / "x.txt").write_text("and a file became a directory\n")
+        return add_readme(root, prompt, n)
+
+    client, svc, _ = lab(tmp_path, {"planner": plan("README.md"), "implementer": implement, "reviewer": PASS})
+    c = final(run(client, "T1"))
+    assert c["status"] == "merged", svc.change(c["id"])["stopped_reason"]
+    files = tracked(svc)
+    assert "notes" in files and "notes/a.md" not in files
+    assert "CLAUDE.md/x.txt" in files and "CLAUDE.md" not in files
+    assert "notes/a.md" in svc.change(c["id"])["diff"]
+
+
+def test_review_sync_3_a_file_that_cannot_be_copied_blocks_the_change_with_a_reason(
+        tmp_path: Path, project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    real = F.shutil.copyfile
+
+    def flaky(src: Any, dst: Any, *a: Any, **k: Any) -> Any:
+        if Path(dst).name == "README.md" and "repo" in Path(dst).parts:
+            raise PermissionError(13, "Permission denied")
+        return real(src, dst, *a, **k)
+
+    monkeypatch.setattr(F.shutil, "copyfile", flaky)
+    client, svc, _ = lab(tmp_path, {"planner": plan("README.md"), "implementer": add_readme, "reviewer": PASS})
+    c = final(run(client, "T1"))
+    assert c["status"] == "blocked"
+    gate = next(g for g in svc.change(c["id"])["gates"] if g["name"] == "every file copied")
+    assert not gate["passed"] and "README.md: Permission denied" in gate["detail"]

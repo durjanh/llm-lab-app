@@ -365,3 +365,37 @@ describe('MCP tools, notes and partial costs', () => {
     expect(STOPPED_TEXT.running).toBe('Still running.');
   });
 });
+
+describe('Auto routing events', () => {
+  it('records the route, then the tier it moved up to, and describes both as route rows', async () => {
+    const { describe: row, reduceTurn: reduce, startTurn: start } = await import('./state');
+    const route = {
+      type: 'route' as const,
+      ts: 1,
+      agent: 'main',
+      model: 'claude-haiku-5-5',
+      effort: 'low' as const,
+      tier: 'quick' as const,
+      reason: 'a short question',
+      by: 'rules' as const,
+      classifier_cost_usd: 0,
+    };
+    const escalate = {
+      type: 'escalate' as const,
+      ts: 2,
+      agent: 'main',
+      from: 'claude-haiku-5-5',
+      to: 'claude-sonnet-5-5',
+      effort: 'medium' as const,
+      tier: 'standard' as const,
+      reason: 'the model declined',
+    };
+    let s = reduce(start({ text: 'hi', attachments: [] }), route);
+    expect(s.route).toMatchObject({ model: 'claude-haiku-5-5', tier: 'quick', escalated_to: null });
+    s = reduce(s, escalate);
+    expect(s.route?.escalated_to).toBe('claude-sonnet-5-5');
+    expect(row(route)).toMatchObject({ tone: 'route', title: 'Auto chose claude-haiku-5-5, low effort (quick)' });
+    expect(row(route).detail).toContain('a short question');
+    expect(row(escalate)).toMatchObject({ tone: 'route', title: 'Moved up to claude-sonnet-5-5 (standard)' });
+  });
+});

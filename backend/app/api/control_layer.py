@@ -96,11 +96,12 @@ async def messages(request: Request, c: Container = Depends(container)) -> Any:
     beta = request.headers.get("anthropic-beta")
     try:
         body = await _body(request)
-        if isinstance(body, dict) and body.get("stream") is not None and body.get("stream") is not False:
-            lines = await run_in_threadpool(c.control_layer.open_stream, consumer, body, beta)
+        params = c.control_layer.check_request(body)  # checked once, here: fields, tools, content, stream's type
+        if body.get("stream") is True:
+            lines = await run_in_threadpool(c.control_layer.open_stream, consumer, params, beta)
             return StreamingResponse(lines, media_type="text/event-stream",
                                      headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
-        return JSONResponse(await run_in_threadpool(c.control_layer.create, consumer, body, beta))
+        return JSONResponse(await run_in_threadpool(c.control_layer.create, consumer, params, beta))
     except ApiError as exc:
         return _fail(exc.status, exc.message)
     except Exception as exc:  # noqa: BLE001 - an upstream failure, in the Messages API's error shape

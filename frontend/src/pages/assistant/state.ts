@@ -1,6 +1,14 @@
 /* Turns the send route's stream of events into what the page shows: the reply, the plan, the files, the cost, why it
    stopped, and one lane of activity per agent. Pure functions, so the same code rebuilds a past turn from its log. */
-import type { AssistantEvent, AssistantFile, EventType, Plan, StopReason, Turn } from '@/services/assistantService';
+import type {
+  AssistantEvent,
+  AssistantFile,
+  EventType,
+  Plan,
+  RouteInfo,
+  StopReason,
+  Turn,
+} from '@/services/assistantService';
 
 export interface Lane {
   agent: string;
@@ -41,6 +49,8 @@ export interface TurnState {
   notes: string[];
   title: string | null;
   lanes: Lane[];
+  /** How Auto chose the model, when it did: from the route event, or the stored turn. */
+  route: RouteInfo | null;
 }
 
 const KNOWN: ReadonlySet<EventType> = new Set<EventType>([
@@ -61,6 +71,8 @@ const KNOWN: ReadonlySet<EventType> = new Set<EventType>([
   'usage',
   'compaction',
   'model_switch',
+  'route',
+  'escalate',
   'fallback',
   'title',
   'done',
@@ -86,6 +98,7 @@ export function startTurn(user: TurnState['user']): TurnState {
     notes: [],
     title: null,
     lanes: [],
+    route: null,
   };
 }
 
@@ -187,6 +200,15 @@ export function reduceTurn(s: TurnState, e: AssistantEvent): TurnState {
     case 'title':
       next = { ...next, title: e.title };
       break;
+    case 'route':
+      next = {
+        ...next,
+        route: { tier: e.tier, model: e.model, effort: e.effort, reason: e.reason, by: e.by, escalated_to: null },
+      };
+      break;
+    case 'escalate':
+      if (next.route) next = { ...next, route: { ...next.route, escalated_to: e.to } };
+      break;
     case 'error':
       next = { ...next, error: e.message };
       break;
@@ -238,6 +260,7 @@ export function fromStored(turn: Turn, log: AssistantEvent[] = []): TurnState {
     error: turn.assistant.error ?? null,
     approval: null,
     toolApprovals: [],
+    route: turn.assistant.route ?? replayed.route,
     lanes: replayed.lanes.map((l) => (l.status === 'running' ? { ...l, status: 'done' } : l)),
   };
 }
@@ -257,7 +280,7 @@ export interface Row {
   icon: string;
   title: string;
   detail: string | null;
-  tone: 'normal' | 'network' | 'error' | 'meta' | 'good';
+  tone: 'normal' | 'network' | 'error' | 'meta' | 'good' | 'route';
 }
 
 const dollars = (n: number) => `$${n < 0.01 ? n.toFixed(4) : n.toFixed(3)}`;
@@ -385,6 +408,20 @@ export function describe(e: AssistantEvent): Row {
         title: `Model changed: ${e.from} to ${e.to}`,
         detail: 'The whole history was passed to the new model.',
         tone: 'meta',
+      };
+    case 'route':
+      return {
+        icon: '⚡',
+        title: `Auto chose ${e.model}${e.effort ? `, ${e.effort} effort` : ''} (${e.tier})`,
+        detail: `Why: ${e.reason}\nDecided by ${e.by === 'rules' ? 'the rules' : `a classifier call (${dollars(e.classifier_cost_usd)})`}`,
+        tone: 'route',
+      };
+    case 'escalate':
+      return {
+        icon: '⇧',
+        title: `Moved up to ${e.to} (${e.tier})`,
+        detail: `From ${e.from}. Why: ${e.reason}`,
+        tone: 'route',
       };
     case 'fallback':
       return { icon: '↪', title: `Fell back from ${e.from} to ${e.to}`, detail: e.reason, tone: 'error' };

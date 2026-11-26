@@ -825,3 +825,49 @@ def test_review_4_comments_and_script_bodies_are_not_mistaken_for_markup() -> No
     assert '<!-- <script src="js/old.js"></script> -->' in out  # a script in a comment is left alone
     assert '\'<script src="js/fake.js">\'' in out  # and so is one inside a script's own text
     assert '<script src="js/app.js" crossorigin>' in out
+
+
+def test_review_5_two_pictures_checked_at_once_in_threads_both_behave(tmp_path: Path) -> None:
+    import warnings
+    from concurrent.futures import ThreadPoolExecutor
+
+    client, _, _ = lab(tmp_path)
+    before = list(warnings.filters)
+    jobs = [("bomb.png", huge_png_header(100_000, 100_000)), ("ok.png", png()), ("wide.png", huge_png_header(8_000, 5_001)),
+            ("ok2.png", png(60, 40))]
+    with ThreadPoolExecutor(4) as pool:
+        replies = list(pool.map(lambda job: upload(client, (job[0], job[1], "image/png")), jobs * 3))
+    for (name, _), r in zip(jobs * 3, replies):
+        assert r.status_code == (200 if name.startswith("ok") else 400), (name, r.text)
+    assert list(warnings.filters) == before  # no process-wide warning filter was changed
+
+
+def test_review_6_expired_uploads_never_count_towards_the_cap(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    uploads = client.app.state.container.sites.uploads
+    first = upload(client, ("a.txt", b"one", "text/plain")).json()[0]
+    meta = uploads.root / first["id"] / "meta.json"
+    data = json.loads(meta.read_text())
+    data["created"] -= 25 * 3600
+    meta.write_text(json.dumps(data))
+    assert uploads.waiting() == (0, 0)  # expired but not yet pruned: not counted
+    assert (uploads.root / first["id"]).exists()
+
+
+def test_review_6_one_caller_at_its_cap_does_not_stop_another(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    uploads = client.app.state.container.sites.uploads
+    uploads.max_caller_files = 2
+
+    def send(caller: str, name: str) -> Any:
+        return client.post("/api/sites/uploads", headers=LAB, data={"caller": caller},
+                           files=[("files", (name, b"text", "text/plain"))])
+
+    assert send("tab-aaaaaaaa", "1.txt").status_code == 200
+    assert send("tab-aaaaaaaa", "2.txt").status_code == 200
+    full = send("tab-aaaaaaaa", "3.txt")
+    assert full.status_code == 413 and "You have too many" in full.json()["error"]["message"]
+    assert send("tab-bbbbbbbb", "1.txt").status_code == 200  # another tab still has its own allowance
+    assert uploads.waiting("tab-aaaaaaaa")[0] == 2 and uploads.waiting("tab-bbbbbbbb")[0] == 1
+    # A malformed caller id shares the anonymous allowance rather than being trusted.
+    assert send("../../x", "a.txt").status_code == 200 and uploads.waiting("anonymous")[0] == 1

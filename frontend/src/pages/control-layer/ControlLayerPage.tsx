@@ -10,6 +10,7 @@ import {
   type VirtualKey,
 } from '@/services/controlLayerService';
 import {
+  autoRoutingSummary,
   burn,
   chartConsumers,
   connectSnippets,
@@ -652,6 +653,30 @@ export default function ControlLayerPage() {
           <p className="small muted">
             From the last {data.call_log_size.toLocaleString('en-GB')} calls in the{' '}
             <Link to="/observability">call log</Link>.
+          </p>
+        </div>
+      )}
+
+      <h2>Auto routing</h2>
+      {data && !data.auto_routing && <p className="muted">This backend does not route automatically.</p>}
+      {data?.auto_routing && data.auto_routing.turns === 0 && (
+        <p className="muted">
+          No routed turns yet. Turn on Auto in the <Link to="/assistant">assistant</Link>&apos;s model menu.
+        </p>
+      )}
+      {data?.auto_routing && data.auto_routing.turns > 0 && (
+        <div className="card cl-routing">
+          <p>
+            <b>{data.auto_routing.turns.toLocaleString('en-GB')}</b> assistant turns routed by Auto:{' '}
+            {autoRoutingSummary(data.auto_routing).tiers}.
+          </p>
+          <p>
+            Against always using {data.auto_routing.baseline_model} for the same tokens:{' '}
+            <b>{autoRoutingSummary(data.auto_routing).saving}</b>.
+          </p>
+          <p className="small muted">
+            {autoRoutingSummary(data.auto_routing).notes}. The comparison prices each turn&apos;s tokens at the
+            baseline&apos;s list prices; a stronger model might have used fewer of them.
           </p>
         </div>
       )}

@@ -25,7 +25,7 @@ from typing import Any
 
 from ..core.errors import ApiError
 from ..settings import MODELS, Settings
-from ..shared import ModelUnavailable, NeedsClaude, coding_script as C, sandbox_skills as S
+from ..shared import ModelUnavailable, NeedsClaude, coding_script as C, is_local, local_status, sandbox_skills as S
 from .assistant_agent import (Agent, Stopped, Turn, cheapest_claude, compaction_cut, efforts_for, make_previews,
                               new_turn_id, provider, summary_of, window_for)
 from . import assistant_store as store_rules
@@ -36,6 +36,8 @@ from .model_failover import estimate_tokens, latest_summary, visible
 from .model_failover import build_messages as _build
 from .assistant_brands import BrandKits
 from .assistant_mcp import McpServers
+from .assistant_router import (CLASSIFIER_MAX_TOKENS, CLASSIFIER_PROMPT, CLASSIFIER_SCHEMA, AutoState, Route, Router,
+                               RoutingLog, needs_of, parse_classifier, record_for, rules)
 from .runs import Run, RunRegistry, RunStreamer
 from .spend import RunBudget, SpendTracker
 
@@ -53,6 +55,8 @@ class AssistantService:
                  store: ChatStore, settings: Settings, mcp: McpServers, brands: BrandKits | None = None):
         self.claude, self.spend, self.registry, self.streamer, self.store = claude, spend, registry, streamer, store
         self.mcp = mcp  # the person's remote MCP servers, for every agent in a turn
+        self.routing = RoutingLog(store.folder / "routing.jsonl")  # routed turns and their savings
+        self._local_seen: tuple[float, bool] = (0.0, True)  # when the local server was last checked, and if it was up
         # Company deck templates and style notes, kept on this machine only (generated/ is gitignored).
         self.brands = brands if brands is not None else BrandKits(settings.generated_dir / "brands")
         self.run_budget_usd = settings.assistant_run_budget_usd
@@ -281,17 +285,20 @@ class AssistantService:
 
     # ----- a turn -----
     def send(self, chat_id: str, text: str, attachments: list[str], model: str, effort: str, run_budget_usd: float,
-             approve_plans: bool, mcp_servers: list[str] | None = None, deck_brand: str | None = None) -> Iterator[str]:
+             approve_plans: bool, mcp_servers: list[str] | None = None, deck_brand: str | None = None,
+             auto: bool = False) -> Iterator[str]:
+        """One message. With `auto`, the router picks the model and effort; a `model` (and `effort`) sent with it is
+        the ceiling routing may not go above, and an empty `model` means no ceiling."""
         meta = self.store.read(chat_id)
         text = (text or "").strip()
         if not text:
             raise ApiError(400, "invalid_request", "Write a message first.")
         if len(text) > MAX_TEXT:
             raise ApiError(400, "invalid_request", f"A message can be at most {MAX_TEXT:,} characters.")
-        if model not in self.models():
+        if not (auto and not model) and model not in self.models():
             raise ApiError(400, "invalid_request", f"model must be one of: {', '.join(self.models())}")
         effort = effort or ""
-        if effort and effort not in efforts_for(model):
+        if model and effort and effort not in efforts_for(model):
             raise ApiError(400, "invalid_request", f"{model} does not take effort {effort}. It takes: "
                                                    f"{', '.join(efforts_for(model)) or 'none'}.")
         if not MIN_BUDGET <= float(run_budget_usd) <= MAX_BUDGET:
@@ -319,10 +326,16 @@ class AssistantService:
         except ApiError:
             self._release(chat_id, run.id)
             raise
-        previous = meta["settings"].get("model") if meta["turns"] else None
-        settings = {"model": model, "effort": effort, "run_budget_usd": float(run_budget_usd),
+        # The model that answered last time (routing may have chosen it), so a change shows as a model switch.
+        previous = (meta["turns"][-1]["assistant"].get("model") or meta["settings"].get("model")) if meta["turns"] else None
+        kept = meta["settings"]
+        settings = {"model": model or kept.get("model") or self._default_model(),
+                    "effort": effort if model else kept.get("effort", "medium"),
+                    "run_budget_usd": float(run_budget_usd),
                     "approve_plans": bool(approve_plans), "mcp_servers": list(dict.fromkeys(mcp_servers)),
-                    "deck_brand": deck_brand}
+                    "deck_brand": deck_brand, "auto": bool(auto),
+                    # With Auto, a model sent with the message is the ceiling; none sent means no ceiling.
+                    "auto_ceiling": bool(auto and model)}
 
         def work() -> None:
             with self._lock:
@@ -366,11 +379,13 @@ class AssistantService:
             # The chosen brand kit goes into inputs/brand/ (or is cleared from it) before the agent starts.
             kit = self.brands.install(settings.get("deck_brand", ""), self.store.workspace(chat_id))
             t.append("user", "user", self._user_content(chat_id, text, attachments, BrandKits.note(kit) if kit else ""))
-            if previous and previous != model:
-                t.emit({"type": "model_switch", "from": previous, "to": model})
             t.mcp_defs, t.mcp_names, notes = self.mcp.tools_for(settings["mcp_servers"])
             for note in notes:
                 t.emit({"type": "note", "agent": "main", "text": note})
+            if settings.get("auto"):
+                self._route(t, text, attachments, meta, settings)
+            if previous and previous != t.model:
+                t.emit({"type": "model_switch", "from": previous, "to": t.model})
             main = Agent(t, "main", self.store.workspace(chat_id))
             reply = main.run()
         except Stopped as exc:
@@ -399,10 +414,16 @@ class AssistantService:
         def finish(m: dict[str, Any]) -> None:
             for r in m["turns"]:
                 if r["id"] == turn_id:
-                    r["assistant"] = {"text": reply, "model": model, "models_used": t.models_used, "plan": t.plan,
+                    r["assistant"] = {"text": reply, "model": t.model, "models_used": t.models_used, "plan": t.plan,
                                       "files": list(t.files), "cost_usd": round(t.cost, 6), "stopped": stopped,
-                                      **({"error": error} if error else {})}
+                                      **({"error": error} if error else {}),
+                                      **({"route": self._route_record(t)} if t.auto else {})}
         self.store.update(chat_id, finish)
+        if t.auto:
+            try:
+                self.routing.append(record_for(chat_id, turn_id, t.auto, t.cost - t.unrouted_cost))
+            except OSError:
+                pass  # the savings record is a report: never a reason to fail the turn
         t.emit({"type": "done", "stopped": stopped, "cost_usd": round(t.cost, 6), "text": reply})
 
     def _user_content(self, chat_id: str, text: str, attachments: list[dict[str, Any]],
@@ -463,7 +484,7 @@ class AssistantService:
                 message = self.claude.create(model=model, max_tokens=40, messages=[{
                     "role": "user", "content": "Write a title of at most six words for a chat that starts with this "
                                                f"message. Reply with the title only.\n\n{text[:2000]}"}])
-                cost = t.charge(message, model)
+                cost = t.charge(message, model, routed=False)
                 made = " ".join("".join(getattr(b, "text", "") for b in message.content
                                         if getattr(b, "type", "") == "text").split()).strip(" \"'.")
                 title = made[:MAX_TITLE] or title
@@ -651,6 +672,85 @@ class AssistantService:
             raise ApiError(404, "not_found", "That run has already finished.")
         run.cancel()
 
+
+    # ----- automatic routing -----
+    def local_up(self) -> bool:
+        """Whether the local model's server answers, checked at most every 30 seconds: Auto skips a local model that
+        is set up but not running, rather than send it a message that would fail."""
+        at, up = self._local_seen
+        if time.monotonic() - at > 30:
+            status = local_status()
+            up = bool(status.get("running") and status.get("has_model"))
+            self._local_seen = (time.monotonic(), up)
+        return up
+
+    def _router(self) -> Router:
+        down = {m for m in self.models() if is_local(m)} if any(is_local(m) for m in self.models()) and \
+            not self.local_up() else set()
+        return Router(self.models(), unavailable=down)
+
+    def _route(self, t: Turn, text: str, attachments: list[dict[str, Any]], meta: dict[str, Any],
+               settings: dict[str, Any]) -> None:
+        """Picks the turn's model and effort: from the signals when they settle it, else by one small classifier
+        call. Sets them on the turn and says why in a route event, before the first model call."""
+        router = self._router()
+        needs = needs_of(attachments)
+        ceiling = (settings["model"], settings.get("effort") or "") if settings.get("auto_ceiling") else None
+        last = (meta["turns"][-1]["assistant"].get("route") or {}).get("tier") if meta["turns"] else None
+        mcp_on = bool([s for s in self.mcp.all() if s["enabled"] and s["id"] in settings.get("mcp_servers", [])])
+        decided = rules(text, attachments, last, mcp_on)
+        by, cost = "rules", 0.0
+        if decided is None:
+            decided, cost = self._classify(t, text)
+            by = "classifier"
+        tier, reason = decided
+        model, effort, used = router.pick(tier, needs, ceiling)
+        if used != tier:
+            reason += f"; no {tier} model fits here, so {used}"
+        route = Route(used, model, effort, reason, by, round(cost, 6))
+        t.model, t.effort = model, effort
+        t.auto = AutoState(route, needs, ceiling)
+        t.emit({"type": "route", "agent": "main", "model": model, "effort": effort, "tier": used, "reason": reason,
+                "by": by, "classifier_cost_usd": route.classifier_cost_usd})
+
+    def _classify(self, t: Turn, text: str) -> tuple[tuple[str, str], float]:
+        """One small call to the cheapest Claude model: strict JSON {tier, reason}. Anything unreadable, or no Claude
+        model to ask, means the middle tier."""
+        claude = [m for m in self.models() if m.startswith("claude-")]
+        if not claude:
+            return ("standard", "no Claude model to classify with, so the middle tier"), 0.0
+        model = cheapest_claude(claude)
+        try:
+            message = self.claude.create(
+                model=model, max_tokens=CLASSIFIER_MAX_TOKENS,
+                output_config={"effort": "low", "format": {"type": "json_schema", "schema": CLASSIFIER_SCHEMA}},
+                messages=[{"role": "user", "content": CLASSIFIER_PROMPT + text[:4000]}])
+        except Exception:  # noqa: BLE001  (rate limited, no key): routing still goes ahead
+            return ("standard", "the classifier could not be asked, so the middle tier"), 0.0
+        cost = t.charge(message, model)
+        answer = parse_classifier("".join(getattr(b, "text", "") for b in message.content
+                                          if getattr(b, "type", "") == "text"))
+        return (answer or ("standard", "the classifier's answer could not be read, so the middle tier")), cost
+
+    def escalate(self, t: Turn, reason: str) -> bool:
+        """Moves the rest of a routed turn to the next tier up, once, within the ceiling. False when it cannot."""
+        state = t.auto
+        if state is None or state.escalated is not None:
+            return False
+        up = self._router().next_up(state, t.model)
+        if up is None:
+            return False
+        state.escalated = (t.model, up[0])
+        t.emit({"type": "escalate", "agent": "main", "from": t.model, "to": up[0], "effort": up[1], "tier": up[2],
+                "reason": reason})
+        t.model, t.effort = up[0], up[1]
+        return True
+
+    @staticmethod
+    def _route_record(t: Turn) -> dict[str, Any]:
+        r = t.auto.route
+        return {"tier": r.tier, "model": r.model, "effort": r.effort, "reason": r.reason, "by": r.by,
+                "escalated_to": t.auto.escalated[1] if t.auto.escalated else None}
 
     # ----- MCP servers -----
     def mcp_list(self) -> list[dict[str, Any]]:

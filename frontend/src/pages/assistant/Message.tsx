@@ -255,7 +255,17 @@ export function Message({
                 {agents > 0 && ` · ${agents} sub-agent${agents === 1 ? '' : 's'}`}
               </button>
               <span className="as-actions-meta">
-                {t.modelsUsed.length > 0 && <span>{t.modelsUsed.join(' → ')}</span>}
+                {t.route && (
+                  <span
+                    className="as-route"
+                    title={`Auto chose ${t.route.model} (${t.route.tier}) because: ${t.route.reason}${
+                      t.route.escalated_to ? `. Moved up to ${t.route.escalated_to} part-way.` : ''
+                    }`}
+                  >
+                    Auto · {t.route.escalated_to ?? t.route.model}
+                  </span>
+                )}
+                {t.modelsUsed.length > 0 && !t.route && <span>{t.modelsUsed.join(' → ')}</span>}
                 <span>{dollars(t.costUsd)}</span>
                 {t.stopped === 'finished' && <span>Finished</span>}
               </span>

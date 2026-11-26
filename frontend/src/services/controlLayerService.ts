@@ -90,6 +90,22 @@ export interface Overview {
   models: { id: string; efforts: Effort[] }[];
   efforts: Effort[];
   call_log_size: number;
+  /** The assistant's Auto routing, from its routed turns; null on a backend without it. */
+  auto_routing: AutoRouting | null;
+}
+
+/** Turns the assistant routed by itself: how many, the share per tier, escalations, and the cost against the same
+ * tokens on the baseline model (Sonnet). */
+export interface AutoRouting {
+  turns: number;
+  by_tier: Record<'quick' | 'standard' | 'deep', number>;
+  share: Record<'quick' | 'standard' | 'deep', number>;
+  by_classifier: number;
+  escalations: number;
+  actual_usd: number;
+  baseline_usd: number;
+  saved_usd: number;
+  baseline_model: string;
 }
 
 /** Usage, cost and access: policies per consumer, virtual keys for outside agents, and the figures. */

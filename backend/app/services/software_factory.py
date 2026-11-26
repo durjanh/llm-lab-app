@@ -24,6 +24,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -156,41 +157,93 @@ def failures(output: str) -> set[str]:
     return {m[1] or m[0] for m in re.findall(r"^(?:FAIL|ERROR): (\S+) \(([^)]+)\)", output, re.M)}
 
 
-SYNC_SKIP = {".git", "__pycache__", ".venv", "node_modules", ".pytest_cache"}
+SYNC_SKIP = {"__pycache__", ".venv", "node_modules", ".pytest_cache"}  # caches: never copied, never deleted
+NEVER_COPY = {".git", ".gitmodules"}  # git's own files: an agent may not add a repository, a gitlink or a submodule
 MAX_SYNC_FILE_BYTES = 2_000_000
 
 
-def sync_tree(src: Path, dst: Path) -> list[str]:
-    """Makes dst's files (outside its .git) match src's regular files. Never copies a .git folder, a link or a cache,
-    so nothing the agent writes can become git configuration or a hook. Returns what it skipped."""
-    keep: set[Path] = set()
-    skipped: list[str] = []
+@dataclass
+class SyncResult:
+    """What a sync did not copy and why, which files it held back (never deleted later), and what failed."""
+    left_out: list[str] = field(default_factory=list)
+    held: set[str] = field(default_factory=set)
+    errors: list[str] = field(default_factory=list)
+
+
+def _clear_way(dst: Path, rel: Path) -> None:
+    """Makes room for a file at dst/rel: any parent that is a file or a link becomes a directory, and a directory
+    standing where the file goes is removed. Everything stays inside dst, and no link is followed."""
+    here = dst
+    for part in rel.parts[:-1]:
+        here = here / part
+        if here.is_symlink() or (here.exists() and not here.is_dir()):
+            here.unlink()
+        here.mkdir(exist_ok=True)
+    target = dst / rel
+    if target.is_symlink():
+        target.unlink()
+    elif target.is_dir():
+        shutil.rmtree(target)
+
+
+def sync_tree(src: Path, dst: Path, held: set[str] | frozenset[str] = frozenset()) -> SyncResult:
+    """Makes dst's files (outside its .git) match src's regular files. Never copies anything named .git or
+    .gitmodules, at any depth, nor a link or a cache, so nothing the agent writes can become git configuration, a hook,
+    a gitlink or a submodule. Files src never had because an earlier sync held them back (`held`: too big, compiled)
+    are kept in dst, not deleted."""
+    out = SyncResult()
+    keep: set[str] = set()
     for dirpath, dirnames, filenames in os.walk(src, followlinks=False):
         here = Path(dirpath)
-        dirnames[:] = [d for d in dirnames if d not in SYNC_SKIP and not (here / d).is_symlink()]
+        kept = []
+        for d in dirnames:
+            rel = (here / d).relative_to(src).as_posix()
+            if d in NEVER_COPY:
+                out.left_out.append(f"{rel} (git's own files)")
+            elif d in SYNC_SKIP:
+                continue
+            elif (here / d).is_symlink():
+                out.left_out.append(f"{rel} (a link)")
+            else:
+                kept.append(d)
+        dirnames[:] = kept
         for name in filenames:
-            p = here / name
-            rel = p.relative_to(src)
-            if p.is_symlink() or not p.is_file() or name.endswith(".pyc"):
-                skipped.append(f"{rel.as_posix()} (not a regular file)")
+            path = here / name
+            rel = path.relative_to(src)
+            r = rel.as_posix()
+            if name in NEVER_COPY:
+                out.left_out.append(f"{r} (git's own files)")
                 continue
-            if p.stat().st_size > MAX_SYNC_FILE_BYTES:
-                skipped.append(f"{rel.as_posix()} (over {MAX_SYNC_FILE_BYTES:,} bytes)")
+            if path.is_symlink() or not path.is_file():
+                out.left_out.append(f"{r} (a link or not a regular file)")
                 continue
-            keep.add(rel)
-            target = dst / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if target.is_symlink():
-                target.unlink()
-            shutil.copyfile(p, target)
+            if name.endswith(".pyc"):
+                out.held.add(r)
+                continue
+            try:
+                if path.stat().st_size > MAX_SYNC_FILE_BYTES:
+                    out.held.add(r)
+                    out.left_out.append(f"{r} (over {MAX_SYNC_FILE_BYTES:,} bytes)")
+                    continue
+                keep.add(r)
+                _clear_way(dst, rel)
+                shutil.copyfile(path, dst / rel)
+            except OSError as exc:
+                out.errors.append(f"{r}: {exc.strerror or exc}")
+    protect = set(held) | out.held
     for dirpath, dirnames, filenames in os.walk(dst, followlinks=False):
         here = Path(dirpath)
-        dirnames[:] = [d for d in dirnames if d not in SYNC_SKIP]
+        dirnames[:] = [d for d in dirnames if d not in SYNC_SKIP and d not in NEVER_COPY]
         for name in filenames:
-            p = here / name
-            if p.relative_to(dst) not in keep:
-                p.unlink()
-    return skipped
+            path = here / name
+            r = path.relative_to(dst).as_posix()
+            if name in NEVER_COPY or r in keep or r in protect:
+                continue
+            try:
+                path.unlink()
+            except OSError as exc:
+                out.errors.append(f"{r}: {exc.strerror or exc}")
+    return out
 
 
 def count_tests(text: str) -> int:
@@ -508,7 +561,9 @@ class SoftwareFactoryService:
                 raise RuntimeError(f"could not copy the project: {out[:200]}")
             repo, work = folder / "repo", folder / "work"
             work.mkdir()
-            sync_tree(repo, work)
+            first = sync_tree(repo, work)
+            if first.left_out or first.errors:
+                audit("factory", "held back from the agents", "; ".join([*first.left_out, *first.errors][:10]))
             _, base = git(["rev-parse", "HEAD"], repo)
             base_tests = test_counts(repo)
             # What already fails on main: a change is judged on the failures it adds, not on old ones.
@@ -561,7 +616,7 @@ class SoftwareFactoryService:
             while True:
                 status("checking")
                 result = self._gates(cid, ticket, work, repo, base, base_tests, base_failing, level, declared, agent,
-                                     ask, publish, audit)
+                                     ask, publish, audit, first.held)
                 eff = result["effective"]
                 if not result["passed"]:
                     if rounds_left > 0:
@@ -627,11 +682,12 @@ class SoftwareFactoryService:
     # ----- gates -----
     def _gates(self, cid: str, ticket: dict[str, Any], work: Path, repo: Path, base: str, base_tests: dict[str, int],
                base_failing: set[str], level: int, declared: str, agent: Callable, ask: Callable, publish: Callable,
-               audit: Callable) -> dict[str, Any]:
-        # The agent's regular files go into the factory's own repository; a .git folder, links and caches never do.
-        skipped = sync_tree(work, repo)
-        if skipped:
-            audit("factory", "left out of the change", "; ".join(skipped[:10]))
+               audit: Callable, held: set[str]) -> dict[str, Any]:
+        # The agent's regular files go into the factory's own repository; git's own files, links and caches never do,
+        # and files held back from the agents stay as they are on main.
+        synced = sync_tree(work, repo, held)
+        if synced.left_out:
+            audit("factory", "left out of the change", "; ".join(synced.left_out[:10]))
         git(["add", "-A"], repo)
         _, diff = git(["diff", "--cached", "--no-ext-diff", "--no-textconv", base, "--", "."], repo)
         _, numstat = git(["diff", "--cached", "--numstat", "--no-ext-diff", "--no-textconv", base], repo)
@@ -649,6 +705,7 @@ class SoftwareFactoryService:
             audit("gate", f"{name}: {'passed' if passed else 'failed'}", detail)
 
         # Policy checks
+        gate("every file copied", not synced.errors, "; ".join(synced.errors[:5]) or "all of the agent's files")
         gate("a change was made", bool(files), f"{len(files)} files, {lines} lines" if files else "the diff is empty")
         outside = [f for f in files if f.startswith(("/", "..")) or "/../" in f or f.startswith(".git/")]
         gate("stays inside the project", not outside, ", ".join(outside) or "every file is inside the project")

@@ -191,3 +191,7 @@
 .page-control-layer pre.code {
   overflow-x: auto;
 }
+
+.page-control-layer .cl-routing p {
+  margin: 4px 0;
+}

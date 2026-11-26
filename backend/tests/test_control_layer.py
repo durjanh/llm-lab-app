@@ -499,3 +499,85 @@ def test_a_stream_that_fails_part_way_is_charged_once(tmp_path: Path) -> None:
     assert c.spend.call_log.calls()[-1]["area"] == consumer
     _, _, calls = c.control.ledger()
     assert sum(calls[consumer].values()) == 1 and c.control.spent(consumer)[0] > 0  # and the key's ledger, once
+
+
+# ---------- review: content blocks and tool_choice ----------
+
+PNG = {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="}
+
+
+def say(content: Any, role: str = "user") -> dict[str, Any]:
+    return {"model": HAIKU, "max_tokens": 100, "messages": [{"role": role, "content": content}]}
+
+
+@pytest.mark.parametrize("body, named", [
+    (say([{"type": "document", "source": {"type": "url", "url": "https://example.com/a.pdf"}}]), "url"),
+    (say([{"type": "image", "source": {"type": "url", "url": "https://example.com/a.png"}}]), "url"),
+    (say([{"type": "document", "source": {"type": "file", "file_id": "file_123"}}]), "file"),
+    ({"model": HAIKU, "max_tokens": 100, "messages": [
+        {"role": "user", "content": "Search"},
+        {"role": "assistant", "content": [{"type": "server_tool_use", "id": "s1", "name": "web_search", "input": {}}]},
+        {"role": "user", "content": "Go on"}]}, "server_tool_use"),
+    ({"model": HAIKU, "max_tokens": 100, "messages": [
+        {"role": "user", "content": "Use it"},
+        {"role": "assistant", "content": [{"type": "mcp_tool_use", "id": "m1", "name": "x", "server_name": "s",
+                                           "input": {}}]},
+        {"role": "user", "content": "Go on"}]}, "mcp_tool_use"),
+    (say([{"type": "web_search_tool_result", "tool_use_id": "s1", "content": []}]), "web_search_tool_result"),
+    (say([{"type": "tool_result", "tool_use_id": "t1",
+           "content": [{"type": "image", "source": {"type": "url", "url": "https://example.com/x.png"}}]}]), "url"),
+    (say([{"type": "thinking", "thinking": "hmm", "signature": "s"}]), "thinking"),
+])
+def test_content_that_makes_the_provider_fetch_or_run_things_is_refused(tmp_path: Path, body: dict, named: str) -> None:
+    client, _, fake = lab(tmp_path)
+    r = client.post("/control/v1/messages", json=body, headers={"x-api-key": new_key(client)["key"]})
+    assert r.status_code == 400 and r.json()["error"]["type"] == "invalid_request_error"
+    assert named in r.json()["error"]["message"]
+    assert fake.requests == []
+
+
+@pytest.mark.parametrize("choice", [
+    {"type": "required"}, {"type": "tool", "name": "missing"}, "auto", {"type": "auto", "extra": True},
+    {"type": "any", "disable_parallel_tool_use": "yes"},
+])
+def test_a_bad_tool_choice_is_refused(tmp_path: Path, choice: Any) -> None:
+    client, _, fake = lab(tmp_path)
+    tool = {"name": "lookup", "input_schema": {"type": "object", "properties": {}}}
+    r = client.post("/control/v1/messages", json={**ask(), "tools": [tool], "tool_choice": choice},
+                    headers={"x-api-key": new_key(client)["key"]})
+    message = r.json()["error"]["message"]
+    assert r.status_code == 400 and ("tool_choice" in message or "disable_parallel_tool_use" in message)
+    assert fake.requests == []
+
+
+def test_a_system_prompt_may_only_hold_text(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    key = {"x-api-key": new_key(client)["key"]}
+    assert client.post("/control/v1/messages", json={**ask(), "system": [{"type": "text", "text": "Be brief."}]},
+                       headers=key).status_code == 200
+    bad = {**ask(), "system": [{"type": "document", "source": {"type": "url", "url": "https://example.com"}}]}
+    assert client.post("/control/v1/messages", json=bad, headers=key).status_code == 400
+
+
+def test_a_normal_tool_conversation_with_pictures_and_documents_still_passes(tmp_path: Path) -> None:
+    client, _, fake = lab(tmp_path)
+    tool = {"name": "lookup", "description": "Looks up a word.", "input_schema": {"type": "object", "properties": {}}}
+    body = {"model": HAIKU, "max_tokens": 200, "tools": [tool], "tool_choice": {"type": "tool", "name": "lookup"},
+            "messages": [
+                {"role": "user", "content": [
+                    {"type": "text", "text": "What is in this picture and this note?"},
+                    {"type": "image", "source": PNG},
+                    {"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": "A note."},
+                     "title": "Note"}]},
+                {"role": "assistant", "content": [
+                    {"type": "thinking", "thinking": "I should look it up.", "signature": "sig"},
+                    {"type": "text", "text": "Let me look."},
+                    {"type": "tool_use", "id": "toolu_1", "name": "lookup", "input": {}}]},
+                {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": "toolu_1",
+                     "content": [{"type": "text", "text": "A cat."}, {"type": "image", "source": PNG}]}]}]}
+    key = {"x-api-key": new_key(client)["key"]}
+    assert client.post("/control/v1/messages", json=body, headers=key).status_code == 200
+    r = client.post("/control/v1/messages", json={**body, "stream": True}, headers=key)
+    assert r.status_code == 200 and "message_stop" in r.text
+    assert len(fake.requests) == 2 and fake.requests[0]["messages"][2]["content"][0]["type"] == "tool_result"

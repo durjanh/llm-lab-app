@@ -33,6 +33,22 @@ WIRE_EVENTS = {"message_start", "content_block_start", "content_block_delta", "c
 ALLOWED_FIELDS = {"model", "messages", "max_tokens", "system", "tools", "tool_choice", "temperature", "top_p", "top_k",
                   "stop_sequences", "metadata", "thinking", "output_config", "stream"}
 CLIENT_TOOL_FIELDS = {"name", "description", "input_schema", "cache_control", "type", "strict"}
+# Content a key holder may send, block by block. Anything else (a picture or document fetched from a URL or the Files
+# API, server and MCP tool blocks, search results) would make the provider act under the lab's credentials.
+BLOCK_FIELDS = {
+    "text": {"type", "text", "cache_control", "citations"},
+    "image": {"type", "source", "cache_control"},
+    "document": {"type", "source", "title", "context", "citations", "cache_control"},
+    "tool_use": {"type", "id", "name", "input", "cache_control"},
+    "tool_result": {"type", "tool_use_id", "content", "is_error", "cache_control"},
+    "thinking": {"type", "thinking", "signature"},
+    "redacted_thinking": {"type", "data"},
+}
+SOURCES = {"image": {"base64"}, "document": {"base64", "text"}}
+ROLE_BLOCKS = {"user": {"text", "image", "document", "tool_result"},
+               "assistant": {"text", "tool_use", "thinking", "redacted_thinking"}}
+RESULT_BLOCKS = {"text", "image", "document"}  # what a tool result may hold
+TOOL_CHOICES = {"auto", "any", "none", "tool"}
 MAX_TOKENS = 64_000
 DAYS_SHOWN = 30
 
@@ -69,8 +85,9 @@ def upstream_status(exc: BaseException) -> tuple[int, str]:
 
 
 class ControlLayerService:
-    def __init__(self, control: ControlLayer, gateway: Any, spend: SpendTracker):
+    def __init__(self, control: ControlLayer, gateway: Any, spend: SpendTracker, routing: Any = None):
         self.control, self.gateway, self.spend = control, gateway, spend
+        self.routing = routing  # the assistant's routed turns (assistant_router.RoutingLog), for the Auto routing card
 
     # ---------- the page ----------
     def models(self) -> list[dict[str, Any]]:
@@ -128,6 +145,9 @@ class ControlLayerService:
             "models": self.models(),
             "efforts": EFFORTS,
             "call_log_size": len(log),
+            # The assistant's Auto routing: turns routed, the share per tier, escalations, and what they cost against
+            # the same tokens on Sonnet.
+            "auto_routing": self.routing.summary() if self.routing is not None else None,
         }
 
     # ---------- the proxy ----------
@@ -146,6 +166,10 @@ class ControlLayerService:
                 raise ApiError(400, "invalid_request", "tools must be a list.")
             for tool in tools:
                 self._check_tool(tool)
+        self._check_tool_choice(body.get("tool_choice"), {t["name"] for t in tools or []})
+        self._check_system(body.get("system"))
+        for i, m in enumerate(body["messages"]):
+            self._check_message(i, m)
         if body.get("model") not in MODELS:
             raise ApiError(400, "invalid_request", f"model must be one of the lab's models: {', '.join(MODELS)}.")
         if not isinstance(body.get("messages"), list) or not body["messages"]:
@@ -156,6 +180,68 @@ class ControlLayerService:
         if self.spend.over_budget:
             raise ApiError(429, "budget_exceeded", "The lab's spending cap for this session has been reached.")
         return {k: v for k, v in body.items() if k != "stream"}
+
+    @staticmethod
+    def _check_block(block: Any, allowed: set[str], where: str) -> None:
+        """One content block: a type allowed here, only its own fields, and for pictures and documents only data sent
+        in the request itself (never a URL or a Files API id, which the provider would fetch for the lab)."""
+        if not isinstance(block, dict) or not isinstance(block.get("type"), str):
+            raise ApiError(400, "invalid_request", f"{where}: each content block must be an object with a type.")
+        kind = block["type"]
+        if kind not in allowed:
+            raise ApiError(400, "invalid_request", f"{where}: {kind} blocks are not allowed here through the lab's proxy.")
+        extra = set(block) - BLOCK_FIELDS[kind]
+        if extra:
+            raise ApiError(400, "invalid_request", f"{where}: not supported in a {kind} block: {', '.join(sorted(extra))}.")
+        if kind in SOURCES:
+            source = block.get("source")
+            stype = source.get("type") if isinstance(source, dict) else None
+            if stype not in SOURCES[kind]:
+                raise ApiError(400, "invalid_request", f"{where}: a {kind} must be sent in the request "
+                                                       f"({' or '.join(sorted(SOURCES[kind]))}), not as {stype or 'that source'}: "
+                                                       "the lab's proxy does not fetch URLs or stored files.")
+        if kind == "tool_result":
+            content = block.get("content")
+            if isinstance(content, list):
+                for inner in content:
+                    ControlLayerService._check_block(inner, RESULT_BLOCKS, where)
+            elif content is not None and not isinstance(content, str):
+                raise ApiError(400, "invalid_request", f"{where}: a tool result's content must be text or blocks.")
+
+    def _check_message(self, i: int, m: Any) -> None:
+        where = f"messages[{i}]"
+        if not isinstance(m, dict) or m.get("role") not in ROLE_BLOCKS:
+            raise ApiError(400, "invalid_request", f"{where}: each message needs a role of user or assistant.")
+        content = m.get("content")
+        if isinstance(content, str):
+            return
+        if not isinstance(content, list):
+            raise ApiError(400, "invalid_request", f"{where}: content must be text or a list of blocks.")
+        for block in content:
+            self._check_block(block, ROLE_BLOCKS[m["role"]], f"{where} ({m['role']})")
+
+    @staticmethod
+    def _check_system(system: Any) -> None:
+        if system is None or isinstance(system, str):
+            return
+        if not isinstance(system, list):
+            raise ApiError(400, "invalid_request", "system must be text or a list of text blocks.")
+        for block in system:
+            ControlLayerService._check_block(block, {"text"}, "system")
+
+    @staticmethod
+    def _check_tool_choice(choice: Any, names: set[str]) -> None:
+        if choice is None:
+            return
+        if not isinstance(choice, dict) or choice.get("type") not in TOOL_CHOICES:
+            raise ApiError(400, "invalid_request", f"tool_choice must have a type of {', '.join(sorted(TOOL_CHOICES))}.")
+        extra = set(choice) - {"type", "name", "disable_parallel_tool_use"}
+        if extra:
+            raise ApiError(400, "invalid_request", f"Not supported in tool_choice: {', '.join(sorted(extra))}.")
+        if choice["type"] == "tool" and choice.get("name") not in names:
+            raise ApiError(400, "invalid_request", "tool_choice names a tool that is not in this request's tools.")
+        if "disable_parallel_tool_use" in choice and not isinstance(choice["disable_parallel_tool_use"], bool):
+            raise ApiError(400, "invalid_request", "disable_parallel_tool_use must be true or false.")
 
     @staticmethod
     def _check_tool(tool: Any) -> None:
@@ -180,8 +266,8 @@ class ControlLayerService:
             return {**params, "extra_headers": {"anthropic-beta": beta[:500]}}
         return params
 
-    def create(self, consumer: str, body: dict[str, Any], beta: str | None) -> dict[str, Any]:
-        params = self.check_request(body)
+    def create(self, consumer: str, params: dict[str, Any], beta: str | None) -> dict[str, Any]:
+        """One call, not streamed. `params` is a request that check_request has passed."""
         with use_area(consumer, ROUTE):
             message = self.gateway.create(**self._extra(params, beta))
             self.spend.charge(message, params["model"])
@@ -194,10 +280,10 @@ class ControlLayerService:
                                                           "thinking"}}
         return {"input_tokens": self.gateway.count_tokens(**params)}
 
-    def open_stream(self, consumer: str, body: dict[str, Any], beta: str | None) -> Iterator[bytes]:
-        """Opens a streamed call and returns its server-sent events. Opening is waited for, so a refusal by a policy,
-        the budget or the model arrives as a normal HTTP error rather than inside a stream that has already begun."""
-        params = self.check_request(body)
+    def open_stream(self, consumer: str, params: dict[str, Any], beta: str | None) -> Iterator[bytes]:
+        """Opens a streamed call and returns its server-sent events. `params` is a request that check_request has
+        passed. Opening is waited for, so a refusal by a policy, the budget or the model arrives as a normal HTTP error
+        rather than inside a stream that has already begun."""
         out: queue.Queue[Any] = queue.Queue()
         stop = threading.Event()
         context = contextvars.copy_context()

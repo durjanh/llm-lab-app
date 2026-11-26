@@ -1336,6 +1336,14 @@
 .page-assistant .as-row.good .as-row-title {
   color: var(--good);
 }
+.page-assistant .as-row.route .as-row-title {
+  color: var(--brand);
+  font-weight: 600;
+}
+.page-assistant .as-route {
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
 .page-assistant .as-row-detail {
   margin: 0 0 6px;
   padding: 8px 10px;

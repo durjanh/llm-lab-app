@@ -70,6 +70,7 @@ from .services.assistant import AssistantService
 from .services.software_factory import SoftwareFactoryService
 from .services.assistant_store import ChatStore
 from .services.assistant_mcp import McpServers
+from .services.assistant_router import RoutingLog
 from .gateways.remote_mcp import StreamableHttpMcp
 from .services.dataagent import DataAgentService
 from .services.decks import DeckChats, DeckService
@@ -339,7 +340,8 @@ class Container:
                 AzureSpeechRest(settings.azure_language_endpoint) if settings.azure_language_endpoint else None,
                 translate, spend, streamer, settings.generated_dir / "video-translate"),
             control=control,
-            control_layer=ControlLayerService(control, claude, spend),
+            control_layer=ControlLayerService(control, claude, spend,
+                                              routing=RoutingLog(settings.generated_dir / "assistant" / "routing.jsonl")),
         )
 
 

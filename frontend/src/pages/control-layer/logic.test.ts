@@ -119,3 +119,33 @@ describe('connecting a coding agent', () => {
     expect(s.curl).toContain('x-api-key: llmlab-abc');
   });
 });
+
+describe('Auto routing card', () => {
+  it('gives the share per tier and the saving against the baseline', async () => {
+    const { autoRoutingSummary } = await import('./logic');
+    const s = autoRoutingSummary({
+      turns: 4,
+      by_tier: { quick: 2, standard: 1, deep: 1 },
+      share: { quick: 0.5, standard: 0.25, deep: 0.25 },
+      escalations: 1,
+      by_classifier: 2,
+      actual_usd: 0.03,
+      baseline_usd: 0.12,
+      saved_usd: 0.09,
+    });
+    expect(s.tiers).toBe('quick 50% (2), standard 25% (1), deep 25% (1)');
+    expect(s.saving).toContain('saved (75%)');
+    expect(s.notes).toBe('1 escalation, 2 decided by the classifier');
+    const dearer = autoRoutingSummary({
+      turns: 1,
+      by_tier: { quick: 0, standard: 0, deep: 1 },
+      share: { quick: 0, standard: 0, deep: 1 },
+      escalations: 0,
+      by_classifier: 0,
+      actual_usd: 0.2,
+      baseline_usd: 0.1,
+      saved_usd: -0.1,
+    });
+    expect(dearer.saving).toContain('more (100%)');
+  });
+});
