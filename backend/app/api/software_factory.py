@@ -25,7 +25,7 @@ class NewTicket(BaseModel):
 class StartChange(BaseModel):
     ticket_id: str = Field(max_length=20)
     model: str = Field(max_length=100)
-    effort: str = Field(default="low", max_length=10)
+    effort: str = Field(default="", max_length=10)  # empty: the model's default (none for models without effort)
 
 
 class Decision(BaseModel):

@@ -96,7 +96,7 @@ async def messages(request: Request, c: Container = Depends(container)) -> Any:
     beta = request.headers.get("anthropic-beta")
     try:
         body = await _body(request)
-        if isinstance(body, dict) and body.get("stream"):
+        if isinstance(body, dict) and body.get("stream") is not None and body.get("stream") is not False:
             lines = await run_in_threadpool(c.control_layer.open_stream, consumer, body, beta)
             return StreamingResponse(lines, media_type="text/event-stream",
                                      headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})

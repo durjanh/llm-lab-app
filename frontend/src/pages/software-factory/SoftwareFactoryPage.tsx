@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { modelLabel } from '@/lib/models';
 import {
   softwareFactoryService as svc,
   type Change,
@@ -197,6 +198,30 @@ function ChangeView({ change, onRevert, busy }: { change: Change; onRevert: () =
  * in where the risk calls for it. Low-risk changes run dark; areas earn autonomy with a clean record and lose it on
  * an escaped defect.
  */
+/**
+ * The row at the foot of the live log while a change runs: a spinner, what the factory is doing, and how long since
+ * the last step, so a slow model reply reads as work in progress rather than a stall.
+ */
+function WorkingRow({ stage, steps }: { stage: string; steps: number }) {
+  const [since, setSince] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => setSince(Date.now()), [steps]);
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const seconds = Math.max(0, Math.round((now - since) / 1000));
+  return (
+    <li className="sf-working" role="status">
+      <span className="sf-spinner" aria-hidden="true" />
+      <span>
+        {stage}: {seconds >= 3 ? 'waiting for the model' : 'working'}
+        {seconds >= 3 && <span className="muted"> · {seconds} s</span>}
+      </span>
+    </li>
+  );
+}
+
 export default function SoftwareFactoryPage() {
   const [info, setInfo] = useState<FactoryInfo | null>(null);
   const [state, setState] = useState<FactoryState | null>(null);
@@ -204,12 +229,29 @@ export default function SoftwareFactoryPage() {
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('low');
   const [selected, setSelected] = useState<Change | null>(null);
+  // The change view sits below the board, so opening one brings it into view and moves focus to it.
+  const changeBox = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!selected) return;
+    const box = changeBox.current;
+    if (!box) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    box.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    box.focus({ preventScroll: true });
+  }, [selected?.id]);
   const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [draft, setDraft] = useState({ title: '', description: '', kind: 'feature', area: 'reporting' });
   const abort = useRef<AbortController | null>(null);
   const running = !!live.runId && !live.done;
+  const efforts = info?.efforts[model] ?? [];
+  // A model keeps the chosen effort when it takes it, else falls back to low, its first level, or none.
+  const chooseModel = (m: string) => {
+    const allowed = info?.efforts[m] ?? [];
+    setModel(m);
+    if (!allowed.includes(effort)) setEffort(allowed.includes('low') ? 'low' : (allowed[0] ?? ''));
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -225,6 +267,9 @@ export default function SoftwareFactoryPage() {
       .then((i) => {
         setInfo(i);
         setModel(i.default_model);
+        // Start on an effort the default model takes: none for a model without effort (such as the local one).
+        const allowed = i.efforts[i.default_model] ?? [];
+        setEffort(allowed.includes('low') ? 'low' : (allowed[0] ?? ''));
       })
       .catch((err) => setProblem(message(err)));
     void refresh();
@@ -248,7 +293,7 @@ export default function SoftwareFactoryPage() {
     setLive({ ...EMPTY_LIVE, runId: 'starting' });
     try {
       await svc.start(
-        { ticket_id: t.id, model, effort },
+        { ticket_id: t.id, model, effort: efforts.includes(effort) ? effort : '' },
         (e) => {
           setLive((l) => reduce(l, e));
           if (e.type === 'change' || e.type === 'done') void refresh();
@@ -342,28 +387,30 @@ export default function SoftwareFactoryPage() {
       {m && (
         <div className="stats sf-metrics" aria-label="Metrics">
           <div className="stat">
-            <b>{m.merged}</b>
-            <span className="small muted">changes merged</span>
+            <div className="v">{m.merged}</div>
+            <div className="k">changes merged</div>
           </div>
           <div className="stat">
-            <b>{Math.round(m.dark_share * 100)}%</b>
-            <span className="small muted">ran dark</span>
+            <div className="v">{Math.round(m.dark_share * 100)}%</div>
+            <div className="k">ran dark</div>
           </div>
           <div className="stat">
-            <b>{m.interventions}</b>
-            <span className="small muted">human steps</span>
+            <div className="v">{m.interventions}</div>
+            <div className="k">human steps</div>
           </div>
           <div className="stat">
-            <b>{m.escapes}</b>
-            <span className="small muted">escaped defects</span>
+            <div className="v">{m.escapes}</div>
+            <div className="k">escaped defects</div>
           </div>
           <div className="stat">
-            <b>{duration(m.lead_time_s)}</b>
-            <span className="small muted">median lead time</span>
+            <div className="v">{duration(m.lead_time_s)}</div>
+            <div className="k">median lead time</div>
           </div>
           <div className="stat">
-            <b>{dollars(m.cost_per_change_usd)}</b>
-            <span className="small muted">cost per change</span>
+            <div className="v">{dollars(m.cost_per_change_usd)}</div>
+            <div className="k" title="The average over every finished change, whichever model made it">
+              average cost per change
+            </div>
           </div>
         </div>
       )}
@@ -374,20 +421,24 @@ export default function SoftwareFactoryPage() {
             <h2>Backlog</h2>
             <label className="small">
               Model{' '}
-              <select value={model} onChange={(e) => setModel(e.target.value)} disabled={running}>
+              <select value={model} onChange={(e) => chooseModel(e.target.value)} disabled={running}>
                 {info?.models.map((x) => (
-                  <option key={x}>{x}</option>
+                  <option key={x} value={x}>
+                    {modelLabel(x)}
+                  </option>
                 ))}
               </select>
             </label>
-            <label className="small">
-              Effort{' '}
-              <select value={effort} onChange={(e) => setEffort(e.target.value)} disabled={running}>
-                {['low', 'medium', 'high'].map((x) => (
-                  <option key={x}>{x}</option>
-                ))}
-              </select>
-            </label>
+            {efforts.length > 0 && (
+              <label className="small">
+                Effort{' '}
+                <select value={effort} onChange={(e) => setEffort(e.target.value)} disabled={running}>
+                  {efforts.map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
           <ul className="sf-tickets">
             {state?.tickets.map((t) => (
@@ -476,7 +527,10 @@ export default function SoftwareFactoryPage() {
                 {live.change.ticket_id}: {live.change.title}
               </b>{' '}
               <TierBadge tier={live.change.effective_tier} />{' '}
-              <span className={`sf-status ${live.change.status}`}>{STATUS_LABEL[live.change.status]}</span>{' '}
+              <span className={`sf-status ${live.change.status}`}>
+                {running && !live.pending && <span className="sf-spinner small" aria-hidden="true" />}
+                {STATUS_LABEL[live.change.status]}
+              </span>{' '}
               <span className="small muted">{dollars(live.change.cost_usd)}</span>
             </p>
           )}
@@ -488,6 +542,9 @@ export default function SoftwareFactoryPage() {
                 <span className="small muted">{l.ts.slice(11, 19)}</span> <b>{l.who}</b> {l.text}
               </li>
             ))}
+            {running && !live.pending && (
+              <WorkingRow stage={live.change ? STATUS_LABEL[live.change.status] : 'Starting'} steps={live.log.length} />
+            )}
           </ol>
           {live.done && live.change && (
             <button type="button" className="btn small" onClick={() => void open(live.change!.id)}>
@@ -520,7 +577,7 @@ export default function SoftwareFactoryPage() {
       </div>
 
       {selected && (
-        <section className="card" aria-label="Change">
+        <section className="card sf-change-card" aria-label="Change" ref={changeBox} tabIndex={-1}>
           <ChangeView change={selected} busy={busy || running} onRevert={() => void revert(selected)} />
         </section>
       )}

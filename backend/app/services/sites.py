@@ -66,6 +66,22 @@ SCRIPT_TAG = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
 RELATIVE_SRC = re.compile(r"""\bsrc\s*=\s*["']?(?!https?:|//|data:|blob:)[^"'\s>]+""", re.IGNORECASE)
 
 
+HIDDEN = re.compile(r"<!--.*?(?:-->|$)|<script\b[^>]*>(.*?)(?:</script\s*>|$)", re.IGNORECASE | re.DOTALL)
+
+
+def hidden_spans(html: str) -> list[tuple[int, int]]:
+    """Where markup is not real markup: inside comments, and inside script bodies (a script's own opening tag is
+    real). A "<head>" or "<script src>" written there must not be matched."""
+    spans = []
+    for m in HIDDEN.finditer(html):
+        spans.append((m.start(), m.end()) if m.group(0).startswith("<!--") else (m.start(1), m.end(1)))
+    return spans
+
+
+def _visible(pos: int, spans: list[tuple[int, int]]) -> bool:
+    return not any(start <= pos < end for start, end in spans)
+
+
 def cors_scripts(html: str) -> str:
     """Adds crossorigin to the site's own <script src> tags. A sandboxed page has an opaque origin, so to the browser
     its own scripts are cross-origin and their errors arrive as a bare "Script error."; loaded with CORS (the files
@@ -76,7 +92,13 @@ def cors_scripts(html: str) -> str:
         if "crossorigin" in text.lower() or not RELATIVE_SRC.search(text):
             return text
         return text[:-1] + " crossorigin>"
-    return SCRIPT_TAG.sub(fix, html)
+    spans = hidden_spans(html)
+    out, last = [], 0
+    for tag in SCRIPT_TAG.finditer(html):
+        if _visible(tag.start(), spans):
+            out += [html[last:tag.start()], fix(tag)]
+            last = tag.end()
+    return "".join(out) + html[last:]
 
 
 def with_reporter(html: str) -> str:
@@ -84,7 +106,9 @@ def with_reporter(html: str) -> str:
     errors can be read. Without a head the reporter goes straight after the doctype: anything before the doctype
     would put the page into quirks mode."""
     html = cors_scripts(html)
-    match = re.search(r"<head(\s[^>]*)?>", html, re.IGNORECASE) or re.match(r"\s*<!doctype[^>]*>", html, re.IGNORECASE)
+    spans = hidden_spans(html)
+    head = next((m for m in re.finditer(r"<head(\s[^>]*)?>", html, re.IGNORECASE) if _visible(m.start(), spans)), None)
+    match = head or re.match(r"\s*<!doctype[^>]*>", html, re.IGNORECASE)
     if match:
         return html[:match.end()] + REPORTER + html[match.end():]
     return REPORTER + html
@@ -635,9 +659,14 @@ class SiteService:
         if not 1 <= len(title) <= MAX_TITLE_CHARS:
             raise ApiError(400, "invalid_request", f"A title has 1 to {MAX_TITLE_CHARS} characters.")
         site = self.site(site_id)
-        site.title = title
-        self.store.save(site)
-        return site
+        if not site.busy.acquire(blocking=False):
+            raise ApiError(409, "busy", "Claude is still working on this site. Rename it when it has finished.")
+        try:
+            site.title = title
+            self.store.save(site)
+            return site
+        finally:
+            site.busy.release()
 
     def restore_version(self, site_id: str, n: int) -> Site:
         """Puts the site's files back as they were in version n. That is itself a new version, so nothing is lost,

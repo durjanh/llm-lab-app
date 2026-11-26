@@ -168,10 +168,19 @@ def test_evidence_only_raises_the_tier() -> None:
 
 
 def test_autonomy_adjusts_within_bounds_and_high_never_runs_dark() -> None:
-    assert P.effective_tier("low", 0)[0] == "medium"
-    assert P.effective_tier("medium", 2)[0] == "low"
-    assert P.effective_tier("high", 2)[0] == "high"
-    assert P.effective_tier("medium", 1)[0] == "medium"
+    assert P.effective_tier("low", 0, declared="low")[0] == "medium"
+    assert P.effective_tier("medium", 2, declared="medium")[0] == "low"
+    assert P.effective_tier("high", 2, declared="high")[0] == "high"
+    assert P.effective_tier("medium", 1, declared="medium")[0] == "medium"
+
+
+def test_review_2_autonomy_never_lowers_a_tier_raised_by_evidence() -> None:
+    # Declared low, raised to medium by the work: trust does not take it back down.
+    assert P.effective_tier("medium", 2, declared="low", evidence="medium")[0] == "medium"
+    # Declared medium, but the work itself also called for medium (a big diff, edited tests): still medium.
+    assert P.effective_tier("medium", 2, declared="medium", evidence="medium")[0] == "medium"
+    # Declared medium and nothing in the work called for it: a trusted area may run it dark.
+    assert P.effective_tier("medium", 2, declared="medium", evidence="low")[0] == "low"
 
 
 def test_clean_changes_earn_a_level_and_an_escape_costs_one() -> None:
@@ -414,7 +423,7 @@ def test_inputs_are_validated(tmp_path: Path, project: Path) -> None:
     post = lambda body: client.post("/api/software-factory/changes", headers=LAB, json=body)  # noqa: E731
     assert post({"ticket_id": "nope", "model": HAIKU}).status_code == 404
     assert post({"ticket_id": "T1", "model": "gpt-zero"}).status_code == 400
-    assert post({"ticket_id": "T1", "model": HAIKU, "effort": "max"}).status_code == 400
+    assert post({"ticket_id": "T1", "model": HAIKU, "effort": "huge"}).status_code == 400
     t = client.post("/api/software-factory/tickets", headers=LAB,
                     json={"title": "Add a total row", "description": "Show a grand total under the report.",
                           "kind": "feature", "area": "reporting"})
@@ -435,3 +444,85 @@ def test_no_sandbox_refuses_to_start(tmp_path: Path, project: Path, monkeypatch:
     r = client.post("/api/software-factory/changes", headers=LAB, json={"ticket_id": "T1", "model": HAIKU})
     assert r.status_code == 409 and "sandbox" in r.json()["error"]["message"]
     assert client.get("/api/software-factory/info", headers=LAB).json()["sandbox"]["available"] is False
+
+
+# ----- code review fixes -----
+
+def test_review_1_nothing_the_agent_writes_can_make_git_run_a_program(tmp_path: Path, project: Path) -> None:
+    """The agent writes a pre-commit hook, an fsmonitor setting and a link into its tree: none of it reaches git."""
+    marker = tmp_path / "pwned"
+    hook = f"#!/bin/sh\ntouch {marker}\n"
+
+    def implement(root: Path, prompt: str, n: int) -> str:
+        assert not (root / ".git").exists()  # the agent's tree has no repository at all
+        (root / ".git" / "hooks").mkdir(parents=True)
+        (root / ".git" / "hooks" / "pre-commit").write_text(hook)
+        (root / ".git" / "hooks" / "pre-commit").chmod(0o755)
+        (root / ".git" / "monitor.sh").write_text(hook)
+        (root / ".git" / "monitor.sh").chmod(0o755)
+        (root / ".git" / "config").write_text(f"[core]\n\tfsmonitor = {root / '.git' / 'monitor.sh'}\n"
+                                              f"\thooksPath = {root / '.git' / 'hooks'}\n")
+        (root / "linked.txt").symlink_to(tmp_path / "template" / "CLAUDE.example.md")
+        return add_readme(root, prompt, n)
+
+    client, svc, _ = lab(tmp_path, {"planner": plan("README.md"), "implementer": implement, "reviewer": PASS})
+    c = final(run(client, "T1"))
+    assert c["status"] == "merged" and not marker.exists()
+    files = svc.change(c["id"])["files"]
+    assert files == ["README.md"]  # no .git file and no link became part of the change
+    _, tracked = F.git(["ls-files"], svc.project)
+    assert not any(line.startswith(".git/") for line in tracked.splitlines()) and "linked.txt" not in tracked
+    assert any(a["what"] == "left out of the change" for a in svc.change(c["id"])["audit"])
+
+
+def test_review_1_git_itself_runs_no_hooks_or_fsmonitor(tmp_path: Path) -> None:
+    """Even in a repository that carries a hook and an fsmonitor setting, the factory's git runs neither."""
+    marker = tmp_path / "ran"
+    repo = tmp_path / "r"
+    repo.mkdir()
+    assert F.git(["init", "-q"], repo)[0] == 0
+    script = repo / ".git" / "hooks" / "pre-commit"
+    script.write_text(f"#!/bin/sh\ntouch {marker}\n")
+    script.chmod(0o755)
+    monitor = tmp_path / "monitor.sh"
+    monitor.write_text(f"#!/bin/sh\ntouch {marker}\n")
+    monitor.chmod(0o755)
+    with (repo / ".git" / "config").open("a") as f:
+        f.write(f"[core]\n\tfsmonitor = {monitor}\n")
+    (repo / "a.txt").write_text("a")
+    F.git(["add", "-A"], repo)
+    F.git(["status"], repo)
+    assert F.git(["commit", "-qm", "x"], repo)[0] == 0
+    assert not marker.exists()
+
+
+def test_review_2_a_trusted_area_still_waits_for_a_person_when_the_diff_edits_tests(tmp_path: Path,
+                                                                                    project: Path) -> None:
+    def implement(root: Path, prompt: str, n: int) -> str:
+        fix_sub(root, prompt, n)
+        (root / "tests" / "test_calc.py").write_text(TESTS + "\n    def test_sub_negative(self):\n"
+                                                     "        self.assertEqual(sub(1, 3), -2)\n")
+        return "Fixed sub and added a test."
+
+    client, svc, _ = lab(tmp_path, {"planner": plan("ledger/calc.py"), "implementer": implement, "reviewer": PASS})
+    svc._update_ledger(lambda led: led["areas"]["parsing"].update({"level": 2}))
+    ev = run(client, "T2", decide("approve"), svc)  # a bugfix in parsing: declared low
+    c = final(ev)
+    assert [e["kind"] for e in ev if e["type"] == "decision_needed"] == ["diff"]
+    assert c["status"] == "merged" and c["dark"] is False and c["effective_tier"] == "medium"
+
+
+def test_review_3_effort_is_checked_against_the_model_before_anything_starts(tmp_path: Path, project: Path,
+                                                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    client, svc, _ = lab(tmp_path, {"planner": plan("README.md"), "implementer": add_readme, "reviewer": PASS})
+    r = client.post("/api/software-factory/changes", headers=LAB,
+                    json={"ticket_id": "T1", "model": HAIKU, "effort": "huge"})
+    assert r.status_code == 400 and "takes effort" in r.json()["error"]["message"]
+    assert svc.state()["changes"] == [] and not svc.project.exists()  # nothing cloned, nothing recorded
+    assert client.get("/api/software-factory/info", headers=LAB).json()["efforts"][HAIKU][-1] == "max"
+    # A model that takes no effort setting refuses one.
+    svc.models = lambda: [HAIKU, "local-model"]  # type: ignore[method-assign]
+    monkeypatch.setattr(F, "efforts_for", lambda m: [] if m == "local-model" else ["low", "medium", "high"])
+    r = client.post("/api/software-factory/changes", headers=LAB,
+                    json={"ticket_id": "T1", "model": "local-model", "effort": "low"})
+    assert r.status_code == 400 and "no effort" in r.json()["error"]["message"]

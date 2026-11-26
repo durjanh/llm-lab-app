@@ -16,6 +16,7 @@ area). One change runs at a time, because every change merges into the same proj
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
 import shutil
@@ -27,10 +28,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..core.child_env import child_env
 from ..core.errors import ApiError
 from ..settings import MODELS, Settings
 from ..shared import coding_script as C
 from . import factory_policy as P
+from .assistant_agent import efforts_for
 from .runs import Run, RunRegistry, RunStreamer
 from .spend import SpendTracker
 
@@ -128,14 +131,21 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+GIT_SAFE = ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "core.editor=true",
+            "-c", "core.sshCommand=false", "-c", "diff.external=", "-c", "protocol.allow=never",
+            "-c", "protocol.file.allow=always"]
+
+
 def git(args: list[str], cwd: Path, timeout: int = 60) -> tuple[int, str]:
-    """A git command with the factory's own identity, never the person's, and no editor or pager."""
+    """A git command, only ever in a repository the factory controls (the agent never sees a .git folder). Hooks,
+    fsmonitor, editors, external diff tools and outside config files are all off, and it gets a minimal environment
+    without the backend's keys, so nothing in a repository can make git run a program."""
     base = ["git", "-c", "user.name=Software factory", "-c", "user.email=factory@localhost", "-c",
-            "commit.gpgsign=false", "-c", "core.pager=cat"]
+            "commit.gpgsign=false", "-c", "core.pager=cat", *GIT_SAFE]
+    env = child_env(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT="0",
+                    GIT_CEILING_DIRECTORIES=str(cwd.parent), HOME=str(cwd.parent))
     try:
-        p = subprocess.run([*base, *args], cwd=cwd, capture_output=True, text=True, timeout=timeout,
-                           env={"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin", "GIT_TERMINAL_PROMPT": "0",
-                                "GIT_CEILING_DIRECTORIES": str(cwd.parent), "HOME": str(cwd.parent)})
+        p = subprocess.run([*base, *args], cwd=cwd, capture_output=True, text=True, timeout=timeout, env=env)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 1, str(exc)
     return p.returncode, (p.stdout + p.stderr).strip()
@@ -144,6 +154,43 @@ def git(args: list[str], cwd: Path, timeout: int = 60) -> tuple[int, str]:
 def failures(output: str) -> set[str]:
     """The tests that failed or errored, from unittest's output, by their full names."""
     return {m[1] or m[0] for m in re.findall(r"^(?:FAIL|ERROR): (\S+) \(([^)]+)\)", output, re.M)}
+
+
+SYNC_SKIP = {".git", "__pycache__", ".venv", "node_modules", ".pytest_cache"}
+MAX_SYNC_FILE_BYTES = 2_000_000
+
+
+def sync_tree(src: Path, dst: Path) -> list[str]:
+    """Makes dst's files (outside its .git) match src's regular files. Never copies a .git folder, a link or a cache,
+    so nothing the agent writes can become git configuration or a hook. Returns what it skipped."""
+    keep: set[Path] = set()
+    skipped: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(src, followlinks=False):
+        here = Path(dirpath)
+        dirnames[:] = [d for d in dirnames if d not in SYNC_SKIP and not (here / d).is_symlink()]
+        for name in filenames:
+            p = here / name
+            rel = p.relative_to(src)
+            if p.is_symlink() or not p.is_file() or name.endswith(".pyc"):
+                skipped.append(f"{rel.as_posix()} (not a regular file)")
+                continue
+            if p.stat().st_size > MAX_SYNC_FILE_BYTES:
+                skipped.append(f"{rel.as_posix()} (over {MAX_SYNC_FILE_BYTES:,} bytes)")
+                continue
+            keep.add(rel)
+            target = dst / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_symlink():
+                target.unlink()
+            shutil.copyfile(p, target)
+    for dirpath, dirnames, filenames in os.walk(dst, followlinks=False):
+        here = Path(dirpath)
+        dirnames[:] = [d for d in dirnames if d not in SYNC_SKIP]
+        for name in filenames:
+            p = here / name
+            if p.relative_to(dst) not in keep:
+                p.unlink()
+    return skipped
 
 
 def count_tests(text: str) -> int:
@@ -279,6 +326,7 @@ class SoftwareFactoryService:
         models = self.models()
         box = self.sandbox if self.sandbox is not None else C.SANDBOX
         return {"models": models, "default_model": "claude-haiku-5-5" if "claude-haiku-5-5" in models else models[0],
+                "efforts": {m: efforts_for(m) for m in models},
                 "kinds": P.KINDS, "areas": P.AREAS, "rules": P.rules(), "statuses": STATUSES,
                 "change_budget_usd": self.change_budget_usd, "time_limit_s": self.time_limit_s,
                 "decision_timeout_s": self.decision_timeout_s,
@@ -290,7 +338,7 @@ class SoftwareFactoryService:
         for t in [*BACKLOG, *self._state()["tickets"]]:
             tier, reasons = P.declared_tier(t["kind"], t["area"])
             level = led["areas"].get(t["area"], P.new_area())["level"]
-            eff, why = P.effective_tier(tier, level)
+            eff, why = P.effective_tier(tier, level, declared=tier)
             out.append({**t, "tier": tier, "tier_reasons": reasons, "effective_tier": eff, "effective_reason": why})
         return out
 
@@ -346,8 +394,11 @@ class SoftwareFactoryService:
         ticket = self._ticket(ticket_id)
         if model not in self.models():
             raise ApiError(400, "invalid_request", f"model must be one of: {', '.join(self.models())}")
-        if effort not in ("low", "medium", "high"):
-            raise ApiError(400, "invalid_request", "effort must be low, medium or high.")
+        allowed = efforts_for(model)
+        effort = effort or ("low" if allowed else "")
+        if effort and effort not in allowed:
+            raise ApiError(400, "invalid_request", f"{model} takes effort {', '.join(allowed)}." if allowed else
+                                                   f"{model} takes no effort setting; leave it empty.")
         self.box()
         if not self._busy.acquire(blocking=False):
             raise ApiError(409, "busy", "A change is already running. Every change merges into the same project, so "
@@ -451,12 +502,15 @@ class SoftwareFactoryService:
 
         try:
             publish({"type": "change", "change": self.change(cid)})
-            code, out = git(["clone", "-q", str(self.project), "project"], folder)
+            # The factory's own clone, which only the backend touches, and a plain copy (no .git) for the agents.
+            code, out = git(["clone", "-q", str(self.project), "repo"], folder)
             if code:
                 raise RuntimeError(f"could not copy the project: {out[:200]}")
-            work = folder / "project"
-            _, base = git(["rev-parse", "HEAD"], work)
-            base_tests = test_counts(work)
+            repo, work = folder / "repo", folder / "work"
+            work.mkdir()
+            sync_tree(repo, work)
+            _, base = git(["rev-parse", "HEAD"], repo)
+            base_tests = test_counts(repo)
             # What already fails on main: a change is judged on the failures it adds, not on old ones.
             _, base_out = self._run_tests(work)
             base_failing = failures(base_out)
@@ -473,8 +527,10 @@ class SoftwareFactoryService:
             plan = ask(planner, "planner", PLAN_PROMPT.format(**ticket)).strip()
             files = parse_files(plan)
             tier, more = P.raise_for_evidence(declared, P.Evidence(files=files))
-            eff, why = P.effective_tier(tier, level)
+            evidence = P.raise_for_evidence("low", P.Evidence(files=files))[0]
+            eff, why = P.effective_tier(tier, level, declared=declared, evidence=evidence)
             self._update_change(cid, lambda c: c.update({"plan": plan, "plan_files": files, "policy_tier": tier,
+                                                         "declared_tier": declared, "evidence_tier": evidence,
                                                          "tier": eff, "effective_tier": eff,
                                                          "tier_reasons": [*reasons, *more, why]}))
             audit("planner agent", "proposed a plan", f"files: {', '.join(files) or 'none named'}")
@@ -504,8 +560,8 @@ class SoftwareFactoryService:
             rounds_left, change_rounds = MAX_FIX_ROUNDS, 0
             while True:
                 status("checking")
-                result = self._gates(cid, ticket, work, base, base_tests, base_failing, level, declared, agent, ask,
-                                     publish, audit)
+                result = self._gates(cid, ticket, work, repo, base, base_tests, base_failing, level, declared, agent,
+                                     ask, publish, audit)
                 eff = result["effective"]
                 if not result["passed"]:
                     if rounds_left > 0:
@@ -535,7 +591,7 @@ class SoftwareFactoryService:
 
             # 4. Merge: one commit on the project's main branch.
             check()
-            commit = self._merge(cid, ticket, work)
+            commit = self._merge(cid, ticket, repo)
             c = self.change(cid)
             dark = eff == "low" and c["human_steps"] == 0
             clean = c["corrections"] == 0
@@ -569,12 +625,16 @@ class SoftwareFactoryService:
         status(state, stopped_reason=reason or why[:200])
 
     # ----- gates -----
-    def _gates(self, cid: str, ticket: dict[str, Any], work: Path, base: str, base_tests: dict[str, int],
+    def _gates(self, cid: str, ticket: dict[str, Any], work: Path, repo: Path, base: str, base_tests: dict[str, int],
                base_failing: set[str], level: int, declared: str, agent: Callable, ask: Callable, publish: Callable,
                audit: Callable) -> dict[str, Any]:
-        git(["add", "-A"], work)
-        _, diff = git(["diff", "--cached", base, "--", "."], work)
-        _, numstat = git(["diff", "--cached", "--numstat", base], work)
+        # The agent's regular files go into the factory's own repository; a .git folder, links and caches never do.
+        skipped = sync_tree(work, repo)
+        if skipped:
+            audit("factory", "left out of the change", "; ".join(skipped[:10]))
+        git(["add", "-A"], repo)
+        _, diff = git(["diff", "--cached", "--no-ext-diff", "--no-textconv", base, "--", "."], repo)
+        _, numstat = git(["diff", "--cached", "--numstat", "--no-ext-diff", "--no-textconv", base], repo)
         files, lines = [], 0
         for row in numstat.splitlines():
             parts = row.split("\t")
@@ -598,7 +658,7 @@ class SoftwareFactoryService:
 
         # Tests: they must pass, and must not have been deleted, emptied or skipped.
         code, out = self._run_tests(work)
-        now_tests = test_counts(work)
+        now_tests = test_counts(repo)
         lost = [f"{f} ({n} -> {now_tests.get(f, 0)})" for f, n in base_tests.items() if now_tests.get(f, 0) < n]
         skipped = next((p for p in SKIP_PATTERNS if re.search(p, added)), None)
         if skipped is None and re.search(r"skipped=\d+", out):
@@ -621,14 +681,15 @@ class SoftwareFactoryService:
 
         # Evidence from the real diff can raise the tier, never lower it.
         c = self.change(cid)
-        covered = coverage(work, files)
-        tier, more = P.raise_for_evidence(c["policy_tier"] or declared, P.Evidence(
-            files=files, diff_lines=lines, added=added, tests_text="", covered=covered))
-        eff, why = P.effective_tier(tier, level)
+        covered = coverage(repo, files)
+        ev = P.Evidence(files=files, diff_lines=lines, added=added, tests_text="", covered=covered)
+        tier, more = P.raise_for_evidence(c["policy_tier"] or declared, ev)
+        evidence = P.higher(c.get("evidence_tier") or "low", P.raise_for_evidence("low", ev)[0])
+        eff, why = P.effective_tier(tier, level, declared=declared, evidence=evidence)
         if P.TIERS.index(eff) < P.TIERS.index(c["effective_tier"] or "low"):
             eff, why = c["effective_tier"], "the tier is never lowered during a change"
         self._update_change(cid, lambda c: c.update({"policy_tier": tier, "tier": eff, "effective_tier": eff,
-                                                     "diff": diff[-120000:], "files": files, "diff_lines": lines,
+                                                     "evidence_tier": evidence, "diff": diff[-120000:], "files": files, "diff_lines": lines,
                                                      "tier_reasons": [*c["tier_reasons"], *more, why]}))
         if eff != c["effective_tier"]:
             audit("policy", f"tier raised to {eff}", "; ".join(more))
@@ -669,11 +730,11 @@ class SoftwareFactoryService:
         except C.ToolError as exc:
             return 1, str(exc)
 
-    def _merge(self, cid: str, ticket: dict[str, Any], work: Path) -> str:
-        """Commits the change in its clone and brings it into the project as one commit."""
-        git(["add", "-A"], work)
-        git(["commit", "-qm", f"{ticket['title']} ({ticket['id']}, change {cid})"], work)
-        for args in (["fetch", "-q", str(work), "HEAD"], ["merge", "-q", "--ff-only", "FETCH_HEAD"]):
+    def _merge(self, cid: str, ticket: dict[str, Any], repo: Path) -> str:
+        """Commits the change in the factory's own clone and brings it into the project as one commit."""
+        git(["add", "-A"], repo)
+        git(["commit", "-qm", f"{ticket['title']} ({ticket['id']}, change {cid})"], repo)
+        for args in (["fetch", "-q", str(repo), "HEAD"], ["merge", "-q", "--ff-only", "FETCH_HEAD"]):
             code, out = git(args, self.project)
             if code:
                 raise ApiError(409, "merge_failed", f"The change could not be merged: {out[:300]}")

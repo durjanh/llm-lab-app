@@ -232,3 +232,47 @@
 .page-software-factory .sf-new {
   margin-top: 10px;
 }
+
+/* Work in progress: a spinner in the log's last row and beside the status while a change runs. */
+.page-software-factory .sf-working {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink2);
+}
+.page-software-factory .sf-spinner {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--line2);
+  border-top-color: var(--brand);
+  animation: sf-spin 0.8s linear infinite;
+  vertical-align: -3px;
+}
+.page-software-factory .sf-spinner.small {
+  width: 11px;
+  height: 11px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+@keyframes sf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-software-factory .sf-spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* The opened change: room above it when scrolled to, and a visible outline when it takes focus. */
+.page-software-factory .sf-change-card {
+  scroll-margin-top: calc(var(--nav-h, 52px) + 12px);
+}
+.page-software-factory .sf-change-card:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}

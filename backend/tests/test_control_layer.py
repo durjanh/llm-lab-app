@@ -412,3 +412,90 @@ def test_the_proxy_respects_the_labs_spending_cap(tmp_path: Path) -> None:
     key = {"x-api-key": new_key(client)["key"]}
     r = client.post("/control/v1/messages", json=ask(), headers=key)
     assert r.status_code == 429 and r.json()["error"]["type"] == "rate_limit_error"
+
+
+# ---------- review: what a key holder may send, and streams that fail part-way ----------
+
+@pytest.mark.parametrize("field, value", [
+    ("mcp_servers", [{"type": "url", "url": "https://example.com/mcp", "name": "x"}]),
+    ("container", "container_123"),
+    ("service_tier", "priority"),
+    ("context_management", {"edits": []}),
+])
+def test_fields_that_run_under_the_labs_credentials_are_refused(tmp_path: Path, field: str, value: Any) -> None:
+    client, _, fake = lab(tmp_path)
+    key = {"x-api-key": new_key(client)["key"]}
+    r = client.post("/control/v1/messages", json={**ask(), field: value}, headers=key)
+    assert r.status_code == 400 and r.json()["error"]["type"] == "invalid_request_error"
+    assert field in r.json()["error"]["message"]
+    assert fake.requests == []  # nothing reached the model
+
+
+@pytest.mark.parametrize("tool", [
+    {"type": "web_search_20250305", "name": "web_search"},
+    {"type": "web_fetch_20250910", "name": "web_fetch"},
+    {"type": "code_execution_20250825", "name": "code_execution"},
+    {"type": "bash_20250124", "name": "bash"},
+])
+def test_server_tools_are_refused(tmp_path: Path, tool: dict) -> None:
+    client, _, fake = lab(tmp_path)
+    key = {"x-api-key": new_key(client)["key"]}
+    r = client.post("/control/v1/messages", json={**ask(), "tools": [tool]}, headers=key)
+    assert r.status_code == 400 and "Server tools" in r.json()["error"]["message"]
+    assert fake.requests == []
+
+
+def test_the_callers_own_tools_pass_and_malformed_ones_do_not(tmp_path: Path) -> None:
+    client, _, fake = lab(tmp_path)
+    key = {"x-api-key": new_key(client)["key"]}
+    mine = {"name": "lookup", "description": "Looks a word up.", "input_schema": {"type": "object", "properties": {}}}
+    assert client.post("/control/v1/messages", json={**ask(), "tools": [mine]}, headers=key).status_code == 200
+    assert client.post("/control/v1/messages", json={**ask(), "tools": [{**mine, "type": "custom"}]},
+                       headers=key).status_code == 200
+    for bad in ([{"name": "x"}], [{**mine, "url": "https://example.com"}], "lookup", ["lookup"]):
+        assert client.post("/control/v1/messages", json={**ask(), "tools": bad}, headers=key).status_code == 400, bad
+    assert len(fake.requests) == 2
+
+
+def test_stream_must_be_true_or_false(tmp_path: Path) -> None:
+    client, _, fake = lab(tmp_path)
+    key = {"x-api-key": new_key(client)["key"]}
+    r = client.post("/control/v1/messages", json={**ask(), "stream": "false"}, headers=key)
+    assert r.status_code == 400 and "true or false" in r.json()["error"]["message"]
+    assert client.post("/control/v1/messages", json={**ask(), "stream": False}, headers=key).status_code == 200
+    assert len(fake.requests) == 1
+
+
+class BrokenStream(FakeStream):
+    """Sends the start of a reply, then the upstream connection fails; what was produced is in the snapshot."""
+
+    def __init__(self, final: Message):
+        super().__init__(final)
+        self.current_message_snapshot = message(final.model, input_tokens=1000, output_tokens=40)
+
+    def __iter__(self):
+        events = super().__iter__()
+        for _ in range(3):  # message_start, content_block_start, one delta
+            yield next(events)
+        raise RuntimeError("the upstream connection dropped")
+
+
+def test_a_stream_that_fails_part_way_is_charged_once(tmp_path: Path) -> None:
+    client, c, fake = lab(tmp_path)
+    made = new_key(client)
+
+    def broken(**p: Any) -> BrokenStream:
+        fake.requests.append(p)
+        return BrokenStream(message(p["model"]))
+
+    fake.messages.stream = broken  # type: ignore[method-assign]
+    fake.beta.messages.stream = broken  # type: ignore[attr-defined]
+    r = client.post("/control/v1/messages", json={**ask(), "stream": True}, headers={"x-api-key": made["key"]})
+    assert r.status_code == 200  # the stream had begun, so the failure arrives inside it
+    events = [line[7:] for line in r.text.splitlines() if line.startswith("event: ")]
+    assert events[:3] == ["message_start", "content_block_start", "content_block_delta"] and events[-1] == "error"
+    consumer = f"key:{made['id']}"
+    assert c.spend.calls == 1 and c.spend.spent_usd > 0  # charged to the lab's cap, once
+    assert c.spend.call_log.calls()[-1]["area"] == consumer
+    _, _, calls = c.control.ledger()
+    assert sum(calls[consumer].values()) == 1 and c.control.spent(consumer)[0] > 0  # and the key's ledger, once

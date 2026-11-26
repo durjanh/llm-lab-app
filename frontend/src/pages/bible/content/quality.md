@@ -345,6 +345,33 @@
 
 **What I built:** a page that computes the three-measure Pareto frontier of a field of invented models (each effort setting a separate point), draws it in a 3D chart you turn by dragging, with an open-weight frontier and the best corner marked, compares it with the two flat frontiers, picks the best model under a budget and a deadline, and reads real data pasted in as CSV, with every bad row reported.
 
+## AI Control Layer (`/control-layer`)
+**In one line:** one checkpoint every model call passes, where a part of the lab or an outside agent's key can be held to allowed models, effort, budgets, a request rate, routing to cheaper models and simple guardrails, with the spending and every change on record.
+
+**Key terms**
+- **Consumer**: who a call is for: a part of the lab (the page area that made it) or a virtual key used by an outside tool.
+- **Policy**: one consumer's rules; a consumer with none is only counted.
+- **Reservation**: a cost estimate held against the budget before a call and settled to the real cost after it.
+- **Routing rule**: send a consumer's calls to another model, or move to a cheaper one after a share of its budget.
+- **Virtual key**: a key the lab issues to an outside agent, kept only as a hash and revocable, with its own policy.
+- **Audit log**: every policy and key change, with what it was before and after.
+
+**Questions they could ask**
+- **Q:** Where should usage and cost controls sit in an AI platform?
+  **A:** At one choke point every call passes, below the code that makes calls, so nothing can go round it. Here it wraps the model client under the gateway, so even agents that drive the SDK directly are covered. Controls added to each service drift apart and get forgotten in new ones.
+- **Q:** How do you stop two calls at once from overspending a budget?
+  **A:** Hold an estimate before each call, under a lock, and settle it to the real cost afterwards. A check that only reads what has been spent lets two calls both see room for one. The estimate uses the prompt's length and a capped token limit, so it errs on the side of refusing.
+- **Q:** Why refuse secrets instead of masking them?
+  **A:** A masked key in a prompt is still a key that reached a log, a cache or a person. Refusing tells the sender at once, and the call can go again without it. Contact details are different: masking keeps the request useful while keeping them out of the provider's hands.
+- **Q:** How do you govern coding agents that people run on their own machines?
+  **A:** Give each one a virtual key and point it at a proxy instead of the provider. The proxy checks the key, applies that key's policy, calls the provider with the organisation's own credentials, and records the usage under the key. Revoking the key cuts it off; the real credentials never leave the server.
+- **Q:** Does routing to a cheaper model save money without hurting results?
+  **A:** Only where the cheaper model is good enough, which you measure, not assume. The page shows what each rule saved against the model the code asked for; the evaluation pages show whether quality held. A rule that moves to a cheaper model after 80% of the budget is a safety net, not a strategy.
+- **Q:** What should a refused call look like to the caller?
+  **A:** A normal error with a clear reason and the right status: 403 for a model, effort or secret not allowed, 429 for a budget or rate. It should be final, not something a failover tries on the next model, and it should be logged with the consumer and reason so someone can tell a misconfigured policy from abuse.
+
+**What I built:** a check under the lab's model gateway that applies per-consumer policies (models, effort, daily and monthly budgets with holds, requests per minute, routing, secret refusal and masking of contact details), virtual keys kept as hashes, an Anthropic-compatible local proxy for outside coding agents, an audit log of every change, and a page with spending by consumer, model and day, projections, routing savings, refused calls and keys.
+
 ## Red Teaming (`/red-team`)
 **In one line:** an attacker model writes attacks in seven strategies against a support agent with a secret in its instructions, code scores what it can see, and a run can be saved and replayed as a regression suite.
 

@@ -37,6 +37,8 @@ export interface FactoryRules {
 export interface FactoryInfo {
   models: string[];
   default_model: string;
+  /** The effort levels each model takes; empty for a model without an effort setting. */
+  efforts: Record<string, string[]>;
   kinds: string[];
   areas: string[];
   rules: FactoryRules;

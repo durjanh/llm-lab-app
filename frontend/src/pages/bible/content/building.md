@@ -184,7 +184,7 @@
 
 **Questions they could ask**
 - **Q:** How do you decide which changes an agent may merge without a person?
-  **A:** With a written policy, not the model's judgement. The ticket's kind and area set a starting tier; evidence from the plan and the diff (a sensitive path, a new dependency, a big diff, edited tests, code no test covers) can only raise it. Only low-risk changes that pass every gate merge on their own, and high-risk changes always need a person, whatever the record.
+  **A:** With a written policy, not the model's judgement. The ticket's kind and area set a starting tier; evidence from the plan and the diff (a sensitive path, a new dependency, a big diff, edited tests, code no test covers) can only raise it. A trusted area may let declared medium-risk work run dark, but never work whose own evidence called for a person, and high-risk changes always need one.
 - **Q:** What stops an agent from making the tests pass by changing the tests?
   **A:** A gate that compares the test files before and after: fewer test functions, a deleted file or a new skip marker blocks the change, and editing tests raises its tier so a person must look. The implementer is also told never to weaken a test.
 - **Q:** Why a separate reviewer agent rather than asking the implementer to check its own work?
@@ -195,8 +195,10 @@
   **A:** The factory runs the tests on main before each change and records what already fails. A change passes the test gate if it adds no new failure; fixing old ones is shown as progress. Otherwise a docs change would be blocked by unrelated bugs, or an agent would be pushed to fix them out of scope.
 - **Q:** How do you keep an audit trail you could defend?
   **A:** Every decision is recorded with who or what made it and why: the policy's tier and reasons, the planner, each gate's result and detail, the reviewer's findings, and each person's approval, note, edit or takeover. The full event stream is kept per change, and each merge is a git commit whose message names the ticket and the change.
+- **Q:** Agents write code on your machine. What stops them reaching the host through git?
+  **A:** They never see a repository. They work in a plain folder in the sandbox; the factory copies only their regular files into its own clone, never a .git folder or a link, and runs git there with hooks, fsmonitor, editors and outside config files switched off and no keys in its environment. Nothing an agent writes can become something git executes.
 
-**What I built:** a factory on a copy of the practice project with an invented backlog, a tested risk policy, a read-only planner, an implementer in the sandbox, seven gates including an independent reviewer, person decisions on plans and diffs, real git merges and reverts, a per-area autonomy ledger, a flow board, metrics and a full audit trail per change.
+**What I built:** a factory on a copy of the practice project with an invented backlog, a tested risk policy, a read-only planner, an implementer in the sandbox, seven gates including an independent reviewer, person decisions on plans and diffs, real git merges and reverts in a clone only the factory touches, a per-area autonomy ledger, a flow board, metrics and a full audit trail per change.
 
 ## Coding Agent (`/coding-agent`)
 **In one line:** a coding agent built the way Claude Code is, where the short loop is easy and the rules that make it safe to point at code are the real work.

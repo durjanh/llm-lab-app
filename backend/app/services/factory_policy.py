@@ -106,13 +106,17 @@ def is_test(path: str) -> bool:
     return PurePosixPath(path).name.startswith("test_") or "/tests/" in f"/{path}"
 
 
-def effective_tier(tier: str, level: int) -> tuple[str, str]:
-    """The tier after the area's autonomy level: probation adds a person to low-risk work, trusted lets medium-risk
-    work run dark. High never runs dark."""
+def effective_tier(tier: str, level: int, declared: str, evidence: str = "low") -> tuple[str, str]:
+    """The tier after the area's autonomy level: probation adds a person to low-risk work, and trusted lets medium-risk
+    work run dark, but only when medium is what the ticket declared and the work itself showed nothing that calls for
+    medium (`evidence`: the tier the plan and diff alone call for). A tier raised by evidence is never lowered, and
+    high never runs dark."""
     if level <= 0 and tier == "low":
         return "medium", "the area is on probation, so even low-risk work needs a person"
     if level >= 2 and tier == "medium":
-        return "low", "the area is trusted, so medium-risk work may run dark"
+        if declared == "medium" and evidence == "low":
+            return "low", "the area is trusted, so medium-risk work may run dark"
+        return "medium", "the area is trusted, but the work itself called for medium, which autonomy never lowers"
     return tier, f"the area's level ({LEVELS.get(level, level)}) leaves it at {tier}"
 
 

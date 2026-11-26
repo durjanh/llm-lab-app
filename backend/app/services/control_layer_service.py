@@ -27,9 +27,12 @@ from .spend import SpendTracker
 ROUTE = "POST /control/v1/messages"
 WIRE_EVENTS = {"message_start", "content_block_start", "content_block_delta", "content_block_stop", "message_delta",
                "message_stop", "ping", "error"}  # the stream helper's own events (text, thinking...) are not sent
+# What a key holder may send. Left out on purpose: mcp_servers, container, service_tier and context_management, and
+# server tools (web search, web fetch, code execution...): they would run under the lab's credentials, can reach any
+# address on the internet, and are billed in ways the spend tracker does not price.
 ALLOWED_FIELDS = {"model", "messages", "max_tokens", "system", "tools", "tool_choice", "temperature", "top_p", "top_k",
-                  "stop_sequences", "metadata", "thinking", "output_config", "stream", "service_tier", "container",
-                  "mcp_servers", "context_management"}
+                  "stop_sequences", "metadata", "thinking", "output_config", "stream"}
+CLIENT_TOOL_FIELDS = {"name", "description", "input_schema", "cache_control", "type", "strict"}
 MAX_TOKENS = 64_000
 DAYS_SHOWN = 30
 
@@ -133,7 +136,16 @@ class ControlLayerService:
             raise ApiError(400, "invalid_request", "The body must be a JSON object.")
         unknown = set(body) - ALLOWED_FIELDS
         if unknown:
-            raise ApiError(400, "invalid_request", f"Not supported here: {', '.join(sorted(unknown))}.")
+            raise ApiError(400, "invalid_request", f"Not supported through the lab's proxy: {', '.join(sorted(unknown))}. "
+                                                   "These would run under the lab's credentials.")
+        if "stream" in body and not isinstance(body["stream"], bool):
+            raise ApiError(400, "invalid_request", "stream must be true or false.")
+        tools = body.get("tools")
+        if tools is not None:
+            if not isinstance(tools, list):
+                raise ApiError(400, "invalid_request", "tools must be a list.")
+            for tool in tools:
+                self._check_tool(tool)
         if body.get("model") not in MODELS:
             raise ApiError(400, "invalid_request", f"model must be one of the lab's models: {', '.join(MODELS)}.")
         if not isinstance(body.get("messages"), list) or not body["messages"]:
@@ -144,6 +156,22 @@ class ControlLayerService:
         if self.spend.over_budget:
             raise ApiError(429, "budget_exceeded", "The lab's spending cap for this session has been reached.")
         return {k: v for k, v in body.items() if k != "stream"}
+
+    @staticmethod
+    def _check_tool(tool: Any) -> None:
+        """Only the caller's own tools, which the caller runs: a name, a description and an input schema. Server tools
+        (anything with a type other than "custom") would run on the provider under the lab's credentials."""
+        if not isinstance(tool, dict):
+            raise ApiError(400, "invalid_request", "Each tool must be an object.")
+        kind = tool.get("type", "custom")
+        if kind != "custom":
+            raise ApiError(400, "invalid_request", f"Server tools are not available through the lab's proxy ({kind}): "
+                                                   "they would run under the lab's credentials. Use your own tools.")
+        extra = set(tool) - CLIENT_TOOL_FIELDS
+        if extra:
+            raise ApiError(400, "invalid_request", f"Not supported in a tool: {', '.join(sorted(extra))}.")
+        if not isinstance(tool.get("name"), str) or not isinstance(tool.get("input_schema"), dict):
+            raise ApiError(400, "invalid_request", "Each tool needs a name and an input_schema object.")
 
     @staticmethod
     def _extra(params: dict[str, Any], beta: str | None) -> dict[str, Any]:
@@ -175,22 +203,37 @@ class ControlLayerService:
         context = contextvars.copy_context()
 
         def work() -> None:
+            opened: list[Any] = []  # the stream, once open
+            charged = False
+
+            def charge(message: Any) -> None:
+                """Charges a reply once: a whole one, or what was produced before the client left or the call failed."""
+                nonlocal charged
+                if not charged and message is not None and getattr(message, "usage", None) is not None:
+                    charged = True
+                    self.spend.charge(message, params["model"])
+
             try:
-                with use_area(consumer, ROUTE):
-                    with self.gateway.stream(**self._extra(params, beta)) as s:
-                        out.put(("opened", None))
-                        for event in s:
-                            if stop.is_set():
-                                break
-                            kind = getattr(event, "type", None) or (event.get("type") if isinstance(event, dict)
-                                                                    else None)
-                            if kind in WIRE_EVENTS:
-                                out.put(sse(kind, dump(event)))
-                        # A client that went away part-way still cost what was produced: charge the snapshot.
-                        message = getattr(s, "current_message_snapshot", None) if stop.is_set() \
-                            else s.get_final_message()
-                    if message is not None and getattr(message, "usage", None) is not None:
-                        self.spend.charge(message, params["model"])
+                with use_area(consumer, ROUTE):  # charged inside the key's area, so the call log names the key
+                    try:
+                        with self.gateway.stream(**self._extra(params, beta)) as s:
+                            opened.append(s)
+                            out.put(("opened", None))
+                            for event in s:
+                                if stop.is_set():
+                                    break
+                                kind = getattr(event, "type", None) or (event.get("type") if isinstance(event, dict)
+                                                                        else None)
+                                if kind in WIRE_EVENTS:
+                                    out.put(sse(kind, dump(event)))
+                            charge(getattr(s, "current_message_snapshot", None) if stop.is_set()
+                                   else s.get_final_message())
+                    finally:  # failed part-way: what was produced was still billed
+                        if opened and not charged:
+                            try:
+                                charge(getattr(opened[0], "current_message_snapshot", None))
+                            except Exception:  # noqa: BLE001 - a broken snapshot must not hide the real error
+                                pass
             except BaseException as exc:  # noqa: BLE001 - every failure reaches the client, opened or not
                 out.put(("failed", exc))
             finally:

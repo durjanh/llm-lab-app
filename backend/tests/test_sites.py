@@ -755,3 +755,73 @@ def test_a_model_that_cannot_read_pictures_is_remembered_and_refused(tmp_path: P
     second = upload(client, ("mock.png", png(), "image/png")).json()[0]
     r = client.post("/api/sites/turn", json={"prompt": "Again", "attachments": [second["id"]]}, headers=LAB)
     assert r.status_code == 400 and "cannot read pictures" in r.json()["error"]["message"]
+
+
+# ----- Review findings: uploads, rename and the reporter -----
+
+def huge_png_header(width: int, height: int) -> bytes:
+    """A PNG that is only a header: it declares a huge picture but holds no pixels, as a decompression bomb would."""
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IEND", b"")
+
+
+def test_review_1_a_picture_declaring_huge_dimensions_is_refused_cleanly(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    r = upload(client, ("bomb.png", huge_png_header(100_000, 100_000), "image/png"))
+    assert r.status_code == 400, r.text
+    message = r.json()["error"]["message"]
+    assert "bomb.png" in message and "too large" in message
+    # Just over the page's own cap (40 million pixels), still well under Pillow's own limit: refused from the header.
+    r = upload(client, ("wide.png", huge_png_header(8_000, 5_001), "image/png"))
+    assert r.status_code == 400 and "million pixels" in r.json()["error"]["message"]
+    assert upload(client, ("ok.png", png(), "image/png")).status_code == 200
+
+
+def test_review_2_a_site_cannot_be_renamed_while_claude_is_working_on_it(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    site = client.app.state.container.sites.store.get(site_id)
+    assert site.busy.acquire(blocking=False)  # as while a turn is running
+    try:
+        r = client.patch(f"/api/sites/{site_id}", json={"title": "New name"}, headers=LAB)
+        assert r.status_code == 409 and r.json()["error"]["type"] == "busy"
+    finally:
+        site.busy.release()
+    assert site.title != "New name"
+    assert client.patch(f"/api/sites/{site_id}", json={"title": "New name"}, headers=LAB).json()["title"] == "New name"
+
+
+def test_review_3_waiting_uploads_have_a_total_cap_after_expired_ones_go(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path)
+    uploads = client.app.state.container.sites.uploads
+    uploads.max_waiting_files = 2
+    first = upload(client, ("a.txt", b"one", "text/plain")).json()[0]
+    assert upload(client, ("b.txt", b"two", "text/plain")).status_code == 200
+    over = upload(client, ("c.txt", b"three", "text/plain"))
+    assert over.status_code == 413 and "waiting" in over.json()["error"]["message"]
+    meta = uploads.root / first["id"] / "meta.json"
+    data = json.loads(meta.read_text())
+    data["created"] -= 25 * 3600  # the first one expires, so there is room again
+    meta.write_text(json.dumps(data))
+    assert upload(client, ("c.txt", b"three", "text/plain")).status_code == 200
+    uploads.max_waiting_files, uploads.max_waiting_bytes = 100, 10
+    assert upload(client, ("d.txt", b"more than ten bytes", "text/plain")).status_code == 413
+
+
+def test_review_4_comments_and_script_bodies_are_not_mistaken_for_markup() -> None:
+    page = ('<!-- old <head> -->\n<!doctype html><html><head><title>x</title>'
+            '<!-- <script src="js/old.js"></script> -->'
+            '<script>var tag = \'<script src="js/fake.js">\';</script>'
+            '<script src="js/app.js"></script></head><body></body></html>')
+    out = with_reporter(page)
+    assert out.index(REPORTER) == out.index("<html><head>") + len("<html><head>")  # after the real head
+    assert '<!-- old <head> -->' in out and out.count(REPORTER) == 1
+    assert '<!-- <script src="js/old.js"></script> -->' in out  # a script in a comment is left alone
+    assert '\'<script src="js/fake.js">\'' in out  # and so is one inside a script's own text
+    assert '<script src="js/app.js" crossorigin>' in out

@@ -1180,6 +1180,15 @@ export const PAGES: PageDef[] = [
     Component: lazy(() => import('./pareto/ParetoPage')),
   },
   {
+    id: 'control-layer',
+    path: '/control-layer',
+    title: 'AI Control Layer',
+    label: 'Usage, cost and access',
+    group: 'Cost and operations',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./control-layer/ControlLayerPage')),
+  },
+  {
     id: 'llmops',
     path: '/llmops',
     title: 'LLMOps: Shipping AI Changes Safely',
