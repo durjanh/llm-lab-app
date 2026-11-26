@@ -39,3 +39,4 @@ generated/
 
 # Downloaded Python packages: installed into each example's own .venv, never committed (a 132 MB wheel blocked a push)
 *.whl
+.vscode/settings.json

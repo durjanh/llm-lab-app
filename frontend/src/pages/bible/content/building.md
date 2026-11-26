@@ -171,6 +171,25 @@
 
 **What I built:** a chat page with stored chats, uploads, model and effort per message, and a live activity panel. Behind it, one streaming loop for Claude, GPT and the local model that plans, runs bash and file tools in the lab's Docker sandbox, reads the office-file skills, starts up to four parallel sub-agents in folders of their own, makes PDF, deck, spreadsheet and chart previews, compacts long chats, and stops on a shared budget, a time limit or Stop.
 
+## Auto Routing in the Assistant (`/assistant`)
+**In one line:** the lab picks a model and effort per message: cheap, explainable rules first, a tiny classifier only when they don't settle it, and one step up when the chosen model fails.
+
+**Key terms**
+- **Tier**: quick, standard or deep, each a ranked list of models in one table.
+- **Ceiling**: a model the person sets that routing and escalation may not go above.
+- **Escalation**: moving the rest of a turn to the next tier up, once, after a refusal, an empty or cut-off reply, or two failed tool rounds.
+- **Baseline**: what the same tokens would have cost on Sonnet at medium effort; the savings are measured against it.
+
+**Questions they could ask**
+- **Q:** Why rules first and a model only when unclear?
+  **A:** Most messages are obvious from cheap signals (a file attached, "make a chart", "prove"), and a rule costs nothing, adds no wait and can say why in one line. A classifier call is kept for the genuinely unclear ones, on the cheapest model with a 60-token cap and strict JSON.
+- **Q:** What stops routing from making things worse?
+  **A:** Capability rules (pictures never to the local model, PDFs only to Claude), one escalation when the cheap model fails, a ceiling the person can set, and a record of cost against an always-Sonnet baseline, so a router that saves nothing shows it.
+- **Q:** Is the savings figure exact?
+  **A:** No. It prices the routed turn's tokens at Sonnet's list prices. A different model might have used more or fewer tokens, so it is an estimate for comparing like with like, not a bill.
+
+**What I built:** a router in one module with its tier table, the rules, a strict-JSON classifier, capability and ceiling checks, one-step escalation, a routing log with savings against Sonnet, an Auto switch in the assistant's model menu, route and escalate rows in the activity log, and an Auto routing card on the control layer page.
+
 ## Software Factory (`/software-factory`)
 **In one line:** agents take tickets from plan to merge, and people step in by risk: low-risk changes run dark, medium ones wait for a person at the diff, high ones at the plan and the diff, and each area earns autonomy with a clean record.
 
