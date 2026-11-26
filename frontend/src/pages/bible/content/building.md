@@ -145,6 +145,32 @@
 
 **What I built:** the page has a scripted autonomous run with harness features you switch off to see each failure, then a live mode that runs `python/11_harness_loop.py` through `HarnessService`: ten tools including three sub-agents and a bash tool behind deny/ask/allow rules, tool output capped at 2,000 characters, optional compaction, and a per-run budget. It runs as a background `Run` that streams NDJSON events to the page, every bash command waits for approval on the page (unanswered after a timeout means no), and a skills section runs Anthropic's xlsx/pptx/docx/pdf skills in the code-execution container and returns the file.
 
+## Assistant (`/assistant`)
+**In one line:** a general chat assistant built as an agent: it plans, works in a sandbox until it decides it is done, can split big jobs across parallel sub-agents, and shows every step it takes.
+
+**Key terms**
+- **Agentic loop**: call the model, run the tools it asks for, send back the results, and repeat until it answers without asking for a tool.
+- **Plan first**: before any tool runs, the agent writes a checklist and keeps it up to date; an optional switch waits for a person to approve it.
+- **Sub-agent**: a second agent with its own brief, history and folder, started by the main agent; several run at once and the main agent combines what they return.
+- **Run budget**: one limit on spending for a whole turn, shared by the main agent and every sub-agent.
+- **Compaction**: when a chat grows past a size, older turns are summarised and the summary is sent instead; nothing stored is deleted.
+
+**Questions they could ask**
+- **Q:** If there is no limit on the number of steps, what stops a runaway agent?
+  **A:** Money and time. Each turn has a budget shared by every agent it starts and a wall-clock limit, the person can press Stop, and the lab's overall cap still applies. A step count is a poor proxy: one step can be a cheap file read or a long build, so the limits are set on what actually matters.
+- **Q:** How does the chat keep working when you change model halfway through?
+  **A:** The history is stored in one neutral shape, not inside a provider's session. Each call rebuilds the messages for the chosen model from the latest summary and the later steps, and drops the previous model's private thinking blocks, which another model cannot read. Files live in the lab's sandbox, not in one provider's container, so every model sees the same workspace.
+- **Q:** Why run Claude's commands in your own sandbox instead of Anthropic's code execution?
+  **A:** So every model shares one workspace and one log. With Claude in its own container, its files would be out of reach after a switch to GPT or the local model, and the commands it ran would not appear in the lab's activity log.
+- **Q:** When should an agent split work across sub-agents?
+  **A:** When the parts are independent and each is big enough to be worth its own context: research on several topics, one chart per dataset, sections of a report. Each gets a clear brief and its own folder so they cannot overwrite each other. Tightly linked steps stay with one agent, because handing context back and forth costs more than it saves.
+- **Q:** The sandbox can reach the internet. What stops a web page or an uploaded file from steering the agent?
+  **A:** The system prompt treats file and page contents as data, never instructions, and tells the agent not to send the person's files anywhere unasked. The sandbox holds no keys or credentials, and every command that reaches the network is flagged in the log. That reduces the risk; it does not remove it, which is why the log and the budget exist.
+- **Q:** What does the activity log record, and why keep it?
+  **A:** Every model call with its model, effort, tokens and cost; every plan and revision; every command with its output, exit code and time; every file made; compactions, model switches and failovers; and one lane per sub-agent. It is saved with the turn, so a strange answer can be traced to the step that caused it.
+
+**What I built:** a chat page with stored chats, uploads, model and effort per message, and a live activity panel. Behind it, one streaming loop for Claude, GPT and the local model that plans, runs bash and file tools in the lab's Docker sandbox, reads the office-file skills, starts up to four parallel sub-agents in folders of their own, makes PDF, deck, spreadsheet and chart previews, compacts long chats, and stops on a shared budget, a time limit or Stop.
+
 ## Coding Agent (`/coding-agent`)
 **In one line:** a coding agent built the way Claude Code is, where the short loop is easy and the rules that make it safe to point at code are the real work.
 
@@ -196,27 +222,30 @@
 **What I built:** `DecksService` uploads attachments and an optional .pptx template to the Files API (deleted after a day or on New deck), runs Claude with the pptx skill in the code-execution container and reuses the container across turns, then sends changed slide images back for up to two review rounds. With GPT or the local model the same conversation runs in the lab's sandbox through `python/sandbox_skills.py`; progress streams to the page as a background `Run`.
 
 ## Site Builder (`/site-builder`)
-**In one line:** the model writes a website through file tools confined to one folder, you watch the code stream in, and it fixes what it sees in screenshots.
+**In one line:** describe an app and watch it being built: the model writes the files while the app runs live beside the conversation, every change is a version you can go back to, and errors from the running app come back to the model with one click.
 
 **Key terms**
-- **Confined file tools**: write_file, edit_file, read_file, list_files and delete_file, with every path resolved and checked to stay inside the site's folder.
-- **Path traversal**: using ".." or absolute paths to escape a folder; prevented by resolving the path and checking the folder is one of its parents.
-- **Fine-grained (eager) tool input streaming**: streaming a tool call's JSON input as it is generated, so the page can show code being written.
-- **Headless browser screenshot**: rendering the page in Chrome without a window, at set viewport sizes, and capturing the image and console messages.
-- **CSP sandbox**: a Content-Security-Policy that runs the page in an opaque origin, so generated scripts cannot use the app's cookies or call its API as the app.
-- **Resource limits**: caps on files, bytes per file, site size and requests per turn.
+- **Confined file tools**: the model can only write, edit, read, list and delete text files inside the site's folder; it runs no commands.
+- **Sandboxed preview**: the app is served with a Content-Security-Policy `sandbox`, so it runs in an opaque origin with no access to the lab's API, cookies or storage.
+- **Version**: a snapshot of the site's files after a turn that changed them; restoring one is itself a new version, so nothing is lost.
+- **Error reporter**: a small script added to every served page that only sends uncaught errors, rejected promises and console errors to the page that frames it.
+- **Visual check**: after a turn, the server screenshots the site at desktop and phone widths and shows the model the pictures and console errors so it can fix what it sees.
 
 **Questions they could ask**
-- **Q:** Why give the model file tools only and no shell?
-  **A:** Building a static site needs only files, so a shell would add risk without adding capability. Five narrow tools confined to one folder are easy to reason about and need no sandbox. It is least privilege: give the agent the smallest tool set that does the job.
-- **Q:** The model writes JavaScript that you then serve. How do you keep that safe?
-  **A:** Generated code is untrusted. The sites are served with a CSP `sandbox` header, so they run in an opaque origin and cannot call the lab's API with its credentials. The file tools also reject paths that escape the site folder, and there are limits of 80 files, 300 KB per file and 3 MB per site.
-- **Q:** How do you show code appearing as the model writes it?
-  **A:** I stream the response and turn on eager input streaming for the writing tools, then forward each `input_json_delta` fragment to the page as it arrives. Each tool call runs as soon as its block completes, so the preview reloads while the model is still working. A call cut off by max_tokens never runs.
-- **Q:** How does the model check its own work, and what limits that?
-  **A:** When it has finished, the backend screenshots the site in headless Chrome at 1280 × 800 and a 390 × 844 phone size and sends the images and any console errors back. The model fixes what it sees, up to two review rounds and 40 requests per turn, so a site that never looks right still ends. Without Chrome the review is skipped and the page says so.
+- **Q:** How do you let a model build a web app without risking the system it runs on?
+  **A:** Narrow tools and a sandbox. The model only gets file tools confined to one folder, with checks on paths, file types and sizes, and no shell. The result is served under a CSP sandbox, so even hostile JavaScript runs in an opaque origin and cannot call the lab's API or read its storage, whether it is in the preview or opened in its own tab.
+- **Q:** How do you report errors from a sandboxed iframe back to the page?
+  **A:** With a one-way postMessage. A tiny script, injected first in the head, catches errors and posts a fixed-shape message to the parent; it listens to nothing, so it opens no door into the sandbox. The parent accepts only messages whose source is that frame and whose shape matches, and treats the text as untrusted. Because a sandboxed page has an opaque origin, its own scripts count as cross-origin and their errors arrive as a bare "Script error." unless they are loaded with CORS, so the server adds `crossorigin` to the site's own script tags.
+- **Q:** Why keep versions as snapshots rather than replaying the model's edits?
+  **A:** A snapshot is exact and cheap for a site of a few megabytes: restoring is a copy, viewing an old version is just serving another folder, and nothing depends on edits replaying cleanly. Each restore becomes a new version, and the model is told with the next message, so it reads the files again instead of trusting its memory of a state that no longer exists.
+- **Q:** What does the model see between turns?
+  **A:** The whole conversation, including its own tool calls and results, which is cached, plus anything the person did meanwhile, such as restoring a version, as a short notice before their next message. When it is unsure what a file contains, it reads it first.
+- **Q:** Why screenshot the result and show it to the model?
+  **A:** Code that parses is not a page that looks right. Showing the model its page at 1280 and 390 pixels, with the console errors, lets it catch overflow, contrast and layout mistakes it cannot see from the source. It is limited to two rounds so a turn cannot loop.
+- **Q:** What stops two tabs from changing the same site at once?
+  **A:** A per-site lock: a second message, a restore or a delete while a turn is running is refused with 409, and the list of sites shows which ones are being built.
 
-**What I built:** `SiteService` runs each turn as a background `Run`, streams Claude's file writes to the page, stores files and the conversation under `sites/<id>/`, and uses a Chrome DevTools gateway for the desktop and phone screenshots. `main.py` serves the result at `/sites/<id>/` with the CSP sandbox.
+**What I built:** a split view with the conversation on the left and the running app on the right (versions, device frames, reload, new tab, full screen, zip), a start screen with ideas and a gallery of earlier apps with screenshot thumbnails, per-turn change summaries with version chips, snapshot versions (the last 20) that can be viewed or restored, a one-way error reporter with "Ask to fix", and the visual check, all kept on disk per site.
 
 ## Tutor (`/tutor`)
 **In one line:** a spoken tutor on a 3D avatar: an English speaking partner with corrections and pronunciation scores, or a subject tutor that explains aloud and in writing.

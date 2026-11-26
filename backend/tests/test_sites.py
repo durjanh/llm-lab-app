@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.gateways.browser import Capture
 from backend.app.main import create_app
-from backend.app.services.sites import REVIEW_ROUNDS, SYSTEM
+from backend.app.services.sites import MAX_VERSIONS, REPORTER, REVIEW_ROUNDS, SYSTEM, cors_scripts, with_reporter
 from backend.app.settings import Settings
 from backend.tests.test_api import LAB
 
@@ -142,7 +142,7 @@ def test_claude_writes_the_site_live_then_checks_screenshots(tmp_path: Path) -> 
 
     # The preview serves the files sandboxed; the page can list, read, zip and see screenshots.
     page = client.get(f"/sites/{site_id}/index.html")
-    assert page.text == PAGE and page.headers["content-security-policy"].startswith("sandbox allow-scripts")
+    assert page.text == with_reporter(PAGE) and page.headers["content-security-policy"].startswith("sandbox allow-scripts")
     assert "allow-same-origin" not in page.headers["content-security-policy"]
     assert client.get(f"/sites/{site_id}/css/site.css").headers["content-type"].startswith("text/css")
     assert client.get("/api/sites", headers=LAB).json()["sites"][0]["id"] == site_id
@@ -283,3 +283,251 @@ def test_restore_refuses_a_message_that_does_not_exist(tmp_path: Path) -> None:
     site_id = turn(client, "A bakery page")[1]["site_id"]
     assert client.post(f"/api/sites/{site_id}/restore", json={"keep": 5}, headers=LAB).status_code == 400
     assert client.post("/api/sites/0123456789ab/restore", json={"keep": 0}, headers=LAB).status_code == 404
+
+
+# ----- Versions, rename, delete while busy, the error reporter -----
+
+EDIT = ([call("edit_file", "toolu_e", path="css/site.css", old_text="navy", new_text="teal")], "tool_use")
+READ_ONLY = ([call("read_file", "toolu_r", path="index.html")], "tool_use")
+
+
+def test_each_turn_that_changes_files_is_a_version_with_what_changed(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE, LOOKS_RIGHT_REPLY, READ_ONLY, DONE)
+    events = turn(client, "A page of tide times")
+    site_id = events[1]["site_id"]
+    assert [e["version"]["n"] for e in events if e["type"] == "version"] == [1]
+    assert all("fingerprint" not in e["version"] for e in events if e["type"] == "version")
+    assert events[-1]["changed"] == [{"path": "css/site.css", "change": "added"}, {"path": "index.html", "change": "added"}]
+    assert turn(client, "Make the heading teal", site_id)[-1]["changed"] == [{"path": "css/site.css", "change": "changed"}]
+    last = turn(client, "What is on the page?", site_id)[-1]
+    assert last["changed"] == [] and last["version"] is None  # nothing changed: no new version
+    detail = client.get(f"/api/sites/{site_id}", headers=LAB).json()
+    assert [v["n"] for v in detail["versions"]] == [1, 2]
+    assert [t["version"] for t in detail["turns"]] == [1, 2, None]
+    assert "fingerprint" not in detail["versions"][0]
+
+
+def test_an_old_version_is_served_as_it_was_sandboxed_with_the_reporter(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    old = client.get(f"/site-versions/{site_id}/1/css/site.css")
+    assert old.status_code == 200 and old.text == "h1{color:navy}"
+    assert old.headers["content-security-policy"].startswith("sandbox allow-scripts")
+    assert client.get(f"/sites/{site_id}/css/site.css").text == "h1{color:teal}"
+    page = client.get(f"/site-versions/{site_id}/1/index.html")
+    assert REPORTER in page.text and page.headers["content-security-policy"].startswith("sandbox")
+    assert client.get(f"/site-versions/{site_id}/99/index.html").status_code == 404
+    assert client.get(f"/site-versions/{site_id}/1/../../chat.json").status_code == 404
+    assert client.get(f"/site-versions/{site_id}/1/index.html", headers={"host": "evil.example"}).status_code == 404
+
+
+def test_restoring_a_version_is_itself_a_version_and_claude_is_told(tmp_path: Path) -> None:
+    client, fake, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE, LOOKS_RIGHT_REPLY, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    r = client.post(f"/api/sites/{site_id}/versions/1/restore", headers=LAB)
+    assert r.status_code == 200, r.text
+    detail = r.json()
+    assert [v["n"] for v in detail["versions"]] == [1, 2, 3] and detail["versions"][-1]["label"] == "Restored version 1"
+    assert detail["turns"][-1]["kind"] == "restore" and detail["turns"][-1]["version"] == 3
+    assert (tmp_path / "sites" / site_id / "site" / "css" / "site.css").read_text() == "h1{color:navy}"
+    # Restoring the current version again changes nothing and is refused; an unknown version is not found.
+    assert client.post(f"/api/sites/{site_id}/versions/3/restore", headers=LAB).status_code == 400
+    assert client.post(f"/api/sites/{site_id}/versions/42/restore", headers=LAB).status_code == 404
+    calls = len(fake.messages.calls)
+    turn(client, "Add a footer", site_id)
+    sent = fake.messages.calls[calls]["messages"][-1]["content"]
+    assert "restored version 1" in sent[0]["text"] and sent[-1]["text"] == "Add a footer"
+    # The notice is sent once, not with every later message.
+    again = client.get(f"/api/sites/{site_id}", headers=LAB).json()
+    assert len(again["turns"]) == 4
+
+
+def test_only_the_newest_versions_are_kept(tmp_path: Path) -> None:
+    edits = []
+    for i in range(MAX_VERSIONS + 3):
+        # No browser, so there is no screenshot check and each turn is exactly a write and a reply.
+        edits += [([write("index.html", f"<h1>Page {i}</h1>", f"toolu_{i}")], "tool_use"), ([text(f"v{i}")], "end_turn")]
+    client, _, _ = lab(tmp_path, *edits, browser=NS(available=False))
+    site_id = turn(client, "A page")[1]["site_id"]
+    for i in range(1, MAX_VERSIONS + 3):
+        turn(client, f"Change {i}", site_id)
+    versions = client.get(f"/api/sites/{site_id}", headers=LAB).json()["versions"]
+    assert len(versions) == MAX_VERSIONS and versions[0]["n"] == 4 and versions[-1]["n"] == MAX_VERSIONS + 3
+    kept = sorted(int(p.name) for p in (tmp_path / "sites" / site_id / "versions").iterdir())
+    assert kept == [v["n"] for v in versions]
+
+
+def test_versions_and_titles_survive_a_restart(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    assert client.patch(f"/api/sites/{site_id}", json={"title": "  Tide   times  "}, headers=LAB).json()["title"] == "Tide times"
+    again, _, _ = lab(tmp_path)
+    detail = again.get(f"/api/sites/{site_id}", headers=LAB).json()
+    assert detail["title"] == "Tide times" and [v["n"] for v in detail["versions"]] == [1]
+    listed = again.get("/api/sites", headers=LAB).json()["sites"][0]
+    assert listed["title"] == "Tide times" and listed["versions"] == 1 and listed["thumb"].endswith("-desktop-1.png")
+
+
+def test_a_bad_title_is_refused(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    assert client.patch(f"/api/sites/{site_id}", json={"title": "   "}, headers=LAB).status_code == 400
+    assert client.patch(f"/api/sites/{site_id}", json={"title": "x" * 300}, headers=LAB).status_code == 400
+    assert client.patch("/api/sites/0123456789ab", json={"title": "x"}, headers=LAB).status_code == 404
+
+
+def test_a_site_made_before_versions_gets_its_current_files_as_version_one(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    saved = tmp_path / "sites" / site_id / "chat.json"
+    data = json.loads(saved.read_text())
+    for key in ("versions", "next_version", "notice"):
+        data.pop(key)
+    saved.write_text(json.dumps(data))
+    import shutil
+    shutil.rmtree(tmp_path / "sites" / site_id / "versions")
+    again, _, _ = lab(tmp_path)
+    versions = again.get(f"/api/sites/{site_id}", headers=LAB).json()["versions"]
+    assert [(v["n"], v["label"]) for v in versions] == [(1, "Before versions were kept")]
+
+
+def test_a_busy_site_cannot_be_deleted_or_restored(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    site = client.app.state.container.sites.store.get(site_id)
+    assert site.busy.acquire(blocking=False)  # as while a turn is running
+    try:
+        assert client.delete(f"/api/sites/{site_id}", headers=LAB).status_code == 409
+        assert client.post(f"/api/sites/{site_id}/versions/1/restore", headers=LAB).status_code == 409
+        assert client.post("/api/sites/turn", json={"prompt": "More", "site_id": site_id}, headers=LAB).status_code == 409
+        assert client.get("/api/sites", headers=LAB).json()["sites"][0]["running"] is True
+    finally:
+        site.busy.release()
+    assert (tmp_path / "sites" / site_id / "site" / "index.html").is_file()
+    assert client.delete(f"/api/sites/{site_id}", headers=LAB).status_code == 200
+
+
+@pytest.mark.parametrize("html,first", [
+    ("<!doctype html><html><head><title>x</title></head><body></body></html>", "<!doctype html><html><head>"),
+    ("<!DOCTYPE html>\n<h1>No head</h1>", "<!DOCTYPE html>"),
+    ("<h1>Bare</h1>", ""),
+    ("<!doctype html><header>Not a head</header>", "<!doctype html>"),
+])
+def test_the_reporter_goes_first_in_the_head_and_never_before_the_doctype(html: str, first: str) -> None:
+    out = with_reporter(html)
+    assert out.startswith(first + REPORTER) and out.replace(REPORTER, "", 1) == html
+    assert "addEventListener('message'" not in REPORTER and "postMessage" in REPORTER  # it sends, it never listens
+
+
+def test_the_sites_own_scripts_load_with_cors_so_their_errors_can_be_read() -> None:
+    html = ('<script src="js/app.js"></script><script type="module" src=\'js/m.js\'></script>'
+            '<script src="https://cdn.example/lib.js"></script><script src="//cdn.example/x.js"></script>'
+            '<script src="js/a.js" crossorigin="anonymous"></script><script>inline()</script>')
+    out = cors_scripts(html)
+    assert '<script src="js/app.js" crossorigin>' in out and "<script type=\"module\" src='js/m.js' crossorigin>" in out
+    assert '<script src="https://cdn.example/lib.js">' in out and '<script src="//cdn.example/x.js">' in out
+    assert out.count("crossorigin") == 3 and "<script>inline()</script>" in out
+
+
+# ----- Review findings -----
+
+def test_finding_1_a_failed_restore_copy_leaves_the_live_site_untouched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.app.services import sites as sites_module
+
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    live = tmp_path / "sites" / site_id / "site"
+    real = sites_module.shutil.copytree
+
+    def failing(src: Any, dst: Any, *a: Any, **k: Any) -> Any:
+        if ".restore-" in str(dst):
+            raise OSError("disk full")
+        return real(src, dst, *a, **k)
+
+    monkeypatch.setattr(sites_module.shutil, "copytree", failing)
+    r = client.post(f"/api/sites/{site_id}/versions/1/restore", headers=LAB)
+    assert r.status_code == 500 and "unchanged" in r.json()["error"]["message"]
+    assert (live / "css" / "site.css").read_text() == "h1{color:teal}" and (live / "index.html").is_file()
+    assert not list((tmp_path / "sites" / site_id).glob(".restore-*"))
+    assert not list((tmp_path / "sites" / site_id).glob(".replaced-*"))
+    monkeypatch.setattr(sites_module.shutil, "copytree", real)
+    assert client.post(f"/api/sites/{site_id}/versions/1/restore", headers=LAB).status_code == 200  # the lock was released
+
+
+def test_finding_1_the_current_files_are_kept_as_a_version_before_a_restore(tmp_path: Path) -> None:
+    client, _, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    # The site is changed outside a turn (as after a stop part-way through), so the current files are in no version.
+    (tmp_path / "sites" / site_id / "site" / "extra.html").write_text("<p>unsaved</p>")
+    versions = client.post(f"/api/sites/{site_id}/versions/1/restore", headers=LAB).json()["versions"]
+    assert [v["label"] for v in versions][-2:] == ["Before restoring version 1", "Restored version 1"]
+    kept = tmp_path / "sites" / site_id / "versions" / str(versions[-2]["n"]) / "extra.html"
+    assert kept.read_text() == "<p>unsaved</p>"
+
+
+def test_finding_2_a_failing_snapshot_still_saves_the_turn_and_sends_the_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.app.services.sites import SiteService
+
+    def broken(self: Any, site: Any, label: str) -> None:
+        raise OSError("no space left on device")
+
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    monkeypatch.setattr(SiteService, "_snapshot", broken)
+    events = turn(client, "A page")
+    site_id = events[1]["site_id"]
+    last = events[-1]
+    assert last["type"] == "files" and sorted(f["path"] for f in last["files"]) == ["css/site.css", "index.html"]
+    assert last["version"] is None and "not kept as a version" in last["snapshot_error"]
+    assert not any(e["type"] == "error" for e in events)  # the turn's own outcome is not replaced
+    stored = client.get(f"/api/sites/{site_id}", headers=LAB).json()["turns"][0]
+    # The turn kept its reply (the answer to the screenshot check is the last one) alongside the failure.
+    assert stored["reply"] == "Looks right." and "no space left" in stored["snapshot_error"]
+
+
+def test_finding_3_reading_an_old_site_never_takes_its_lock(tmp_path: Path) -> None:
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    saved = tmp_path / "sites" / site_id / "chat.json"
+    data = json.loads(saved.read_text())
+    for key in ("versions", "next_version", "thumb"):
+        data.pop(key, None)
+    saved.write_text(json.dumps(data))
+    shutil.rmtree(tmp_path / "sites" / site_id / "versions")
+    again, _, _ = lab(tmp_path)
+    with ThreadPoolExecutor(8) as pool:
+        replies = list(pool.map(lambda _: again.get(f"/api/sites/{site_id}", headers=LAB).json(), range(8)))
+    assert all(r["running"] is False for r in replies)
+    assert all([v["n"] for v in r["versions"]] == [1] for r in replies)  # the one-off version is taken once
+    assert sorted(p.name for p in (tmp_path / "sites" / site_id / "versions").iterdir()) == ["1"]
+
+
+def test_finding_4_a_restore_to_before_a_message_clears_a_pending_version_notice(tmp_path: Path) -> None:
+    client, fake, _ = lab(tmp_path, BUILD, DONE, LOOKS_RIGHT_REPLY, EDIT, DONE, LOOKS_RIGHT_REPLY, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    turn(client, "Teal", site_id)
+    assert client.post(f"/api/sites/{site_id}/versions/1/restore", headers=LAB).status_code == 200
+    assert client.post(f"/api/sites/{site_id}/restore", json={"keep": 1}, headers=LAB).status_code == 200
+    calls = len(fake.messages.calls)
+    turn(client, "Add a footer", site_id)
+    sent = fake.messages.calls[calls]["messages"][-1]["content"]
+    assert [b["text"] for b in sent] == ["Add a footer"]
+
+
+def test_finding_5_the_list_of_sites_uses_the_remembered_screenshot(tmp_path: Path) -> None:
+    import shutil
+
+    client, _, _ = lab(tmp_path, BUILD, DONE)
+    site_id = turn(client, "A page")[1]["site_id"]
+    thumb = client.get("/api/sites", headers=LAB).json()["sites"][0]["thumb"]
+    assert thumb and thumb.endswith("-desktop-1.png")
+    assert json.loads((tmp_path / "sites" / site_id / "chat.json").read_text())["thumb"] == thumb
+    shutil.rmtree(tmp_path / "sites" / site_id / "shots")  # the list must not scan the folder again
+    assert client.get("/api/sites", headers=LAB).json()["sites"][0]["thumb"] == thumb

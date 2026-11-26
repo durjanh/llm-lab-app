@@ -1,64 +1,113 @@
 import { useEffect, useState } from 'react';
-import { sitesService, type SiteShot } from '@/services';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { modelNameStart } from '@/lib/models';
-import type { Turn } from './useSiteChat';
+import { sitesService, type SiteShot } from '@/services/sitesService';
+import { changeSummary, type Turn } from './model';
 
-const ICON = { request: 'C', write: '✎', read: '⌕', check: '◉', error: '!' } as const;
+const ICON = { request: '◆', write: '✎', read: '⌕', check: '◉', error: '!' } as const;
 const STATUS = {
-  running: '{who} is building. You can watch each file in Code, and the site in Preview.',
-  done: 'Done.',
+  running: '{who} is building…',
+  done: '',
   stopped: 'Stopped. Files already saved are kept.',
   error: 'Something went wrong.',
 } as const;
 
-/** One message and Claude's work on it: its steps, what it says, and the screenshots it was shown. */
-export function SiteTurnView({ turn, siteId, model, onRestore }: { turn: Turn; siteId: string | null; model: string; onRestore?: () => void }) {
-  const writes = turn.steps.filter((s) => s.kind === 'write').length;
-  return (
-    <div className="sb-turn">
-      <div className="sb-user">{turn.prompt}</div>
-      {onRestore && (
-        <button
-          className="sb-restore small"
-          title="Undo this message and everything after it"
-          onClick={() => {
-            if (window.confirm('Put the site back as it was before this message? This message and the ones after it are undone; the current files are kept in a backup folder on the server.')) onRestore();
-          }}
-        >
-          Restore to before this
-        </button>
-      )}
-      <div className={`sb-claude ${turn.state}`}>
-        <div className="small sb-status">
-          {turn.state === 'running' && <span className="spinner" aria-hidden="true" />} {turn.error ?? STATUS[turn.state].replace('{who}', modelNameStart(model))}
-          {turn.cost !== undefined && <span className="muted"> About ${turn.cost.toFixed(4)}.</span>}
-        </div>
-        {turn.steps.length > 0 && (
-          <details open={turn.state === 'running'}>
-            <summary className="small">
-              {turn.steps.length} steps{writes ? `, ${writes} file changes` : ''}
-            </summary>
-            <ol className="sb-steps">
-              {turn.steps.map((s, i) => (
-                <li key={i} className={`k-${s.kind}`}>
-                  <span className="sb-icon">{ICON[s.kind]}</span>
-                  <span>
-                    <b>{s.text}</b>
-                    {s.detail && <div className="detail">{s.detail}</div>}
-                    {siteId && s.shots && s.shots.length > 0 && <Shots siteId={siteId} shots={s.shots} />}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </details>
-        )}
-        {(turn.draft || turn.reply) && <div className="sb-reply">{turn.state === 'running' && turn.draft ? turn.draft : turn.reply}</div>}
+/** One message and the model's work on it: what it said, the files it changed, its steps and the screenshots it saw. */
+export function SiteTurnView({
+  turn,
+  siteId,
+  onShowVersion,
+}: {
+  turn: Turn;
+  siteId: string | null;
+  onShowVersion?: (n: number) => void;
+}) {
+  if (turn.kind === 'restore') {
+    return (
+      <div className="sb-note-line" role="note">
+        <span>{turn.reply}</span>
+        {turn.version !== null && <span className="sb-vchip">v{turn.version}</span>}
       </div>
-    </div>
+    );
+  }
+  const writes = turn.steps.filter((s) => s.kind === 'write').length;
+  const status = turn.error ?? STATUS[turn.state].replace('{who}', modelNameStart(turn.model));
+  const text = turn.state === 'running' && turn.draft ? turn.draft : turn.reply;
+  return (
+    <article className="sb-turn">
+      <div className="sb-user">{turn.prompt}</div>
+      <div className={`sb-reply ${turn.state}`}>
+        <div className="sb-avatar" aria-hidden="true" />
+        <div className="sb-reply-body">
+          {status && (
+            <div className={`small sb-status ${turn.state}`}>
+              {turn.state === 'running' && <span className="spinner" aria-hidden="true" />} {status}
+            </div>
+          )}
+          {text && (
+            <div className="sb-text" aria-live={turn.state === 'running' ? 'polite' : undefined}>
+              <Reply text={text} />
+            </div>
+          )}
+          {(turn.changed.length > 0 || turn.version !== null) && (
+            <div className="sb-changed">
+              <span className="sb-changed-sum">{changeSummary(turn.changed)}</span>
+              {turn.version !== null && (
+                <button
+                  className="sb-vchip"
+                  onClick={() => onShowVersion?.(turn.version as number)}
+                  title="Show this version"
+                  disabled={!onShowVersion}
+                >
+                  v{turn.version}
+                </button>
+              )}
+              {turn.changed.length > 0 && (
+                <ul className="sb-changed-list">
+                  {turn.changed.map((c) => (
+                    <li key={c.path} className={`c-${c.change}`}>
+                      <span className="sb-ch">{c.change === 'added' ? '+' : c.change === 'deleted' ? '−' : '~'}</span>
+                      {c.path}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {turn.snapshotError && <div className="small sb-problem">{turn.snapshotError}</div>}
+          {turn.steps.length > 0 && (
+            <details className="sb-work" open={turn.state === 'running'}>
+              <summary className="small">
+                Show work · {turn.steps.length} steps{writes ? `, ${writes} file saves` : ''}
+                {turn.cost !== undefined && ` · about $${turn.cost.toFixed(4)}`}
+              </summary>
+              <ol className="sb-steps">
+                {turn.steps.map((s, i) => (
+                  <li key={i} className={`k-${s.kind}`}>
+                    <span className="sb-icon" aria-hidden="true">
+                      {ICON[s.kind]}
+                    </span>
+                    <span>
+                      <b>{s.text}</b>
+                      {s.detail && <div className="detail">{s.detail}</div>}
+                      {siteId && s.shots && s.shots.length > 0 && <Shots siteId={siteId} shots={s.shots} />}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
+          {turn.steps.length === 0 && turn.cost !== undefined && turn.state === 'done' && (
+            <div className="small muted">About ${turn.cost.toFixed(4)}</div>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 
-/** Thumbnails of the screenshots Claude was shown. Click one to open it full size. */
+/** Thumbnails of the screenshots the model was shown. Click one to open it full size. */
 function Shots({ siteId, shots }: { siteId: string; shots: SiteShot[] }) {
   const [urls, setUrls] = useState<Record<string, string>>({});
 
@@ -85,7 +134,14 @@ function Shots({ siteId, shots }: { siteId: string; shots: SiteShot[] }) {
     <div className="sb-shots">
       {shots.map((s) =>
         urls[s.file] ? (
-          <a key={s.file} href={urls[s.file]} target="_blank" rel="noreferrer" title={s.name} className={s.name.split('-')[0]}>
+          <a
+            key={s.file}
+            href={urls[s.file]}
+            target="_blank"
+            rel="noreferrer"
+            title={s.name}
+            className={s.name.split('-')[0]}
+          >
             <img src={urls[s.file]} alt={`Screenshot ${s.name}`} />
           </a>
         ) : (
@@ -93,5 +149,24 @@ function Shots({ siteId, shots }: { siteId: string; shots: SiteShot[] }) {
         ),
       )}
     </div>
+  );
+}
+
+/** The model's reply as Markdown. react-markdown builds React elements and ignores raw HTML, so the text cannot
+    inject markup; links open in a new tab. */
+function Reply({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noreferrer noopener">
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
   );
 }

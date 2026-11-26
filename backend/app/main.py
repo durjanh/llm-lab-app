@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
@@ -25,7 +25,7 @@ from .core.body_limit import FORM_OVERHEAD, MB, BodyLimit
 from .core.errors import ApiError, error_response
 from .core.telemetry import RequestContext
 from .services.mcp_lab import PATH as MCP_LAB_PATH
-from .services.sites import TEXT_TYPES, FileProblem
+from .services.sites import TEXT_TYPES, FileProblem, with_reporter
 from .services.image_to_3d import MAX_IMAGE_BYTES as MAX_3D_IMAGE_BYTES
 from .services.voice_agent import MAX_AUDIO_BYTES
 from .settings import Settings
@@ -49,6 +49,7 @@ logging.getLogger("uvicorn.error").addFilter(_QuietShutdown())
 
 
 MAX_BODY_BYTES = 256 * MB
+ASSISTANT_UPLOAD_BYTES = 10 * 20 * MB  # ten files of 20 MB, the assistant's upload limit
 SHUTDOWN_WAIT_S = 10
 
 
@@ -118,6 +119,7 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
     # No body is read past its route's limit. The default sits above the largest upload any page sends (a 200 MB video
     # to translate); a route with a much smaller limit of its own is listed so it never takes in more than that.
     app.add_middleware(BodyLimit, default=MAX_BODY_BYTES, routes=[
+        (r"/api/assistant/chats/[0-9a-f]{32}/files", ASSISTANT_UPLOAD_BYTES + FORM_OVERHEAD),
         (r"/api/voice-agent/conversations/[0-9a-f]{12}/audio", MAX_AUDIO_BYTES + FORM_OVERHEAD),
         (r"/api/image-to-3d/generate", MAX_3D_IMAGE_BYTES + FORM_OVERHEAD),
     ])
@@ -141,22 +143,36 @@ SITE_HEADERS = {
 
 
 def mount_sites(app: FastAPI) -> None:
-    """Serve the site builder's sites at /sites/<id>/, for the preview and the screenshots."""
+    """Serve the site builder's sites at /sites/<id>/, and their kept versions at /site-versions/<id>/<n>/, for the
+    preview and the screenshots. HTML pages get the error reporter, which only posts messages to the frame's parent."""
 
-    @app.get("/sites/{site_id}/{path:path}", include_in_schema=False)
-    def site_page(site_id: str, path: str, request: Request):
+    def serve(request: Request, site_id: str, path: str, version: int | None):
         c: Container = request.app.state.container
         site = c.sites.store.get(site_id)
         if request.headers.get("host") not in c.settings.allowed_hosts | {f"127.0.0.1:{c.settings.port}"} or site is None:
             return error_response(404, "not_found", "Not found")
+        if version is not None and not any(v["n"] == version for v in site.versions):
+            return error_response(404, "not_found", "Not found")
+        files = site.files if version is None else site.version_files(version)
         try:
-            _, file = site.files.resolve(path or "index.html")
+            _, file = files.resolve(path or "index.html")
         except FileProblem:
             return error_response(404, "not_found", "Not found")
         if not file.is_file():
             return error_response(404, "not_found", "Not found")
         media = TEXT_TYPES[file.suffix.lower()]
+        if media == "text/html":
+            html = with_reporter(file.read_text(encoding="utf-8", errors="replace"))
+            return Response(html, media_type="text/html; charset=utf-8", headers=SITE_HEADERS)
         return FileResponse(file, media_type=f"{media}; charset=utf-8", headers=SITE_HEADERS)
+
+    @app.get("/sites/{site_id}/{path:path}", include_in_schema=False)
+    def site_page(site_id: str, path: str, request: Request):
+        return serve(request, site_id, path, None)
+
+    @app.get("/site-versions/{site_id}/{version}/{path:path}", include_in_schema=False)
+    def site_version_page(site_id: str, version: int, path: str, request: Request):
+        return serve(request, site_id, path, version)
 
 
 def mount_frontend(app: FastAPI, dist: Path) -> None:

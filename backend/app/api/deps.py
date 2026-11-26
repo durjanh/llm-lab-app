@@ -40,6 +40,7 @@ from ..services.whiteboard import WhiteboardService
 from ..services.token_counter import TokenCounterService
 from ..services.medassist_phone import MedAssistPhone
 from ..services.coding import CodingService
+from ..services.assistant import AssistantService
 from ..services.data_model import VIEWERS, Viewer
 from ..services.dataagent import DataAgentService
 from ..services.decks import DeckService
@@ -308,6 +309,10 @@ def workflows(c: Container = Depends(container)) -> WorkflowService:
 
 def coding(c: Container = Depends(container)) -> CodingService:
     return c.coding
+
+
+def assistant(c: Container = Depends(container)) -> AssistantService:
+    return c.assistant
 
 
 def data_viewer(request: Request) -> Viewer:

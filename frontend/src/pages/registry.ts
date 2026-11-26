@@ -89,6 +89,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'data-integration',
     ],
     'Agents to try': [
+      'assistant',
       'coding',
       'decks',
       'site-builder',
@@ -354,6 +355,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./harness/HarnessPage')),
+  },
+  {
+    id: 'assistant',
+    path: '/assistant',
+    title: 'Assistant',
+    label: 'Assistant',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./assistant/AssistantPage')),
   },
   {
     id: 'coding',

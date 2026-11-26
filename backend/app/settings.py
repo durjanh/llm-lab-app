@@ -108,6 +108,11 @@ class Settings:
     voice_agent_expressiveness: int = 2
     voice_agent_local_tts_port: int = 8098
     voice_agent_max_conversations: int = 20
+    # The assistant page (python/settings.py explains them).
+    assistant_run_budget_usd: float = 1.0
+    assistant_max_parallel_agents: int = 4
+    assistant_run_time_limit_s: int = 1800
+    assistant_compact_at_tokens: int = 80000
 
     @classmethod
     def from_env(cls, env: EnvSettings | None = None) -> "Settings":
@@ -175,6 +180,10 @@ class Settings:
             voice_agent_expressiveness=env.voice_agent_expressiveness,
             voice_agent_local_tts_port=env.voice_agent_local_tts_port,
             voice_agent_max_conversations=env.voice_agent_max_conversations,
+            assistant_run_budget_usd=env.assistant_run_budget_usd,
+            assistant_max_parallel_agents=env.assistant_max_parallel_agents,
+            assistant_run_time_limit_s=env.assistant_run_time_limit_s,
+            assistant_compact_at_tokens=env.assistant_compact_at_tokens,
         )
 
     @property

@@ -66,6 +66,10 @@ from .shared import ROOT, translator as shared_translator
 from .gateways.phone import CallAutomation, PhoneLine
 from .services.casework import CaseworkService
 from .services.coding import CodingService
+from .services.assistant import AssistantService
+from .services.assistant_store import ChatStore
+from .services.assistant_mcp import McpServers
+from .gateways.remote_mcp import StreamableHttpMcp
 from .services.dataagent import DataAgentService
 from .services.decks import DeckChats, DeckService
 from .services.documents import DocumentService
@@ -159,6 +163,7 @@ class Container:
     foundryops: FoundryOpsService
     dataagent: DataAgentService
     coding: CodingService
+    assistant: AssistantService
     runs: RunRegistry
     observability: ObservabilityService
     video_translate: VideoTranslateService
@@ -312,6 +317,9 @@ class Container:
             coding=CodingService(claude, spend, registry, streamer, settings.generated_dir / "coding-agent", gpt=gpt,
                                  memory=memory_stores,
                                  run_budget_usd=settings.run_budget_usd, approval_timeout_s=settings.approval_timeout_s),
+            assistant=AssistantService(claude, spend, registry, streamer, ChatStore(settings.generated_dir / "assistant"),
+                                       settings, McpServers(settings.generated_dir / "assistant" / "mcp.json",
+                                                            StreamableHttpMcp(), {settings.port, *settings.extra_ports})),
             searchlab=SearchLabService(tools, search, understanding, spend, settings.generated_dir / "search"),
             imagegen=imagegen,
             runs=registry,

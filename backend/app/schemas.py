@@ -304,6 +304,11 @@ class AssembleRequest(BaseModel):
     answers: dict[str, str | bool | list[str] | None] = Field(default_factory=dict, max_length=200)
 
 
+class SiteRenameRequest(BaseModel):
+    """A new title for a site."""
+    title: str = Field(min_length=1, max_length=200)
+
+
 class SiteRestoreRequest(BaseModel):
     """Restore a site to before its message number `keep` (0 is the first)."""
     keep: int = Field(ge=0, le=10_000)

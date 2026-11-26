@@ -174,6 +174,13 @@ class EnvSettings:
     voice_agent_expressiveness: int = 2
     voice_agent_local_tts_port: int = 8098
     voice_agent_max_conversations: int = 20
+    # The assistant page (/assistant). RUN_BUDGET_USD: what one turn may spend, its sub-agents included (the page can
+    # change it per message). MAX_PARALLEL_AGENTS: sub-agents running at once. RUN_TIME_LIMIT_S: the wall-clock ceiling
+    # of one turn. COMPACT_AT_TOKENS: a chat is summarised before a model call above this (or 70% of the model's window).
+    assistant_run_budget_usd: float = 1.0
+    assistant_max_parallel_agents: int = 4
+    assistant_run_time_limit_s: int = 1800
+    assistant_compact_at_tokens: int = 80000
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> "EnvSettings":
@@ -281,6 +288,10 @@ class EnvSettings:
             voice_agent_expressiveness=num("VOICE_AGENT_EXPRESSIVENESS", cls.voice_agent_expressiveness, 0, 3),
             voice_agent_local_tts_port=num("VOICE_AGENT_LOCAL_TTS_PORT", cls.voice_agent_local_tts_port, 1024, 65535),
             voice_agent_max_conversations=num("VOICE_AGENT_MAX_CONVERSATIONS", cls.voice_agent_max_conversations, 1, 100),
+            assistant_run_budget_usd=num("ASSISTANT_RUN_BUDGET_USD", cls.assistant_run_budget_usd, 0.05, 20),
+            assistant_max_parallel_agents=num("ASSISTANT_MAX_PARALLEL_AGENTS", cls.assistant_max_parallel_agents, 1, 8),
+            assistant_run_time_limit_s=num("ASSISTANT_RUN_TIME_LIMIT_S", cls.assistant_run_time_limit_s, 60, 7200),
+            assistant_compact_at_tokens=num("ASSISTANT_COMPACT_AT_TOKENS", cls.assistant_compact_at_tokens, 4000),
         )
 
 

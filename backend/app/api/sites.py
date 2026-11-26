@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 
 from ..core.errors import ApiError
-from ..schemas import SiteRestoreRequest, SiteTurnRequest
+from ..schemas import SiteRenameRequest, SiteRestoreRequest, SiteTurnRequest
 from ..services.sites import FileProblem, SiteService
 from .deps import require_budget, require_lab_page, site_service
 
@@ -29,8 +29,18 @@ def site_list(service: SiteService = Depends(site_service)) -> dict[str, Any]:
 
 @router.get("/sites/{site_id}")
 def site_detail(site_id: str, service: SiteService = Depends(site_service)) -> dict[str, Any]:
-    site = service.site(site_id)
-    return {"id": site.id, "title": site.title, "turns": site.turns, "files": site.files.listing()}
+    return service.detail(service.site(site_id))
+
+
+@router.patch("/sites/{site_id}")
+def site_rename(site_id: str, body: SiteRenameRequest, service: SiteService = Depends(site_service)) -> dict[str, Any]:
+    return service.detail(service.rename(site_id, body.title))
+
+
+@router.post("/sites/{site_id}/versions/{n}/restore")
+def site_restore_version(site_id: str, n: int, service: SiteService = Depends(site_service)) -> dict[str, Any]:
+    """The files as they were in version n, kept as a new version; nothing is lost."""
+    return service.detail(service.restore_version(site_id, n))
 
 
 @router.get("/sites/{site_id}/file")
@@ -60,8 +70,7 @@ def site_zip(site_id: str, service: SiteService = Depends(site_service)) -> Resp
 @router.post("/sites/{site_id}/restore")
 def site_restore(site_id: str, body: SiteRestoreRequest, service: SiteService = Depends(site_service)) -> dict[str, Any]:
     """Back to how the site was before one of its messages. The files it replaces are kept in backups/."""
-    site = service.restore(site_id, body.keep)
-    return {"id": site.id, "title": site.title, "turns": site.turns, "files": site.files.listing()}
+    return service.detail(service.restore(site_id, body.keep))
 
 
 @router.delete("/sites/{site_id}")

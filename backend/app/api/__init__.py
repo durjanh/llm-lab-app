@@ -114,3 +114,8 @@ router.include_router(voice_agent.router)
 from . import teammate  # noqa: E402  (Digital Teammate)
 
 router.include_router(teammate.router)
+
+from . import assistant  # noqa: E402  (the assistant: plans, works in the sandbox, makes files)
+
+router.include_router(assistant.router)
+router.include_router(assistant.media)  # made files and their previews, for <img>, <iframe> and download links
