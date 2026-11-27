@@ -6,7 +6,7 @@ Hands-on pages that show how large language models and the systems around them w
 
 **Only the frontend is hosted there; the backend is not.** Pages that run in your browser work as they do here. Anything that calls a model, a database or Azure (marked "Needs the backend" in [the labs table](#the-labs)) only works when you run the lab on your own machine, as [Start](#start) describes.
 
-**Read about it: [the LinkedIn post introducing LLM Lab](https://www.linkedin.com/feed/update/urn:li:activity:7529146303759450112/)**
+**Read about it and watch a demo video: [the LinkedIn post introducing LLM Lab](https://www.linkedin.com/feed/update/urn:li:activity:7529146303759450112/)**
 
 It has a **FastAPI** backend and a **React + TypeScript** frontend, kept separate.
 
