@@ -5,6 +5,8 @@ themselves, so tests can hand in a fake Claude client and nothing else changes.
 """
 from __future__ import annotations
 
+import logging
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,6 +22,7 @@ from .gateways.browser import ChromeScreenshotter, Screenshotter
 from .gateways.claude import ClaudeGateway
 from .gateways.foundry_agent import AgentConversations, FoundryAgent
 from .gateways.foundry_tools import FoundryTools
+from .core.lifecycle import Hook
 from .gateways.local_embeddings import LocalEmbedder, LocalEmbeddings
 from .services.aftercare import AftercareService
 from .services.aftercare_phone import AftercarePhone
@@ -178,6 +181,21 @@ class Container:
     control_layer: ControlLayerService | None = None
     # The shopping assistant: an invented shop on the pgvector database, with per-shopper row-level security.
     shop: ShopService | None = None
+
+    def lifecycle(self) -> list[Hook]:
+        """What starts with the app and stops with it. Deck and harness runs end at once, so their streams close and
+        a Ctrl+C stops the server in seconds; the shop's import stops after its batch (it carries on from there next
+        time) with its embedding worker; voice replies stop paying for model and voice calls, and the local voice
+        server lets go of its port."""
+        hooks = [Hook("Runs in progress", stop=self._end_runs)]
+        if self.shop is not None:
+            hooks.append(Hook("The shop's import and embedding worker", start=self.shop.start, stop=self.shop.shutdown))
+        hooks.append(Hook("Voice replies", stop=self.voice_agent.shutdown))
+        return hooks
+
+    def _end_runs(self) -> None:
+        if ended := self.runs.end_all():
+            logging.getLogger("backend").info("Stopped %d run(s) still in progress.", ended)
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,

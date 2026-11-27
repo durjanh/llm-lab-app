@@ -1148,9 +1148,25 @@ def test_a_database_outage_message_clears_once_it_answers_again(tmp_path, monkey
     assert worker.status()["message"] == "" and worker.message == ""
 
 
-def test_shutdown_stops_the_import_and_the_worker_side_by_side(tmp_path):
+def test_shutdown_stops_the_import_and_the_worker_side_by_side(tmp_path, monkeypatch):
+    """Both stops run at once, so shutting down waits for the slower one; a failure in one still lets the other
+    finish, and is raised after."""
     _, service, _ = make(tmp_path, products=0)
-    assert service.stoppers() == [service.importer.stop, service.worker.stop]
+    both = threading.Barrier(2, timeout=5)  # each stop waits for the other to have started: only side by side passes
+    stopped: list[str] = []
+
+    def importer_stop() -> None:
+        both.wait()
+        raise RuntimeError("the import could not stop")
+
+    def worker_stop() -> None:
+        both.wait()
+        stopped.append("worker")
+    monkeypatch.setattr(service.importer, "stop", importer_stop)
+    monkeypatch.setattr(service.worker, "stop", worker_stop)
+    with pytest.raises(RuntimeError, match="import could not stop"):
+        service.shutdown()
+    assert stopped == ["worker"]
 
 
 def test_the_lab_status_routes_say_the_database_is_down_not_a_500(tmp_path, monkeypatch):
@@ -1165,7 +1181,7 @@ def test_the_lab_status_routes_say_the_database_is_down_not_a_500(tmp_path, monk
     monkeypatch.setattr(service.importer, "stop", down)
     for r in (client.get("/api/shop/embedding", headers=LAB), client.get("/api/shop/import", headers=LAB),
               client.post("/api/shop/import/stop", headers=LAB_TAB)):
-        assert r.status_code == 503 and r.json()["error"]["type"] == "no_database", r.text
+        assert r.status_code == 503 and r.json()["error"]["type"] == "vector_db_unavailable", r.text
 
 
 def test_a_forced_generate_signs_shoppers_out_before_the_shop_is_replaced(tmp_path, monkeypatch):
@@ -1188,12 +1204,12 @@ def test_shutdown_still_stops_the_voice_agent_when_the_shop_fails_to_stop(tmp_pa
 
     def fails() -> None:
         raise RuntimeError("the connection could not be closed")
-    monkeypatch.setattr(container.shop, "start", lambda: None)
-    monkeypatch.setattr(container.shop, "stoppers", lambda: [fails, lambda: stopped.append("worker")])
+    monkeypatch.setattr(container.shop, "start", lambda: stopped.append("shop started"))
+    monkeypatch.setattr(container.shop, "shutdown", fails)
     monkeypatch.setattr(container.voice_agent, "shutdown", lambda: stopped.append("voice"))
     with TestClient(app, base_url="http://localhost:8000"):
         pass
-    assert "voice" in stopped and "worker" in stopped
+    assert stopped == ["shop started", "voice"]  # the shop's failure is logged; the voice agent still stopped
 
 
 def test_basket_lines_carry_the_kind_and_colour_their_pictures_are_drawn_from(tmp_path):

@@ -9,11 +9,12 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..core.body_limit import FORM_OVERHEAD, LimitedRoute, limit
 from ..services.assistant import AssistantService
-from ..services.assistant_store import MAX_FILE_BYTES
+from ..services.assistant_store import MAX_FILE_BYTES, MAX_FILES
 from .deps import assistant, require_budget, require_lab_page
 
-router = APIRouter(dependencies=[Depends(require_lab_page)])
+router = APIRouter(dependencies=[Depends(require_lab_page)], route_class=LimitedRoute)
 media = APIRouter()  # <img>, <iframe> and download links cannot send the lab header; the chat id (128 bits) is the key
 NDJSON = {"media_type": "application/x-ndjson", "headers": {"Cache-Control": "no-store"}}
 
@@ -100,7 +101,7 @@ def turn_log(chat_id: str, turn_id: str, service: AssistantService = Depends(ass
     return service.turn_log(chat_id, turn_id)
 
 
-@router.post("/assistant/chats/{chat_id}/files")
+@router.post("/assistant/chats/{chat_id}/files", openapi_extra=limit(MAX_FILES * MAX_FILE_BYTES + FORM_OVERHEAD))
 async def upload(chat_id: str, files: list[UploadFile] = File(...),
                  service: AssistantService = Depends(assistant)) -> list[dict[str, Any]]:
     """Puts files in the chat's inputs/ folder. Free: nothing is sent to a model until a message attaches them."""

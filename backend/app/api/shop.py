@@ -13,8 +13,7 @@ generate that would replace the shop while shoppers are signed in or a checkout 
 """
 from __future__ import annotations
 
-import functools
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -22,13 +21,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.errors import ApiError
-from ..gateways.pgvector import VectorDbUnavailable
+from ..core.body_limit import FORM_OVERHEAD, MB, LimitedRoute, default_limit, limit
 from ..services.shop import ShopService
 from ..services.shop_import import MAX_FILE_BYTES
 from ..services.site_uploads import MAX_FILES, MAX_IMAGE_BYTES
 from .deps import require_budget, require_lab_page, shop
 
-router = APIRouter(dependencies=[Depends(require_lab_page)])
+router = APIRouter(dependencies=[Depends(require_lab_page)], route_class=LimitedRoute)
 NDJSON = {"media_type": "application/x-ndjson", "headers": {"Cache-Control": "no-store"}}
 Token = Header(default=None, alias="X-Shop-Session", max_length=200)
 
@@ -44,17 +43,6 @@ def require_lab_tab(x_shop_lab: str | None = Header(default=None, alias="X-Shop-
 
 
 Lab = [Depends(require_lab_tab)]
-
-
-def db(fn: Callable[..., Any]) -> Callable[..., Any]:
-    """The database being down is a 503 with what to start, not a server error."""
-    @functools.wraps(fn)
-    def wrapped(*args: Any, **kwargs: Any) -> Any:
-        try:
-            return fn(*args, **kwargs)
-        except VectorDbUnavailable as exc:
-            raise ApiError(503, "no_database", str(exc)) from exc
-    return wrapped
 
 
 class SignIn(BaseModel):
@@ -126,33 +114,28 @@ class Retry(BaseModel):
 
 # ----- the shop and signing in -----
 @router.get("/shop/info")
-@db
 def shop_info(service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.info()
 
 
 @router.get("/shop/customers")
-@db
 def shop_customers(limit: int = 50, service: ShopService = Depends(shop)) -> list[dict[str, Any]]:
     """The demo shoppers, for the sign-in switcher (a lab stand-in for real sign-in)."""
     return service.customers(limit)
 
 
 @router.post("/shop/session")
-@db
 def shop_session(body: SignIn, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.sign_in(body.customer_id, body.guest_events)
 
 
 @router.post("/shop/accounts")
-@db
 def shop_account(body: Account, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.create_account(body.display_name, body.email, body.guest_events)
 
 
 # ----- the catalogue -----
 @router.get("/shop/products")
-@db
 def shop_products(query: str = Query(default="", max_length=200), category: str | None = None,
                   max_price_pence: int | None = None, min_rating: float | None = None, size: str | None = None,
                   colour: str | None = None, in_stock_only: bool = False, limit: int = 24,
@@ -162,37 +145,31 @@ def shop_products(query: str = Query(default="", max_length=200), category: str 
 
 
 @router.get("/shop/products/{product_id}")
-@db
 def shop_product(product_id: str, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.product(product_id)
 
 
 @router.post("/shop/products", dependencies=Lab)
-@db
 def shop_add_product(body: dict[str, Any], service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.add_product(body)
 
 
 @router.patch("/shop/products/{product_id}", dependencies=Lab)
-@db
 def shop_edit_product(product_id: str, body: dict[str, Any], service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.edit_product(product_id, body)
 
 
 @router.delete("/shop/products/{product_id}", dependencies=Lab)
-@db
 def shop_delete_product(product_id: str, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.delete_product(product_id)
 
 
 @router.get("/shop/embedding")
-@db
 def shop_embedding(service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.embedding()
 
 
 @router.post("/shop/embedding/retry", dependencies=Lab)
-@db
 def shop_embedding_retry(body: Retry, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.retry_embedding(body.ids)
 
@@ -208,89 +185,75 @@ Shopper = Depends(signed_in)
 
 # ----- the shopper's own things -----
 @router.get("/shop/basket")
-@db
 def shop_basket(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.basket(cid)
 
 
 @router.post("/shop/basket/items")
-@db
 def shop_basket_add(body: AddItem, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.add_to_basket(cid, body.product_id, body.quantity, body.size)
 
 
 @router.patch("/shop/basket/items/{item_id}")
-@db
 def shop_basket_update(item_id: str, body: Quantity, cid: str = Shopper,
                        service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.update_basket_item(cid, item_id, body.quantity)
 
 
 @router.delete("/shop/basket/items/{item_id}")
-@db
 def shop_basket_remove(item_id: str, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.remove_from_basket(cid, item_id)
 
 
 @router.post("/shop/checkout")
-@db
 def shop_checkout(body: Checkout, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     """Prepares a checkout. Nothing is ordered until /shop/confirm."""
     return service.propose_checkout(cid, body.delivery)
 
 
 @router.post("/shop/returns")
-@db
 def shop_return(body: Return, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.propose_return(cid, body.order_item_id, body.reason)
 
 
 @router.post("/shop/confirm")
-@db
 def shop_confirm(body: Confirm, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     """The person pressed Confirm (or Cancel): the only way an order or a return is placed."""
     return service.confirm(cid, body.confirmation_id, body.accept)
 
 
 @router.get("/shop/orders")
-@db
 def shop_orders(limit: int = 20, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.orders(cid, limit)
 
 
 @router.get("/shop/wishlist")
-@db
 def shop_wishlist(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.wishlist(cid)
 
 
 @router.post("/shop/wishlist")
-@db
 def shop_wish(body: Wish, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.add_to_wishlist(cid, body.product_id)
 
 
 # ----- browsing behaviour -----
 @router.post("/shop/events")
-@db
 def shop_events(body: Events, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.record_events(cid, body.events)
 
 
 @router.get("/shop/profile")
-@db
 def shop_profile(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.profile(cid)
 
 
 @router.delete("/shop/activity")
-@db
 def shop_forget(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.forget_activity(cid)
 
 
 @router.post("/shop/recommendations")
-@db
 def shop_recommendations(body: Recommend, token: str | None = Token,
                          service: ShopService = Depends(shop)) -> dict[str, Any]:
     """From the stored profile when signed in (any summary sent is ignored); from the guest's checked summary
@@ -300,7 +263,7 @@ def shop_recommendations(body: Recommend, token: str | None = Token,
 
 
 # ----- the chat -----
-@router.post("/shop/uploads")
+@router.post("/shop/uploads", openapi_extra=limit(MAX_FILES * MAX_IMAGE_BYTES + FORM_OVERHEAD))
 async def shop_uploads(files: list[UploadFile] = File(...), caller: str | None = Form(default=None),
                        token: str | None = Token, service: ShopService = Depends(shop)) -> list[dict[str, Any]]:
     """Pictures for the next message ("find me something like this"). Free: nothing reaches a model until a message
@@ -313,43 +276,38 @@ async def shop_uploads(files: list[UploadFile] = File(...), caller: str | None =
 
 
 @router.post("/shop/chat", dependencies=[Depends(require_budget)])
-@db
 def shop_chat(body: Chat, token: str | None = Token, service: ShopService = Depends(shop)) -> StreamingResponse:
     return StreamingResponse(service.chat(token, body.model_dump()), **NDJSON)
 
 
 # ----- the data behind the shop -----
 @router.get("/shop/import")
-@db
 def shop_import_state(service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.importer.state()
 
 
 @router.post("/shop/generate", dependencies=Lab)
-@db
 def shop_generate(body: Generate, service: ShopService = Depends(shop)) -> dict[str, Any]:
     """Starts the seeded generator (409 while an import runs); generating the same size again after a stop resumes."""
     return service.generate(body.size, body.force)
 
 
-@router.post("/shop/import", dependencies=Lab)
+@router.post("/shop/import", dependencies=Lab, openapi_extra=limit(MAX_FILE_BYTES + FORM_OVERHEAD))
 async def shop_import(file: UploadFile = File(...), kind: str = Form(...),
                       service: ShopService = Depends(shop)) -> dict[str, Any]:
     raw = await file.read(MAX_FILE_BYTES + 1)
-    try:
-        return await run_in_threadpool(service.importer.import_file, kind, file.filename or "", raw)
-    except VectorDbUnavailable as exc:
-        raise ApiError(503, "no_database", str(exc)) from exc
+    return await run_in_threadpool(service.importer.import_file, kind, file.filename or "", raw)
 
 
 @router.post("/shop/import/stop", dependencies=Lab)
-@db
 def shop_import_stop(service: ShopService = Depends(shop)) -> dict[str, Any]:
     return service.importer.stop()
 
 
 @router.post("/shop/isolation-check")
-@db
 def shop_isolation(token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
     """The fishing suite, live: each attempt to reach another shopper's data, and whether it was held."""
     return service.isolation_check(token)
+
+
+default_limit(router, 2 * MB)  # every other shop route takes JSON, never a file

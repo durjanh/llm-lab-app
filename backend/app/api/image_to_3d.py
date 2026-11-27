@@ -7,10 +7,11 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Form, Path, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
+from ..core.body_limit import FORM_OVERHEAD, LimitedRoute, limit
 from ..services.image_to_3d import MAX_IMAGE_BYTES, ImageTo3DService
 from .deps import image_to_3d, require_lab_page
 
-router = APIRouter(dependencies=[Depends(require_lab_page)])
+router = APIRouter(dependencies=[Depends(require_lab_page)], route_class=LimitedRoute)
 ResultId = Annotated[str, Path(pattern=r"^[0-9a-f]{12}$")]
 
 
@@ -19,7 +20,7 @@ def info(service: ImageTo3DService = Depends(image_to_3d)) -> dict[str, Any]:
     return service.info()
 
 
-@router.post("/image-to-3d/generate")
+@router.post("/image-to-3d/generate", openapi_extra=limit(MAX_IMAGE_BYTES + FORM_OVERHEAD))
 async def generate(file: UploadFile, mode: Annotated[Literal["real", "synthetic"], Form()] = "real",
                    seed: Annotated[int, Form(ge=0, le=100_000)] = 42, steps: Annotated[int, Form(ge=5, le=100)] = 50,
                    num_gaussians: Annotated[int, Form()] = 262_144,

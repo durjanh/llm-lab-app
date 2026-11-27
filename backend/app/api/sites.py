@@ -9,13 +9,14 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 
 from ..core.errors import ApiError
+from ..core.body_limit import FORM_OVERHEAD, LimitedRoute, limit
 from ..schemas import SiteRenameRequest, SiteRestoreRequest, SiteTurnRequest
 from ..services.site_uploads import MAX_FILES, MAX_PDF_BYTES
 from ..services.sites import FileProblem, SiteService
 from ..settings import MODELS
 from .deps import require_budget, require_lab_page, site_service
 
-router = APIRouter(dependencies=[Depends(require_lab_page)])
+router = APIRouter(dependencies=[Depends(require_lab_page)], route_class=LimitedRoute)
 SHOT_NAME = re.compile(r"^[\w.-]+\.png$")
 
 
@@ -32,7 +33,7 @@ def site_list(service: SiteService = Depends(site_service)) -> dict[str, Any]:
             "models": {m: service.capabilities(m) for m in MODELS}}
 
 
-@router.post("/sites/uploads")
+@router.post("/sites/uploads", openapi_extra=limit(MAX_FILES * MAX_PDF_BYTES + FORM_OVERHEAD))
 async def site_uploads(files: list[UploadFile] = File(...), caller: str | None = Form(default=None),
                        service: SiteService = Depends(site_service)) -> list[dict[str, Any]]:
     """Files for a message that has not been sent yet, so a first message can carry them before its site exists.

@@ -10,10 +10,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.errors import ApiError
-from ..services.voice_agent import MAX_PLAYED_MS, MAX_SPEAK, MAX_TEXT, VoiceAgentService, normalise_report
+from ..core.body_limit import FORM_OVERHEAD, LimitedRoute, limit
+from ..services.voice_agent import (MAX_AUDIO_BYTES, MAX_PLAYED_MS, MAX_SPEAK, MAX_TEXT, VoiceAgentService,
+                                    normalise_report)
 from .deps import require_budget, require_lab_page, voice_agent
 
-router = APIRouter(dependencies=[Depends(require_lab_page)])
+router = APIRouter(dependencies=[Depends(require_lab_page)], route_class=LimitedRoute)
 Cid = Annotated[str, Path(pattern=r"^[0-9a-f]{12}$")]
 NDJSON = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
 
@@ -133,7 +135,8 @@ def text_turn(body: TextTurn, cid: Cid, service: VoiceAgentService = Depends(voi
     return service.text_turn(cid, body.text)
 
 
-@router.post("/voice-agent/conversations/{cid}/audio", dependencies=[Depends(require_budget)])
+@router.post("/voice-agent/conversations/{cid}/audio", dependencies=[Depends(require_budget)],
+             openapi_extra=limit(MAX_AUDIO_BYTES + FORM_OVERHEAD))
 async def audio_turn(file: UploadFile, cid: Cid, service: VoiceAgentService = Depends(voice_agent)) -> dict[str, Any]:
     """A recorded turn: a mono 16-bit WAV, transcribed by Azure, then handled as a finished turn."""
     data = await file.read(service.info()["limits"]["audio_bytes"] + 1)

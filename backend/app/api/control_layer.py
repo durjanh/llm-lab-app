@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from ..core.errors import ApiError
+from ..core.body_limit import MB, LimitedRoute, limit
 from ..settings import MODELS
 from .deps import Container, container, require_lab_page
 
@@ -57,7 +58,7 @@ def revoke_key(key_id: str, svc: Any = Depends(service)) -> Response:
 
 # ---------- the proxy: /control/v1/..., for tools pointed at ANTHROPIC_BASE_URL=http://127.0.0.1:<port>/control ----------
 
-proxy = APIRouter(prefix="/control/v1")
+proxy = APIRouter(prefix="/control/v1", route_class=LimitedRoute)
 
 
 def _fail(status: int, message: str) -> JSONResponse:
@@ -86,7 +87,7 @@ async def _body(request: Request) -> Any:
         raise ApiError(400, "invalid_request", "The body must be JSON.") from None
 
 
-@proxy.post("/messages")
+@proxy.post("/messages", openapi_extra=limit(32 * MB))  # a long conversation with pictures, not a video
 async def messages(request: Request, c: Container = Depends(container)) -> Any:
     """The Messages API, streamed or not, under the calling key's policy and the lab's own gateway."""
     caller = _caller(request, c)
@@ -110,7 +111,7 @@ async def messages(request: Request, c: Container = Depends(container)) -> Any:
         return _fail(status, message)
 
 
-@proxy.post("/messages/count_tokens")
+@proxy.post("/messages/count_tokens", openapi_extra=limit(32 * MB))
 async def count_tokens(request: Request, c: Container = Depends(container)) -> Any:
     caller = _caller(request, c)
     if isinstance(caller, JSONResponse):

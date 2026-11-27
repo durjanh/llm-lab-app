@@ -20,10 +20,11 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Callable, Iterator
+from typing import Any, Iterator
 
 from ..core.errors import ApiError, describe
 from ..core.files import write_atomic
@@ -150,13 +151,14 @@ class ShopService:
         if getattr(self.store, "url", "memory"):  # it waits out a database that is down, and carries on when it is up
             self.worker.start()
 
-    def stoppers(self) -> list[Callable[[], Any]]:
-        """The import and the embedding worker's stops, which the app runs side by side when it shuts down."""
-        return [self.importer.stop, self.worker.stop]
-
     def shutdown(self) -> None:
-        for stop in self.stoppers():
-            stop()
+        """Stops the import (after its current batch: generating again carries on) and the embedding worker side by
+        side, so shutting down waits for the slower of the two, not both. A failure in either is raised once both
+        have finished."""
+        with ThreadPoolExecutor(2, thread_name_prefix="shop-stop") as pool:
+            stops = [pool.submit(self.importer.stop), pool.submit(self.worker.stop)]
+        for stop in stops:
+            stop.result()
 
     def use_store(self, store: Any) -> None:
         """Tests: a memory store, or a PostgreSQL store on a throwaway schema."""

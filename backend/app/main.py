@@ -21,16 +21,14 @@ from .api import router
 from .api.aftercare import CALL_EVENTS
 from .api.medassist import LINE
 from .container import Container
-from .core.body_limit import FORM_OVERHEAD, MB, BodyLimit
+from .core.body_limit import MB, BodyLimit
 from .core.errors import ApiError, error_response
+from .core.lifecycle import start_all, stop_all
 from .core.telemetry import RequestContext
+from .gateways.pgvector import VectorDbUnavailable
 from .api.control_layer import proxy as control_proxy
 from .services.mcp_lab import PATH as MCP_LAB_PATH
 from .services.sites import TEXT_TYPES, FileProblem, with_reporter
-from .services.site_uploads import MAX_FILES as SITE_UPLOAD_MAX_FILES, MAX_PDF_BYTES as SITE_UPLOAD_MAX_PDF_BYTES
-from .services.site_uploads import MAX_IMAGE_BYTES as SITE_UPLOAD_MAX_IMAGE_BYTES
-from .services.image_to_3d import MAX_IMAGE_BYTES as MAX_3D_IMAGE_BYTES
-from .services.voice_agent import MAX_AUDIO_BYTES
 from .settings import Settings
 from .shared import make_client
 
@@ -52,7 +50,6 @@ logging.getLogger("uvicorn.error").addFilter(_QuietShutdown())
 
 
 MAX_BODY_BYTES = 256 * MB
-ASSISTANT_UPLOAD_BYTES = 10 * 20 * MB  # ten files of 20 MB, the assistant's upload limit
 SHUTDOWN_WAIT_S = 10
 
 
@@ -66,32 +63,13 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # The MCP lab's server is a mounted app; mounted apps' startup does not run by itself.
         mcp_app = app.state.container.mcp_lab.app
-        shop = app.state.container.shop
-        if shop is not None:  # the shop's embedding worker runs with the app, and stops with it
-            await asyncio.to_thread(shop.start)
+        hooks = app.state.container.lifecycle()
+        await start_all(hooks)
         try:
             async with mcp_app.router.lifespan_context(mcp_app):
                 yield
-        finally:
-            # Ctrl+C: end deck and harness runs first, so their streams close and the server stops in seconds.
-            if ended := app.state.container.runs.end_all():
-                logging.info("Stopped %d run(s) still in progress.", ended)
-            if shop is not None:  # the import stops after its batch (it carries on next time) and the worker with it
-                try:
-                    results = await asyncio.wait_for(asyncio.gather(*(asyncio.to_thread(f) for f in shop.stoppers()),
-                                                                    return_exceptions=True), SHUTDOWN_WAIT_S)
-                    for r in results:
-                        if isinstance(r, BaseException):  # logged, so the voice shutdown below still runs
-                            logging.warning("The shop did not stop cleanly: %s: %s", type(r).__name__, r)
-                except asyncio.TimeoutError:
-                    logging.warning("The shop's import was still finishing a batch after %d s; it carries on from "
-                                    "there next time.", SHUTDOWN_WAIT_S)
-            # Voice replies run in their own threads, and the local voice is a child process: end both, waiting a bounded
-            # time for a reply that is part way through a call.
-            try:
-                await asyncio.wait_for(asyncio.to_thread(app.state.container.voice_agent.shutdown), SHUTDOWN_WAIT_S)
-            except asyncio.TimeoutError:
-                logging.warning("Voice replies were still finishing after %d s; the server stops without them.", SHUTDOWN_WAIT_S)
+        finally:  # Ctrl+C, a reload, or a failed start: everything with background work stops, side by side
+            await stop_all(hooks, SHUTDOWN_WAIT_S)
 
     app = FastAPI(title="LLM Lab API", version="1.0.0", lifespan=lifespan,
                   description="Proxies Claude API calls for the lab pages, with a spending cap.")
@@ -102,6 +80,12 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
     @app.exception_handler(ApiError)
     async def on_api_error(_: Request, exc: ApiError) -> JSONResponse:
         return error_response(exc.status, exc.kind, exc.message)
+
+    @app.exception_handler(VectorDbUnavailable)
+    async def on_no_database(_: Request, exc: VectorDbUnavailable) -> JSONResponse:
+        """The lab's PostgreSQL is not running or not set: a 503 saying what to start, from any route, rather than a
+        server error. Work inside a streamed run reports it in its own stream instead."""
+        return error_response(503, "vector_db_unavailable", str(exc))
 
     @app.exception_handler(RequestValidationError)
     async def on_invalid(_: Request, exc: RequestValidationError) -> JSONResponse:
@@ -135,17 +119,9 @@ def create_app(settings: Settings | None = None, client: Any = None, browser: An
             response.headers.setdefault("Cache-Control", "no-cache")
         return response
 
-    # No body is read past its route's limit. The default sits above the largest upload any page sends (a 200 MB video
-    # to translate); a route with a much smaller limit of its own is listed so it never takes in more than that.
-    app.add_middleware(BodyLimit, default=MAX_BODY_BYTES, routes=[
-        (r"/api/assistant/chats/[0-9a-f]{32}/files", ASSISTANT_UPLOAD_BYTES + FORM_OVERHEAD),
-        (r"/api/voice-agent/conversations/[0-9a-f]{12}/audio", MAX_AUDIO_BYTES + FORM_OVERHEAD),
-        (r"/api/image-to-3d/generate", MAX_3D_IMAGE_BYTES + FORM_OVERHEAD),
-        (r"/api/sites/uploads", SITE_UPLOAD_MAX_FILES * SITE_UPLOAD_MAX_PDF_BYTES + FORM_OVERHEAD),
-        (r"/api/shop/uploads", SITE_UPLOAD_MAX_FILES * SITE_UPLOAD_MAX_IMAGE_BYTES + FORM_OVERHEAD),
-        (r"/api/shop/(?!uploads$|import$).*", 2 * MB),  # every other shop route takes JSON, never a file
-        (r"/control/v1/messages(/count_tokens)?", 32 * MB),  # a long conversation with pictures, not a video
-    ])
+    # No body is read past the app's ceiling, which sits above the largest upload any page sends (a 200 MB video to
+    # translate). Routes that take less declare it themselves (`openapi_extra=limit(...)` on a LimitedRoute router).
+    app.add_middleware(BodyLimit, default=MAX_BODY_BYTES)
     app.add_middleware(RequestContext)  # outermost: names each request's area and trace for the call log
 
     if settings.models_dir.is_dir():
