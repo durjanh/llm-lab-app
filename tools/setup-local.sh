@@ -12,6 +12,7 @@
 # The labs with their own Python environments are separate: ./tools/setup-envs.sh. Azure is separate: azd up.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+. tools/lib.sh
 
 CHAT=1
 DATA=1
@@ -19,8 +20,8 @@ for arg in "$@"; do
   case "$arg" in
     --no-chat-model) CHAT=0 ;;
     --no-data) DATA=0 ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
-    *) sed -n '2,13p' "$0"; exit 1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage; exit 1 ;;
   esac
 done
 
@@ -28,7 +29,7 @@ if ! docker info >/dev/null 2>&1; then
   echo "Docker is not running. Open Docker Desktop, wait until it says it is running, then run this again." >&2
   exit 1
 fi
-[ -x .venv/bin/python ] || { echo "No .venv yet: do the one-time setup in the main README first (Start)." >&2; exit 1; }
+need_venv
 [ -d frontend/node_modules ] || echo "Note: frontend/node_modules is missing; run npm install in frontend/ before the dev server."
 
 failed=()

@@ -10,12 +10,13 @@
 # Building the GraphRAG graph from its sample calls a model, so that stays on the /graphrag page (Build).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. tools/lib.sh
 
+need_venv
 PY=.venv/bin/python
-[ -x "$PY" ] || { echo "No .venv here. Set it up first: python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt" >&2; exit 1; }
 
 case "${1:-}" in
-  -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+  -h|--help) usage; exit 0 ;;
   "")
     ./tools/vector-db.sh
     ./tools/local-model.sh --embed

@@ -124,8 +124,8 @@ class EmbedWorker:
         """Rebuilds the HNSW index in the background once churn passes the share. True when it started one."""
         store = self.store()
         try:
-            products = max(store.counts()["products"], 1)
-            if store.churn() <= self.churn_share * products or not store.has_index():
+            churn = store.churn()  # one row of meta: most batches stop here
+            if not churn or churn <= self.churn_share * max(store.approx_products(), 1) or not store.has_index():
                 return False
         except VectorDbUnavailable:
             return False
@@ -174,13 +174,13 @@ class EmbedWorker:
         thread = self._thread
         if thread is not None:
             thread.join(timeout_s)
-        try:
-            closer = getattr(self.store(), "close", None)
-            if closer and not (thread and thread.is_alive()):
-                closer()
-        except Exception:  # noqa: BLE001
-            pass
-        return not (thread and thread.is_alive())
+        stopped = not (thread and thread.is_alive())
+        if stopped:  # its connections go with it; a thread still running keeps them until it ends
+            try:
+                self.store().close()
+            except Exception:  # noqa: BLE001  (shutting down: say so, but do not stop the rest stopping)
+                log.warning("Shop: the store's connections could not be closed.", exc_info=True)
+        return stopped
 
     def paused(self) -> bool:
         """True while the embedding server is down and the worker is waiting before it tries again."""
@@ -207,10 +207,15 @@ class EmbedWorker:
                 log.exception("Shop: the embedding worker hit an error; it carries on.")
                 self._stop.wait(self.poll_s)
 
-    def status(self) -> dict[str, Any]:
+    def rate_per_min(self) -> int:
+        """Products embedded in the last minute."""
         now = time.time()
         while self._recent and now - self._recent[0][0] > 60:
             self._recent.popleft()
+        return sum(n for _, n in self._recent)
+
+    def status(self) -> dict[str, Any]:
+        rate = self.rate_per_min()
         message = self.message
         try:
             queue = self.store().embedding_status()
@@ -221,6 +226,6 @@ class EmbedWorker:
             if self._db_down is not None and self.message == self._db_down:
                 message = self.message = ""  # the loop's own "did not answer", from before the database came back
             self._db_down = None
-        return {**queue, "last_batch_at": self.last_batch_at, "rate_per_min": sum(n for _, n in self._recent),
+        return {**queue, "last_batch_at": self.last_batch_at, "rate_per_min": rate,
                 "model": self.model(), "running": self.running, "message": message,
                 "reindexing": self._reindexing.locked()}

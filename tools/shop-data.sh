@@ -16,12 +16,13 @@
 # The backend keeps embeddings in step by itself while it runs; `embed` is for changes made while it was stopped.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. tools/lib.sh
 
+need_venv
 PY=.venv/bin/python
-[ -x "$PY" ] || { echo "No .venv here. Set it up first: python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt" >&2; exit 1; }
 
 case "${1:-setup}" in
-  -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+  -h|--help) usage; exit 0 ;;
   setup)
     ./tools/vector-db.sh
     ./tools/local-model.sh --embed || echo "No embedding model, so products are found by their words only. Run ./tools/local-model.sh --embed later, then ./tools/shop-data.sh embed."

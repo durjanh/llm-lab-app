@@ -255,9 +255,7 @@ def main(argv: list[str] | None = None, shop: Shop | None = None) -> int:
         print(f"{exc.strerror}: {exc.filename}" if exc.filename else str(exc), file=sys.stderr)
         return 1
     finally:
-        close = getattr(shop.store, "close", None)
-        if close:
-            close()
+        shop.store.close()
 
 
 if __name__ == "__main__":

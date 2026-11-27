@@ -19,12 +19,14 @@ import secrets
 import threading
 import time
 import uuid
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterator
 
 from ..core.errors import ApiError, describe
+from ..core.files import write_atomic
 from ..gateways.pgvector import VectorDbUnavailable
 from ..settings import MODELS, Settings
 from ..shared import is_local
@@ -92,11 +94,7 @@ class Conversations:
         return data if data.get("owner") == (owner or "") else None
 
     def save(self, conv: dict[str, Any]) -> None:
-        path = self._path(conv["owner"] or None, conv["id"])
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(conv, default=str), encoding="utf-8")
-        tmp.replace(path)
+        write_atomic(self._path(conv["owner"] or None, conv["id"]), json.dumps(conv, default=str))
 
 
 def repaired(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -139,7 +137,7 @@ class ShopService:
         self._pending: dict[str, dict[str, Any]] = {}  # confirmation id -> what it would do
         self._decided: dict[str, float] = {}  # confirmation ids already answered -> when they can be forgotten
         self._claims: dict[str, dict[str, Any]] = {}  # shopper (or guest chat) -> the turn running for it
-        self._query_vectors: dict[str, list[float]] = {}
+        self._query_vectors: OrderedDict[str, list[float]] = OrderedDict()
         self._last_prune = 0.0
         self._categories: tuple[str | None, set[str]] = (None, set())
         self._checking = threading.Lock()  # one isolation check at a time
@@ -218,7 +216,8 @@ class ShopService:
             raise ApiError(401, "no_session", "Your shop session has expired or is not known. Sign in again.")
         return entry[0]
 
-    def _new_session(self, customer_id: str, display_name: str) -> dict[str, Any]:
+    def _new_session(self, customer_id: str, display_name: str, merged_events: int) -> dict[str, Any]:
+        """A signed-in session, and how many of the guest's events joined the account on the way in."""
         token = secrets.token_urlsafe(32)
         expires = time.time() + SESSION_TTL_S
         with self._lock:
@@ -227,7 +226,7 @@ class ShopService:
                 del self._sessions[t]
             self._sessions[token] = (customer_id, expires)
         return {"token": token, "customer": {"id": customer_id, "display_name": display_name},
-                "expires_at": datetime.fromtimestamp(expires, timezone.utc).isoformat()}
+                "expires_at": datetime.fromtimestamp(expires, timezone.utc).isoformat(), "merged_events": merged_events}
 
     def sign_in(self, customer_id: str, guest_events: Any = None) -> dict[str, Any]:
         """A session for a demo shopper. The guest's events (if any) join the account in the same transaction as the
@@ -240,9 +239,7 @@ class ShopService:
             if c is None:
                 raise ApiError(404, "not_found", "No shopper with that id.")
             merged = self._merge(tx, events)
-        session = self._new_session(customer_id, c["display_name"])
-        session["merged_events"] = merged
-        return session
+        return self._new_session(customer_id, c["display_name"], merged)
 
     def create_account(self, display_name: str, email: str, guest_events: Any = None) -> dict[str, Any]:
         name = (display_name or "").strip()
@@ -258,9 +255,7 @@ class ShopService:
             raise ApiError(409, "conflict", "That account could not be made; try again.")
         with self.store.shopper(customer_id) as tx:
             merged = self._merge(tx, events)
-        session = self._new_session(customer_id, name)
-        session["merged_events"] = merged
-        return session
+        return self._new_session(customer_id, name, merged)
 
     # ----- browsing events and the profile -----
     def _checked_events(self, raw: Any, limit: int) -> list[dict[str, Any]]:
@@ -353,6 +348,7 @@ class ShopService:
             return None
         key = f"{model}\n{text.strip().lower()}"
         if key in self._query_vectors:
+            self._query_vectors.move_to_end(key)
             return self._query_vectors[key]
         try:
             v = self.embedder.embed([text], "query")[0]
@@ -360,9 +356,9 @@ class ShopService:
             return None
         if len(v) != self.store.dims_():
             return None
-        if len(self._query_vectors) > 2000:
-            self._query_vectors.clear()
         self._query_vectors[key] = v
+        if len(self._query_vectors) > 2000:  # least recently used goes, so popular searches stay warm
+            self._query_vectors.popitem(last=False)
         return v
 
     @staticmethod
@@ -410,13 +406,18 @@ class ShopService:
         return {**public_product(p), **self.store.embed_states([product_id]).get(product_id, {})}
 
     # ----- editing products (the Lab tab) -----
+    @staticmethod
+    def _clean_product(body: dict[str, Any]) -> dict[str, Any]:
+        """A product from the Lab's editor, checked as an import checks one, or 400 with the reason."""
+        try:
+            return D.clean_product(body)
+        except ValueError as exc:
+            raise ApiError(400, "invalid_request", str(exc)) from None
+
     def add_product(self, body: dict[str, Any]) -> dict[str, Any]:
         """A new product (the Lab's editor). Without an id it gets one; the trigger queues it for embedding."""
         body = {**body, "id": body.get("id") or f"p-{secrets.token_hex(5)}"}
-        try:
-            row = D.clean_product(body)
-        except ValueError as exc:
-            raise ApiError(400, "invalid_request", str(exc)) from None
+        row = self._clean_product(body)
         if not self.store.add_product(row):
             raise ApiError(409, "conflict", f"A product {row['id']} already exists.")
         self.worker_wake()
@@ -429,10 +430,7 @@ class ShopService:
             raise ApiError(400, "invalid_request", f"Unknown field(s): {', '.join(sorted(unknown))}.")
         if changes.get("id", product_id) != product_id:
             raise ApiError(400, "invalid_request", "A product's id cannot change.")
-        try:
-            row = D.clean_product({**current, **changes, "id": product_id})
-        except ValueError as exc:
-            raise ApiError(400, "invalid_request", str(exc)) from None
+        row = self._clean_product({**current, **changes, "id": product_id})
         # Only what the person changed is written: a stock level a checkout took meanwhile is not put back.
         if not self.store.update_product(product_id, {k: row[k] for k in changes if k != "id"}):
             raise ApiError(404, "not_found", "No product with that id.")
@@ -1244,19 +1242,19 @@ class ShopService:
                 [{"type": "comparison", **table}]
         if name == "get_basket":
             b = self.basket(cid)
-            return True, self._basket_for_model(b), [{"type": "basket", "basket": b}]
+            return self._basket_result(b)
         if name == "add_to_basket":
             b = self.add_to_basket(cid, a["product_id"], a["quantity"], a.get("size"))
-            return True, self._basket_for_model(b), [{"type": "basket", "basket": b}]
+            return self._basket_result(b)
         if name == "update_basket_item":
             b = self.update_basket_item(cid, a["item_id"], a["quantity"])
-            return True, self._basket_for_model(b), [{"type": "basket", "basket": b}]
+            return self._basket_result(b)
         if name == "remove_from_basket":
             b = self.remove_from_basket(cid, a["item_id"])
-            return True, self._basket_for_model(b), [{"type": "basket", "basket": b}]
+            return self._basket_result(b)
         if name == "apply_offer":
             b = self.apply_offer(cid, a["code"])
-            return True, self._basket_for_model(b), [{"type": "basket", "basket": b}]
+            return self._basket_result(b)
         if name == "propose_checkout":
             c = self.propose_checkout(cid, a["delivery"])
             return True, {"confirmation_id": c["confirmation_id"], "summary": c["summary"],
@@ -1278,7 +1276,7 @@ class ShopService:
             return True, {"order": o}, [{"type": "order", "order": o}]
         if name == "reorder":
             b, skipped = self.reorder(cid, a["order_id"])
-            return True, {**self._basket_for_model(b), "skipped": skipped}, [{"type": "basket", "basket": b}]
+            return self._basket_result(b, skipped=skipped)
         if name == "suggest_for_me":
             limit = a.get("limit") or 6
             if not isinstance(limit, int) or not 1 <= limit <= 8:
@@ -1306,6 +1304,10 @@ class ShopService:
             profile = P.profile_of(tx, anchors, raw)
             items = P.recommend(tx, anchors, raw, profile, limit, embed_query=self._query_vector)
         return {"items": [{"product": public_product(i["product"]), "reason": i["reason"]} for i in items]}
+
+    def _basket_result(self, b: dict[str, Any], **extra: Any) -> tuple[bool, Any, list]:
+        """A basket tool's answer: the basket for the model, and the basket card for the page."""
+        return True, {**self._basket_for_model(b), **extra}, [{"type": "basket", "basket": b}]
 
     @staticmethod
     def _basket_for_model(b: dict[str, Any]) -> dict[str, Any]:

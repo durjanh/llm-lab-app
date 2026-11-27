@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Iterator, Protocol
 
-from ..gateways.pgvector import VectorDbUnavailable, literal, where
+from ..gateways.pgvector import VectorDbUnavailable, connect, literal, where
 from .shop_data import embed_hash, embed_text
 from .shop_schema import (SCHEMA_VERSION, SHOPPER_TABLES, app_role, build_index_sql, channel, check_schema,
                           create_sql, drop_sql)
@@ -176,6 +176,9 @@ class MemoryShopStore:
         with self.lock:
             self.meta["data_version"] = str(int(self.meta["data_version"]) + 1)
             return int(self.meta["data_version"])
+
+    def approx_products(self) -> int:
+        return len(self.products_)
 
     def counts(self) -> dict[str, int]:
         self._check()
@@ -339,6 +342,9 @@ class MemoryShopStore:
         self.reindexed += 1
         self.meta["churn_rows"] = "0"
         return True
+
+    def close(self) -> None:
+        """Nothing to let go of: the same method as the database store, so callers need not ask."""
 
     def wait_for_change(self, timeout_s: float) -> bool:
         woke = self.notified.wait(timeout_s)
@@ -712,15 +718,7 @@ class PgShopStore:
         self._lock = threading.Lock()
 
     def _connect(self) -> Any:
-        if not self.url:
-            raise VectorDbUnavailable("No database is set. Set LLM_LAB_PGVECTOR_URL, or run ./tools/vector-db.sh.")
-        import psycopg
-
-        try:
-            return psycopg.connect(self.url, connect_timeout=self.connect_timeout_s, autocommit=True)
-        except psycopg.OperationalError as exc:
-            raise VectorDbUnavailable(f"PostgreSQL at {where(self.url)} did not answer. Start it with "
-                                      "./tools/vector-db.sh (Docker Desktop must be running).") from exc
+        return connect(self.url, self.connect_timeout_s, autocommit=True)
 
     def try_job_lock(self) -> Callable[[], None] | None:
         """Takes the shop's import lock, a PostgreSQL advisory lock on a connection of its own, so the backend and
@@ -815,6 +813,16 @@ class PgShopStore:
         with self._owner() as c:
             return int(c.execute(f"UPDATE {self.schema}.meta SET value = (value::int + 1)::text WHERE key = "
                                  "'data_version' RETURNING value").fetchone()[0])
+
+    def approx_products(self) -> int:
+        """PostgreSQL's own estimate of the product count (no scan of a million rows), for thresholds where a few
+        per cent does not matter. A table never analysed has no estimate yet (-1), so that one is counted."""
+        with self._owner() as c:
+            n = c.execute("SELECT reltuples::bigint FROM pg_class WHERE oid = %s::regclass",
+                          (f"{self.schema}.products",)).fetchone()[0]
+            if n is None or n < 0:
+                n = c.execute(f"SELECT count(*) FROM {self.schema}.products").fetchone()[0]
+            return int(n)
 
     def counts(self) -> dict[str, int]:
         s = self.schema

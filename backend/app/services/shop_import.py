@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from ..core.errors import ApiError
+from ..core.files import write_atomic
 from ..gateways.pgvector import VectorDbUnavailable
 from . import shop_data as D
 from .shop_embedding import EmbedWorker
@@ -69,10 +70,7 @@ class ShopImporter:
 
     def _save_file(self, state: dict[str, Any]) -> None:
         self._file = {**state, "updated_at": _now()}
-        self.file_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.file_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._file, indent=1), encoding="utf-8")
-        tmp.replace(self.file_path)
+        write_atomic(self.file_path, json.dumps(self._file, indent=1))
 
     def resumable(self, size: int) -> bool:
         """True when a generation of this size stopped part-way and generating it again carries on."""
@@ -82,10 +80,7 @@ class ShopImporter:
 
     def _save(self, **changes: Any) -> None:
         self._state.update(changes, updated_at=_now())
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._state, indent=1), encoding="utf-8")
-        tmp.replace(self.path)
+        write_atomic(self.path, json.dumps(self._state, indent=1))
 
     def state(self) -> dict[str, Any]:
         """The most recent job: a file import's result when it came after the generation's last change. A stopped
@@ -242,7 +237,7 @@ class ShopImporter:
         def progress(_: int) -> None:
             s = self.store().embedding_status()
             self._save(done=s["done"], total=total, message=f"Embedding products: {s['done']:,} of {total:,} "
-                                                            f"({self.worker.status()['rate_per_min']:,} a minute).")
+                                                            f"({self.worker.rate_per_min():,} a minute).")
 
         self._save(done=q["done"], total=total, message=f"Embedding products: {q['done']:,} of {total:,}.")
         while not self._stop.is_set():

@@ -197,87 +197,96 @@ def shop_embedding_retry(body: Retry, service: ShopService = Depends(shop)) -> d
     return service.retry_embedding(body.ids)
 
 
+def signed_in(token: str | None = Token, service: ShopService = Depends(shop)) -> str:
+    """The signed-in shopper's id from their session, or 401. Every route on a shopper's own rows takes it, so none
+    can forget the check and serve a guest."""
+    return service.customer_of(token)
+
+
+Shopper = Depends(signed_in)
+
+
 # ----- the shopper's own things -----
 @router.get("/shop/basket")
 @db
-def shop_basket(token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.basket(service.customer_of(token))
+def shop_basket(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.basket(cid)
 
 
 @router.post("/shop/basket/items")
 @db
-def shop_basket_add(body: AddItem, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.add_to_basket(service.customer_of(token), body.product_id, body.quantity, body.size)
+def shop_basket_add(body: AddItem, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.add_to_basket(cid, body.product_id, body.quantity, body.size)
 
 
 @router.patch("/shop/basket/items/{item_id}")
 @db
-def shop_basket_update(item_id: str, body: Quantity, token: str | None = Token,
+def shop_basket_update(item_id: str, body: Quantity, cid: str = Shopper,
                        service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.update_basket_item(service.customer_of(token), item_id, body.quantity)
+    return service.update_basket_item(cid, item_id, body.quantity)
 
 
 @router.delete("/shop/basket/items/{item_id}")
 @db
-def shop_basket_remove(item_id: str, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.remove_from_basket(service.customer_of(token), item_id)
+def shop_basket_remove(item_id: str, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.remove_from_basket(cid, item_id)
 
 
 @router.post("/shop/checkout")
 @db
-def shop_checkout(body: Checkout, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
+def shop_checkout(body: Checkout, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     """Prepares a checkout. Nothing is ordered until /shop/confirm."""
-    return service.propose_checkout(service.customer_of(token), body.delivery)
+    return service.propose_checkout(cid, body.delivery)
 
 
 @router.post("/shop/returns")
 @db
-def shop_return(body: Return, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.propose_return(service.customer_of(token), body.order_item_id, body.reason)
+def shop_return(body: Return, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.propose_return(cid, body.order_item_id, body.reason)
 
 
 @router.post("/shop/confirm")
 @db
-def shop_confirm(body: Confirm, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
+def shop_confirm(body: Confirm, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
     """The person pressed Confirm (or Cancel): the only way an order or a return is placed."""
-    return service.confirm(service.customer_of(token), body.confirmation_id, body.accept)
+    return service.confirm(cid, body.confirmation_id, body.accept)
 
 
 @router.get("/shop/orders")
 @db
-def shop_orders(limit: int = 20, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.orders(service.customer_of(token), limit)
+def shop_orders(limit: int = 20, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.orders(cid, limit)
 
 
 @router.get("/shop/wishlist")
 @db
-def shop_wishlist(token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.wishlist(service.customer_of(token))
+def shop_wishlist(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.wishlist(cid)
 
 
 @router.post("/shop/wishlist")
 @db
-def shop_wish(body: Wish, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.add_to_wishlist(service.customer_of(token), body.product_id)
+def shop_wish(body: Wish, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.add_to_wishlist(cid, body.product_id)
 
 
 # ----- browsing behaviour -----
 @router.post("/shop/events")
 @db
-def shop_events(body: Events, token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.record_events(service.customer_of(token), body.events)
+def shop_events(body: Events, cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.record_events(cid, body.events)
 
 
 @router.get("/shop/profile")
 @db
-def shop_profile(token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.profile(service.customer_of(token))
+def shop_profile(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.profile(cid)
 
 
 @router.delete("/shop/activity")
 @db
-def shop_forget(token: str | None = Token, service: ShopService = Depends(shop)) -> dict[str, Any]:
-    return service.forget_activity(service.customer_of(token))
+def shop_forget(cid: str = Shopper, service: ShopService = Depends(shop)) -> dict[str, Any]:
+    return service.forget_activity(cid)
 
 
 @router.post("/shop/recommendations")

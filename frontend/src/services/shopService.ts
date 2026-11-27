@@ -332,20 +332,19 @@ export class ShopService {
   }
 
   /** Signs in as a demo shopper, handing over the guest's browsing so the account keeps it (at most 500 events). */
-  async signIn(customerId: string, guestEvents: ShopActivityEvent[] = []): Promise<Session> {
-    const session = await this.client.post<Session>('/api/shop/session', {
-      customer_id: customerId,
-      ...(guestEvents.length ? { guest_events: guestEvents.slice(-500) } : {}),
-    });
-    this.use(session);
-    return session;
+  signIn(customerId: string, guestEvents: ShopActivityEvent[] = []): Promise<Session> {
+    return this.begin('/api/shop/session', { customer_id: customerId }, guestEvents);
   }
 
   /** Makes a new demo shopper (a name and an invented email, no password) and signs in as them. */
-  async createAccount(displayName: string, email: string, guestEvents: ShopActivityEvent[] = []): Promise<Session> {
-    const session = await this.client.post<Session>('/api/shop/accounts', {
-      display_name: displayName,
-      email,
+  createAccount(displayName: string, email: string, guestEvents: ShopActivityEvent[] = []): Promise<Session> {
+    return this.begin('/api/shop/accounts', { display_name: displayName, email }, guestEvents);
+  }
+
+  /** Starts a session, bringing the guest's most recent events along (the server keeps at most 500). */
+  private async begin(path: string, body: object, guestEvents: ShopActivityEvent[]): Promise<Session> {
+    const session = await this.client.post<Session>(path, {
+      ...body,
       ...(guestEvents.length ? { guest_events: guestEvents.slice(-500) } : {}),
     });
     this.use(session);

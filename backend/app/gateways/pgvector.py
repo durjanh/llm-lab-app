@@ -144,21 +144,28 @@ def where(url: str) -> str:
     return f"{parts.hostname or '?'}:{parts.port or 5432}{parts.path or ''}"
 
 
+def connect(url: str, timeout_s: int, **options: Any) -> Any:
+    """A connection to the lab's PostgreSQL, or VectorDbUnavailable saying what to start. Shared by every store on
+    it (this gateway and the shop's store), so they give one message. psycopg is imported here, so the
+    backend starts without it until a page that needs a database is used."""
+    if not url:
+        raise VectorDbUnavailable("No database is set. Set LLM_LAB_PGVECTOR_URL, or run ./tools/vector-db.sh.")
+    import psycopg
+
+    try:
+        return psycopg.connect(url, connect_timeout=timeout_s, **options)
+    except psycopg.OperationalError as exc:
+        raise VectorDbUnavailable(f"PostgreSQL at {where(url)} did not answer. Start it with "
+                                  "./tools/vector-db.sh (Docker Desktop must be running).") from exc
+
+
 class PgVector:
     def __init__(self, url: str, connect_timeout_s: int = 3):
         self.url, self.connect_timeout_s = url, connect_timeout_s
         self._created: set[int] = set()
 
     def _connect(self) -> Any:
-        if not self.url:
-            raise VectorDbUnavailable("No database is set. Set LLM_LAB_PGVECTOR_URL, or run ./tools/vector-db.sh.")
-        import psycopg  # imported here, so the backend starts without it until this page is used
-
-        try:
-            conn = psycopg.connect(self.url, connect_timeout=self.connect_timeout_s)
-        except psycopg.OperationalError as exc:
-            raise VectorDbUnavailable(f"PostgreSQL at {where(self.url)} did not answer. Start it with "
-                                      "./tools/vector-db.sh (Docker Desktop must be running).") from exc
+        conn = connect(self.url, self.connect_timeout_s)
         # The server's own connection is trusted: it sees and writes every row. A search narrows this per transaction.
         conn.execute("SELECT set_config('app.groups', '*', false)")
         conn.commit()

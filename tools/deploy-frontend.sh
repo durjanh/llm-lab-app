@@ -11,6 +11,7 @@
 # not) comes from frontend/public/staticwebapp.config.json.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. tools/lib.sh
 
 NAME="${SWA_NAME:-swa-llm-lab}"
 GROUP="${SWA_GROUP:-rg-llm-lab}"
@@ -18,10 +19,10 @@ SUB_ARGS=()
 [ -n "${SWA_SUBSCRIPTION:-}" ] && SUB_ARGS=(--subscription "$SWA_SUBSCRIPTION")
 
 case "${1:-}" in
-  -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+  -h|--help) usage; exit 0 ;;
   --no-build) ;;
   "") (cd frontend && npm run build) ;;
-  *) sed -n '2,11p' "$0"; exit 1 ;;
+  *) usage; exit 1 ;;
 esac
 [ -f frontend/dist/index.html ] || { echo "No frontend/dist yet: run it without --no-build." >&2; exit 1; }
 
