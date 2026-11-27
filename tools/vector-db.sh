@@ -33,7 +33,8 @@ elif docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; then
   docker start "$NAME" >/dev/null
 else
   echo "Starting PostgreSQL with pgvector on 127.0.0.1:$PORT..."
-  docker run -d --name "$NAME" --restart unless-stopped -p "127.0.0.1:$PORT:5432" \
+  # 1 GB of shared memory: parallel index builds share their work through it, and Docker's default is 64 MB.
+  docker run -d --name "$NAME" --restart unless-stopped --shm-size=1g -p "127.0.0.1:$PORT:5432" \
     -e POSTGRES_USER=lab -e POSTGRES_PASSWORD=lab -e POSTGRES_DB=vectors \
     -v "$VOLUME:/var/lib/postgresql/data" "$IMAGE" >/dev/null
 fi
@@ -44,4 +45,10 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 docker exec "$NAME" psql -U lab -d vectors -tAc "CREATE EXTENSION IF NOT EXISTS vector; SELECT 'pgvector ' || extversion FROM pg_extension WHERE extname = 'vector'"
+shm=$(docker inspect -f '{{.HostConfig.ShmSize}}' "$NAME")
+if [ "$shm" -lt 1073741824 ]; then
+  echo "Note: this container has $((shm / 1048576)) MB of shared memory, made before the script asked for 1 GB, so large" \
+       "vector indexes build without parallel workers (slower). To fix it, keeping the data:" \
+       "docker rm -f $NAME && ./tools/vector-db.sh"
+fi
 echo "Ready. Open /vector-db in the lab."

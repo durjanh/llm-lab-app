@@ -90,6 +90,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
     ],
     'Agents to try': [
       'assistant',
+      'shop-assistant',
       'coding',
       'software-factory',
       'decks',
@@ -365,6 +366,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./software-factory/SoftwareFactoryPage')),
+  },
+  {
+    id: 'shop-assistant',
+    path: '/shop-assistant',
+    title: 'Shopping Assistant',
+    label: 'Shopping assistant',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./shop-assistant/ShopAssistantPage')),
   },
   {
     id: 'assistant',

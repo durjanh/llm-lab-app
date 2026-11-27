@@ -251,3 +251,38 @@ def test_an_answer_for_a_reader_never_sees_their_hidden_chunks(tmp_path: Path) -
                                                            "model": "claude-haiku-5-5", "reader": "Sam (staff)"})
     prompt = fake.calls[-1][1]["messages"][0]["content"]
     assert "reviewed in April" in prompt and "£70,000" not in prompt and "Leeds" not in prompt
+
+
+def test_two_adds_of_one_document_at_once_leave_it_once_on_a_real_pgvector() -> None:
+    """The page's sample button and tools/vector-samples.sh (or two tabs) replacing the same document together: each
+    used to delete nothing of the other's uncommitted rows and insert its own, leaving every chunk twice."""
+    import threading
+
+    db = PgVector("postgresql://lab:lab@127.0.0.1:5433/vectors", connect_timeout_s=1)
+    if not db.status().get("running"):
+        pytest.skip("No pgvector on 127.0.0.1:5433 (./tools/vector-db.sh starts one).")
+    model = f"test-{uuid.uuid4().hex[:8]}"
+    chunks, vectors = [f"chunk {i}" for i in range(200)], [[1, 0, 0]] * 200
+    barrier = threading.Barrier(4)
+    errors: list[BaseException] = []
+
+    def add() -> None:
+        barrier.wait()
+        try:
+            db.add(model, 3, "pytest", "doc", chunks, vectors)
+        except BaseException as exc:  # noqa: BLE001  (e.g. two creating the table at once: "already exists")
+            errors.append(exc)
+    try:
+        threads = [threading.Thread(target=add) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(60)
+        assert errors == []
+        rows = [r for r in db.sources(model, 3) if r["source"] == "doc"]
+        assert len(rows) == 1 and rows[0]["chunks"] == 200, rows
+    finally:
+        import psycopg
+
+        with psycopg.connect(db.url) as conn:  # the 3-number table exists only for tests: dropped, so the next
+            conn.execute("DROP TABLE IF EXISTS chunks_3")  # run creates it again, at once from four threads

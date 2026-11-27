@@ -70,6 +70,7 @@ from ..services.status import StatusService
 from ..services.video_translate import VideoTranslateService
 from ..services.planning_patterns import PlanningPatternsService
 from ..services.red_team import RedTeamService
+from ..services.shop import ShopService
 
 
 def container(request: Request) -> Container:
@@ -352,3 +353,9 @@ def require_budget(c: Container = Depends(container)) -> None:
         raise ApiError(429, "budget_exceeded",
                        f"This session has spent about {money(c.spend.spent_usd)}, which reached the "
                        f"{money(c.spend.budget_usd)} budget. Restart the server with a higher --budget to continue.")
+
+
+def shop(c: Container = Depends(container)) -> ShopService:
+    if c.shop is None:
+        raise ApiError(503, "unavailable", "The shop is not set up in this server.")
+    return c.shop

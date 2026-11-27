@@ -2,6 +2,10 @@
 
 Hands-on pages that show how large language models and the systems around them work, each ending with the engineering decisions it should change. Every page runs real models or real arithmetic in your browser. A FastAPI backend adds live Claude calls.
 
+**Try it: [green-island-01783800f.8.azurestaticapps.net](https://green-island-01783800f.8.azurestaticapps.net)**
+
+**Only the frontend is hosted there; the backend is not.** Pages that run in your browser work as they do here. Anything that calls a model, a database or Azure (marked "Needs the backend" in [the labs table](#the-labs)) only works when you run the lab on your own machine, as [Start](#start) describes.
+
 It has a **FastAPI** backend and a **React + TypeScript** frontend, kept separate.
 
 ```
@@ -9,7 +13,7 @@ llm-lab-app/
 ├── backend/     FastAPI: the /api routes, the spending cap, and serving the built frontend
 ├── frontend/    React + TypeScript, built with Vite: one route per lab
 ├── python/      runnable lesson scripts (01 to 18), a sample skill, and the shared prices, settings and data
-├── tools/       rebuilds the 134 MB GPT-2 model with its internals exposed
+├── tools/       sets up Docker services and databases, loads data, rebuilds the GPT-2 model
 ├── examples/    copyable Claude Code setup: CLAUDE.md, skills, hooks, a subagent, a plugin
 ├── docs/        the architecture diagram below
 └── models/      the local GPT-2 model (not in git)
@@ -57,6 +61,18 @@ done
 ```
 
 All three come from the [TalkingHead](https://github.com/met4citizen/TalkingHead) project. Sonia (`mpfb.glb`, made with MPFB) is CC0, free for any use. Ava (`avaturn.glb`, made with Avaturn) and Ryan (`avatarsdk.glb`, made with Avatar SDK) are licensed for non-commercial use only, so replace them before using the tutor for anything commercial. The tutor's voice also needs Azure Speech: see [The tutor's voice](#the-tutors-voice).
+
+### Data and databases
+
+Data the labs load lives outside git, so each database has a script in `tools/` that sets it up on a new machine and can be run again after a change. Each is safe to run again.
+
+| What | Script | Where |
+|---|---|---|
+| PostgreSQL with pgvector, for `/vector-db`, `/semantic-cache`, `/graphrag` and `/shop-assistant` | `./tools/vector-db.sh` | A container, `127.0.0.1:5433`, data in the `llm-lab-pgvector-data` volume |
+| The shop's schema and data (`/shop-assistant`) | `./tools/shop-data.sh`, then `./tools/shop-data.sh generate 20000` | The `shop` schema in that database |
+| The sample documents for `/vector-db` and `/graphrag` | `./tools/vector-samples.sh` | Tables in that database, one per vector length (`chunks_768`) |
+
+`tools/README.md` says which command to run after which change.
 
 ### Labs with their own environment
 
@@ -160,13 +176,15 @@ With `LLM_LAB_SANDBOX=docker`, a run on your machine uses the local container, n
 |---|---|
 | Python in `backend/` or `python/` | Nothing with `--reload`: the backend restarts itself. Without it, Ctrl+C and start it again. |
 | `.env` | Restart the backend. `--reload` does not watch `.env`. |
-| The frontend (`frontend/src/`) | Nothing on the dev server (:5173). For port 8000: `cd frontend && npm run build`. |
+| The frontend (`frontend/src/`) | Nothing on the dev server (:5173). For port 8000: `cd frontend && npm run build`. For the public site: `./tools/deploy-frontend.sh`. |
 | A skill (`python/skills/`) | Nothing. Its scripts travel with each command, so no image needs rebuilding. |
 | The sandbox image (`examples/coding-sandbox/`: `Dockerfile`, `server.py`, `extra-*.txt`) | On your machine: `./tools/sandbox.sh --rebuild`. In Azure: `TAG=<n> examples/coding-sandbox/publish-image.sh`, then `IMAGE=ghcr.io/<you>/coding-sandbox:<n> examples/coding-sandbox/setup-app.sh`. Use a new tag each time, so the app starts a new revision (`examples/coding-sandbox/README.md`). |
 | The reminders Function (`examples/medassist/reminders/`) | `examples/medassist/setup-texts.sh` again: it redeploys the code and leaves the rest as it is. With azd, `azd deploy reminders`. |
 | Azure resources (`infra/`) | `azd provision`, or push to main, where `.github/workflows/infra.yml` runs it. |
 | The local model (`LLM_LAB_LOCAL_MODEL`) | `./tools/local-model.sh` (it pulls the new one), then restart the backend. |
 | The full-internals GPT-2 (`models/gpt2-explainer/`) | See `tools/README.md`. |
+| The sample documents (`vectordb.py`'s sets, `graphrag_sample.py`, `examples/medassist/knowledge/`) | `./tools/vector-samples.sh`. Then Build on `/graphrag` for its graph. |
+| The shop's schema (`shop_schema.py`), its generator (`shop_data.py`), or its products while the backend was stopped | `./tools/shop-data.sh`, `./tools/shop-data.sh refresh`, or `./tools/shop-data.sh embed`. Your own files: `./tools/shop-data.sh import <kind> <file>` (`tools/README.md`). |
 
 Then run the tests: `pytest backend` and `cd frontend && npm run typecheck`.
 
@@ -316,6 +334,7 @@ Each page's CSS is scoped under its root class, `.page-<page>`, so pages cannot 
 | | `/coding-agent` | Coding agent: a harness built the way Claude Code is, working on a small project with failing tests. File tools that refuse blind edits, a shell behind deny and allow rules, four permission modes, hooks, `CLAUDE.md`, a to-do list, checkpoints you can undo, a read-only sub-agent, context clearing, eyes (`read_file` returns images; `screenshot` renders a page in headless Chrome so the agent checks what it built), a sandboxed auto mode that asks nothing, and a Stop hook that sends the agent back until the tests pass. The hand-built harness also runs on a GPT deployment (`gpt-5.4-mini`), translated to Chat Completions with the same tools and sandbox; the Agent SDK version is Claude only. Your files is a second workspace: add a spreadsheet (or try the invented sample workbook) and ask for a summary with charts, or a PowerPoint; the agent installs what it needs, looks at its own charts and slides, and you download the results. Each edit's diff waits for your approval. The same task also runs on the Claude Agent SDK, to compare | Needs the backend; the SDK version needs `examples/claude-agent-sdk` installed |
 | | `/software-factory` | A software factory on a copy of the practice project: agents take invented backlog tickets (or your own) from plan to merge, and people step in by risk tier. A tested policy sets each change's tier from its kind and area, and evidence found during the work (sensitive paths or calls, new dependencies, big diffs, edited tests, uncovered code) can only raise it. Low-risk changes run dark: a read-only planner plans, an implementer builds in the sandbox, gates check it (no new failing tests against main's baseline, no tests deleted or skipped, no secrets, nothing outside the project, diff size, an independent reviewer agent's verdict, a money and time budget) and it merges with no person. Medium waits for a person to approve the diff; high waits at the plan and the diff, and a person can edit the plan, ask for changes, reject or take over. Agents never see a .git folder: the factory copies their files into its own clone, where git runs with hooks and outside config switched off. Each merge is a git commit; a revert records an escaped defect. Areas earn autonomy after 3 clean changes and lose a level at once on an escape; autonomy never lowers a tier the work itself raised, and high never runs dark. A flow board, the full audit trail per change, the track record by area and metrics (merged, share that ran dark, human steps, escapes, lead time, cost per change) | Needs the backend and the Docker sandbox; paid |
 | | `/site-builder` | Site builder: describe an app and Claude writes it (HTML, CSS, JavaScript and JSON, through file tools confined to the site's folder) while it runs live beside the conversation, sandboxed. Each message changes the same app; every turn that changes files is a version (the last 20 kept) you can view as it was or restore, and a restore is itself a new version that Claude is told about. Per turn: what changed (added, changed, deleted files) and the steps, with the screenshots Claude was shown at 1280 and 390 pixels. The preview has desktop, tablet and phone frames, reload, a new tab, full screen and a zip download; errors from the running app (uncaught errors, rejected promises, console.error) are listed under it with "Ask to fix". Apps are listed with screenshot thumbnails, renamed and deleted; everything is kept on disk under `sites/<id>/`. Attach pictures (pasted screenshots included), data files or a PDF: pictures are shown to the model to match their look with original code, data files are copied into the site's `assets/`, PDFs go to Claude only. The message box is the Assistant's: model and effort in a pill, attachments behind + | Needs the backend; paid; Chrome for the screenshot checks |
+| | `/shop-assistant` | Shopping assistant: a shop website for an invented retailer (Larkfield & Co.) with an agent, Wren, in a chat widget that asks clarifying questions, finds and compares products, manages the basket, prepares checkouts and returns (placed only when the person presses Confirm), shows orders and suggests things from the shopper's own browsing, orders and wish list. Data lives in the lab's pgvector PostgreSQL (schema `shop`): a seeded generator (20k, 100k or 1M products) or your own JSON Lines/CSV files, checked row by row and never half applied. Each shopper's rows are kept apart by forced row-level security, with the agent's queries running as a separate no-login role; no tool takes a customer. Hybrid search (HNSW vectors plus keywords, fused by rank) in a fixed order, and an answer cache for read-only turns. A trigger and a background worker re-embed changed products (with an outbox or change data capture as the production route). Guests browse with consent-only local history; signing in merges it once. Demo sign-in is a stand-in for real authentication | Needs the backend and `./tools/shop-data.sh` (PostgreSQL, the embedding model for search by meaning, and the data); chat is paid |
 | | `/assistant` | A general chat assistant: the model plans (a checklist it updates, with an optional "approve plans first"), then works in the lab's Docker sandbox (bash with internet, file tools, the PDF, PPTX, XLSX and DOCX skills) until it decides it is done, and can start up to four sub-agents that work in parallel in folders of their own. Upload files; get PDFs, decks, spreadsheets and charts back with page previews. Chats are kept and listed; change model (Claude, GPT or the local model) and effort per message with the history carried over, and long chats are summarised automatically or with Compact now. A live log shows every model call, plan, command (network commands flagged), output, file, compaction and model switch, with a lane per sub-agent. Stops at the run's budget (shared by all its agents), its time limit, or Stop | Needs the backend and the Docker sandbox (`./tools/sandbox.sh`, `LLM_LAB_SANDBOX=docker`); paid |
 | | `/assistant` (Auto) | Auto routing in the assistant: a switch at the top of the model menu lets the lab pick the model and effort for each message. Clear cases are settled by signals that can be explained in a line (attachments and their kinds, pictures, work for the sandbox, length, work big enough for sub-agents, the last turn, MCP servers); unclear ones by one tiny classifier call to the cheapest Claude model. quick → the local model (if running) or Haiku low, standard → Sonnet medium, deep → Opus high; pictures never go to the local model and PDFs go to Claude only. A refusal, an empty reply, a cut-off or two failed tool rounds move the turn up one tier, once, never past a ceiling the person sets. Each routed turn records its cost against the same tokens on Sonnet, shown on `/control-layer` | Paid |
 | | `/mcp` | MCP servers: a real server in the backend; raw requests with and without tokens, Claude using its tools with writes gated by the harness | Needs the backend |
@@ -573,7 +592,7 @@ Live features otherwise use Claude Haiku 5.5 by default, where each action costs
 ## Other folders
 
 - `python/`: runnable scripts for each lab. See `python/README.md`.
-- `tools/`: `setup-envs.sh` sets up the labs' own environments (see [Labs with their own environment](#labs-with-their-own-environment)); `local-model.sh` runs the local model with Docker Model Runner, and `sandbox.sh` and `vector-db.sh` run the coding agent's sandbox and PostgreSQL with pgvector in Docker; `export_gpt2_explainer.py` rebuilds the GPT-2 model with its internals exposed. See `tools/README.md`.
+- `tools/`: `setup-envs.sh` sets up the labs' own environments (see [Labs with their own environment](#labs-with-their-own-environment)); `local-model.sh` runs the local model with Docker Model Runner, and `sandbox.sh` and `vector-db.sh` run the coding agent's sandbox and PostgreSQL with pgvector in Docker; `shop-data.sh` sets up and fills the shop's database, and `vector-samples.sh` loads the sample documents; `deploy-frontend.sh` deploys the pages to the public site; `export_gpt2_explainer.py` rebuilds the GPT-2 model with its internals exposed. See `tools/README.md`.
 - `examples/tabular/`, `examples/lora/` and `examples/image-to-3d/`: the scripts the `/tabular`, `/lora` and `/image-to-3d` pages run, each in its own environment. Each README says how to set it up and run it without the lab.
 - `examples/mcp/`: an MCP server in Python (tools, a resource, a prompt; stdio and authenticated Streamable HTTP), used from Claude Code, from your own harness with approvals, and through the Claude API's MCP connector. Its README covers the design decisions.
 - `examples/sdks/`: the same five tasks (structured output, tools, MCP, an agent with human approval, multi-agent) in sixteen SDKs: OpenAI, OpenAI Agents, Claude, Microsoft Agent Framework, Semantic Kernel, AutoGen, LangChain, LangGraph, CrewAI, Strands Agents, PydanticAI, Agno, CAMEL, LlamaIndex (with Workflows), Google ADK and AWS Bedrock Agents, each in its own environment, with a comparison cheatsheet. Bedrock Agents prints SKIP without an AWS account.

@@ -170,6 +170,10 @@ class PgVector:
         import psycopg
 
         try:
+            # CREATE ... IF NOT EXISTS is not safe at once: two first writes (two tabs, a page and
+            # tools/vector-samples.sh) both create the table and one fails on "already exists". One at a time, until
+            # commit, and the second finds it made.
+            conn.execute("SELECT pg_advisory_xact_lock(hashtext('llm-lab.pgvector.create'))")
             conn.execute(create_sql(dims))
         except psycopg.errors.FeatureNotSupported as exc:
             raise VectorDbUnavailable("This PostgreSQL has no pgvector extension. Use the pgvector/pgvector image "
@@ -206,6 +210,10 @@ class PgVector:
         with self._connect() as conn:
             self._ensure(conn, dims)
             with conn.transaction():
+                # One writer per document until commit: two adds of the same document at once (the page's sample
+                # button and tools/vector-samples.sh, or two tabs) would each delete nothing of the other's and both
+                # insert, leaving it twice.
+                conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"{t}/{model}/{collection}/{source}",))
                 conn.execute(f"DELETE FROM {t} WHERE model = %s AND collection = %s AND source = %s",
                              (model, collection, source))
                 with conn.cursor() as cur:

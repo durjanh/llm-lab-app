@@ -68,6 +68,7 @@ from .services.casework import CaseworkService
 from .services.coding import CodingService
 from .services.assistant import AssistantService
 from .services.software_factory import SoftwareFactoryService
+from .services.shop import ShopService
 from .services.assistant_store import ChatStore
 from .services.assistant_mcp import McpServers
 from .services.assistant_router import RoutingLog
@@ -175,6 +176,8 @@ class Container:
     # The control layer: usage, cost and access policies for every model call, and the proxy for outside agents.
     control: ControlLayer | None = None
     control_layer: ControlLayerService | None = None
+    # The shopping assistant: an invented shop on the pgvector database, with per-shopper row-level security.
+    shop: ShopService | None = None
 
     @classmethod
     def build(cls, settings: Settings, client: Any, browser: Screenshotter | None = None,
@@ -342,6 +345,7 @@ class Container:
             control=control,
             control_layer=ControlLayerService(control, claude, spend,
                                               routing=RoutingLog(settings.generated_dir / "assistant" / "routing.jsonl")),
+            shop=ShopService(claude, spend, streamer, local_embeddings, settings),
         )
 
 

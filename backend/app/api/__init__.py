@@ -127,3 +127,7 @@ router.include_router(software_factory.router)
 from . import control_layer  # noqa: E402  (usage, cost and access: policies, virtual keys and figures)
 
 router.include_router(control_layer.router)
+
+from . import shop  # noqa: E402  (the shopping assistant: an invented shop, per-shopper row-level security)
+
+router.include_router(shop.router)

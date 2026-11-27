@@ -240,6 +240,13 @@ def _refs(items: list[dict[str, Any]]) -> list[tuple[str, int]]:
     return [(r["source"], int(r["chunk"])) for item in items for r in item.get("refs", [])]
 
 
+def load_sample(vectors: VectorDbService) -> dict[str, Any]:
+    """Adds the invented sample corpus to its collection (each document replaces itself), for the page's sample
+    button and tools/vector-samples.sh alike."""
+    added = [vectors.add(graphrag_sample.COLLECTION, name, text) for name, text in graphrag_sample.DOCUMENTS.items()]
+    return {"collection": graphrag_sample.COLLECTION, "documents": len(added), "chunks": sum(a["chunks"] for a in added)}
+
+
 class GraphRagService:
     def __init__(self, store: VectorStore, graph: GraphStore, embedder: LocalEmbedder, claude: ClaudeGateway,
                  spend: SpendTracker, streamer: RunStreamer | None = None, workers: int = 4):
@@ -317,10 +324,7 @@ class GraphRagService:
         return out
 
     def load_sample(self) -> dict[str, Any]:
-        added = [self.vectors.add(graphrag_sample.COLLECTION, name, text)
-                 for name, text in graphrag_sample.DOCUMENTS.items()]
-        return {"collection": graphrag_sample.COLLECTION, "documents": len(added),
-                "chunks": sum(a["chunks"] for a in added)}
+        return load_sample(self.vectors)
 
     def graph_of(self, collection: str) -> dict[str, Any]:
         return self._db(self.graph.graph, self.embedder.model, self._dims(), collection)

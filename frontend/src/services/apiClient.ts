@@ -50,9 +50,11 @@ export class ApiClient {
     }
   }
 
-  async patch<T>(path: string, body: unknown): Promise<T> {
+  async patch<T>(path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
     try {
-      return (await this.http.patch<T>(path, body, { headers: bodyHeaders(body) })).data;
+      return (
+        await this.http.patch<T>(path, body, { ...config, headers: { ...bodyHeaders(body), ...config?.headers } })
+      ).data;
     } catch (err) {
       throw await toError(err);
     }
@@ -66,9 +68,9 @@ export class ApiClient {
     }
   }
 
-  async delete<T>(path: string): Promise<T> {
+  async delete<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
     try {
-      return (await this.http.delete<T>(path)).data;
+      return (await this.http.delete<T>(path, config)).data;
     } catch (err) {
       throw await toError(err);
     }

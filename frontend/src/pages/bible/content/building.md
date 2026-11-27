@@ -219,6 +219,33 @@
 
 **What I built:** a factory on a copy of the practice project with an invented backlog, a tested risk policy, a read-only planner, an implementer in the sandbox, seven gates including an independent reviewer, person decisions on plans and diffs, real git merges and reverts in a clone only the factory touches, a per-area autonomy ledger, a flow board, metrics and a full audit trail per change.
 
+## Shopping Assistant (`/shop-assistant`)
+**In one line:** a shop agent is safe when the database, not the prompt, decides whose rows it can see, and the same question gets the same answer when retrieval is deterministic and answers are cached by everything they depend on.
+
+**Key terms**
+- **Row-level security (RLS)**: PostgreSQL policies that filter every query by a condition, here `customer_id = current_setting('app.customer_id')`; FORCE applies them to the table's owner as well.
+- **SET LOCAL**: a setting that lasts until the end of the current transaction, so a pooled connection never carries one shopper's id into the next query.
+- **Hybrid search with reciprocal rank fusion**: vector and keyword rankings merged by 1/(60 + rank), with ties broken by id so the order never changes.
+- **HNSW**: a graph index for approximate nearest neighbours; built once after a bulk load, kept up to date on each write, rebuilt CONCURRENTLY after heavy churn.
+- **CAG (cache-augmented generation)**: answering from a stored answer or a preloaded context instead of retrieving again.
+- **FOR UPDATE SKIP LOCKED**: lets several workers take different rows from one queue table without waiting for each other.
+
+**Questions they could ask**
+- **Q:** RAG or CAG for a shop assistant?
+  **A:** Both, for different things. Retrieval (RAG) is needed because a catalogue of a million products cannot sit in a prompt and stock changes all the time. Caching (CAG-style) suits repeated read-only questions: the stored answer is returned while nothing it depends on has changed. The key includes the data version, the shopper's state and profile, the conversation so far, the model and the prompt version, so a price change or a new purchase moves the key and the cache needs no expiry.
+- **Q:** How do you stop the agent showing one customer another customer's orders?
+  **A:** Not with the prompt. The tools have no customer parameter; the server takes the shopper from the session token, and each query runs as a role with no login and few grants, in a transaction that sets `app.customer_id`. Forced RLS then returns only that shopper's rows, so a guessed order id simply does not exist for them, and a write naming someone else fails the policy's WITH CHECK.
+- **Q:** Why are the agent's queries run as a separate role?
+  **A:** Superusers and, without FORCE, table owners bypass RLS. Switching to a NOLOGIN role for the transaction makes the policies apply, and its grants limit the damage of any bug: it can take stock but not change a price, and it cannot write the metadata table.
+- **Q:** How do you make the same question get the same answer?
+  **A:** Deterministic retrieval first: a fixed index, ranking by score then id, and a seeded data generator, so the model always sees the same results in the same order. Then cache the whole answer for read-only turns. Model sampling alone is not enough to rely on.
+- **Q:** How do you keep embeddings in step with a changing catalogue?
+  **A:** A trigger hashes exactly the text that is embedded; only when the hash changes does it mark the product pending and send a NOTIFY, so price or stock edits never re-embed. A worker listens, polls as a fallback, claims rows with SKIP LOCKED, retries with backoff and parks repeated failures in a dead-letter list. Searches keep the last good vector meanwhile. With several services writing products, the same idea scales through a transactional outbox or change data capture into a queue with a pool of workers.
+- **Q:** How do you stop the model placing an order on its own, or being talked into it by a product description?
+  **A:** The model can only propose: the tool returns totals worked out from the rows and a confirmation id, and the order is placed by a separate route when the person presses Confirm. That route rechecks the basket, takes the stock and locks the basket, so a double click or a second tab places nothing twice. Product text reaches the model marked as untrusted data, and the tools would refuse what it asks for anyway.
+
+**What I built:** a shop website for an invented retailer with a chat agent that asks clarifying questions, on PostgreSQL with pgvector. It has per-shopper row-level security, hybrid search in a fixed order, an answer cache, confirm-only checkout and returns, consent-based browsing profiles with taste vectors and a guest-to-account merge, a self-maintaining embedding queue, and a live "Try to break it" check that tries to reach other shoppers' data and reports every attempt.
+
 ## Coding Agent (`/coding-agent`)
 **In one line:** a coding agent built the way Claude Code is, where the short loop is easy and the rules that make it safe to point at code are the real work.
 
