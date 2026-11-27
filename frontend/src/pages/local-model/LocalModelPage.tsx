@@ -144,8 +144,8 @@ export default function LocalModelPage() {
           memory.
         </li>
         <li>
-          <b>Set the context</b> to 32,768 tokens (agent pages send long prompts) and keep the model loaded for 30
-          minutes after each request.
+          <b>Set the context</b> to 102,400 tokens, or <code>LLM_LAB_LOCAL_CONTEXT</code> (agent pages send long
+          prompts) and keep the model loaded for 30 minutes after each request.
         </li>
         <li>
           <b>Check it answers</b>, and remind you to set <code>LLM_LAB_LOCAL_MODEL</code> in <code>.env</code>.
@@ -289,7 +289,9 @@ export default function LocalModelPage() {
             </tr>
             <tr>
               <td>Long agent runs lose earlier steps</td>
-              <td>The 32k context is full; older steps are shortened to fit (sandbox_skills.fit_context)</td>
+              <td>
+                The context (100k by default) is full; older steps are shortened to fit (sandbox_skills.fit_context)
+              </td>
             </tr>
             <tr>
               <td>Free memory</td>

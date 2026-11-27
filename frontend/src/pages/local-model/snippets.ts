@@ -4,7 +4,7 @@ import { highlight } from '@/components/highlight';
 export const provision = highlight(
   `# Once. Open Docker Desktop first.
 ./tools/local-model.sh                                     # enable Model Runner on :12434, pull the model (6.9 GB),
-                                                           # set a 32k context, check it answers
+                                                           # set a 100k context, check it answers
 echo 'LLM_LAB_LOCAL_MODEL=ai/qwen3.5:9b-q4_K_XL' >> .env   # then restart the backend`,
   'shell',
 );
@@ -13,7 +13,7 @@ export const script = highlight(
   `# tools/local-model.sh (trimmed)
 MODEL="\${LLM_LAB_LOCAL_MODEL:-ai/qwen3.5:9b-q4_K_XL}"
 PORT="\${PORT:-12434}"
-CONTEXT="\${CONTEXT:-32768}"   # agent pages send long prompts; the server's default is smaller
+CONTEXT="\${CONTEXT:-\${LLM_LAB_LOCAL_CONTEXT:-102400}}"   # agent pages send long prompts; the server's default is smaller
 
 if ! docker model status >/dev/null 2>&1; then
   docker desktop enable model-runner --tcp="$PORT"

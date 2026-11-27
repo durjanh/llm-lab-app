@@ -186,7 +186,7 @@ Four things run in Docker beside the backend. `./tools/setup-local.sh` checks an
 
 | What | Script | Where | After a restart |
 |---|---|---|---|
-| The local model (Qwen 3.5 9B), the default where the work allows | `./tools/local-model.sh` | Docker Model Runner, on the Mac itself, `localhost:12434` | Run the script again: it sets the 32k context the agent pages need, and checks the model answers |
+| The local model (Qwen 3.5 9B), the default where the work allows | `./tools/local-model.sh` | Docker Model Runner, on the Mac itself, `localhost:12434` | Run the script again: it sets the context the agent pages need (`LLM_LAB_LOCAL_CONTEXT`, 100k by default), and checks the model answers |
 | The local embedding model | `./tools/local-model.sh --embed` | Docker Model Runner, the same port | Loads again on the first request; nothing to run |
 | PostgreSQL with pgvector, with its data in a volume | `./tools/vector-db.sh` | A container, `127.0.0.1:5433` | Starts by itself with Docker Desktop |
 | The sandbox, where the coding agent's commands and the local model's and GPT's skills and decks run | `./tools/sandbox.sh` | A container, `127.0.0.1:8099` | Starts by itself with Docker Desktop. Run the script only the first time, or with `--rebuild` after changing the image |
@@ -540,7 +540,7 @@ The deployment `gpt-5.4-mini` (Global Standard) is in the same Foundry resource 
 An open model can run on this machine in Docker and be the default wherever the work allows. Docker Model Runner, which comes with Docker Desktop, runs it with llama.cpp on the host, so on a Mac it uses the GPU through Metal (an ordinary container cannot). The lab's `/local-model` page covers the same ground with the code, and says whether your model is running. Open Docker Desktop first, then set it up once:
 
 ```sh
-./tools/local-model.sh             # enables Model Runner on port 12434, pulls the model (6.9 GB), sets a 32k context
+./tools/local-model.sh             # enables Model Runner on port 12434, pulls the model (6.9 GB), sets a 100k context (LLM_LAB_LOCAL_CONTEXT)
 echo 'LLM_LAB_LOCAL_MODEL=ai/qwen3.5:9b-q4_K_XL' >> .env   # then restart the backend
 ```
 

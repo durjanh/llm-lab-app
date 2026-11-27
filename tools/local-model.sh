@@ -22,7 +22,11 @@ MODEL="${MODEL:-ai/qwen3.5:9b-q4_K_XL}"
 EMBED_MODEL="${LLM_LAB_LOCAL_EMBED_MODEL:-$(sed -n 's/^LLM_LAB_LOCAL_EMBED_MODEL=//p' .env 2>/dev/null | tail -1)}"
 EMBED_MODEL="${EMBED_MODEL:-ai/nomic-embed-text-v1.5}"
 PORT="${PORT:-12434}"
-CONTEXT="${CONTEXT:-32768}"  # agent pages send long prompts (instructions, tools, history); the server's default is smaller
+# The context: LLM_LAB_LOCAL_CONTEXT from the environment or .env, the same setting the lab reads to know how much it can
+# send, or 100k. Agent pages send long prompts (instructions, tools, history, screenshots); the server's default is
+# smaller. 100k fits beside the 6.9 GB model on a 24 GB Mac; on 16 GB, set 32768.
+CONTEXT="${CONTEXT:-${LLM_LAB_LOCAL_CONTEXT:-$(sed -n 's/^LLM_LAB_LOCAL_CONTEXT=//p' .env 2>/dev/null | tail -1)}}"
+CONTEXT="${CONTEXT:-102400}"
 
 case "${1:-}" in
   --stop) docker model unload "$MODEL"; exit 0 ;;

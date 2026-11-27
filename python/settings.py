@@ -46,7 +46,7 @@ class EnvSettings:
     local_openai_url: str = "http://localhost:12434/engines/v1"
     # LLM_LAB_LOCAL_CONTEXT: the context the local model runs with (tools/local-model.sh sets it on the server). Long
     # agent runs keep their conversation inside it by shortening older steps (sandbox_skills.fit_context).
-    local_context: int = 32768
+    local_context: int = 102400
     # LLM_LAB_LOCAL_EMBED_MODEL: an open embedding model on the same local server (tools/local-model.sh --embed pulls
     # ai/nomic-embed-text-v1.5). When set, the embeddings page offers it beside the model that runs in the browser.
     local_embed_model: str = ""
