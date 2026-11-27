@@ -45,6 +45,8 @@ router.include_router(semantic_cache.router)
 from . import planning_patterns  # noqa: E402  (ReAct, plan-and-execute and reflexion, side by side)
 
 router.include_router(planning_patterns.router)
+from . import cognitive_core  # noqa: E402  (a small model with tools against a big one without)
+router.include_router(cognitive_core.router)
 
 from . import graphrag  # noqa: E402  (GraphRAG: a knowledge graph from a collection, local and global search)
 

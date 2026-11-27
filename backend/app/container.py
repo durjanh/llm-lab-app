@@ -40,6 +40,8 @@ from .services.memory_stores import MemoryStores
 from .services.image_to_3d import ImageTo3DService
 from .services.lora import LoraService
 from .services.planning_patterns import PlanningPatternsService
+from .services.cognitive_core import CognitiveCoreService
+from .gateways.core_model import CoreModel
 from .services.red_team import RedTeamService
 from .services.vectordb import VectorDbService
 from .gateways.pgvector import PgVector
@@ -146,6 +148,7 @@ class Container:
     memory_stores: MemoryStores
     failover: FailoverGateway  # every page's model calls, failing over across the catalog
     planning_patterns: PlanningPatternsService
+    cognitive_core: CognitiveCoreService
     red_team: RedTeamService
     token_counter: TokenCounterService
     local_embeddings: LocalEmbedder
@@ -338,6 +341,8 @@ class Container:
             memory_stores=memory_stores,
             failover=claude,
             planning_patterns=PlanningPatternsService(claude, spend, streamer),
+            cognitive_core=CognitiveCoreService(claude, spend, CoreModel(settings.core_model, settings.local_url),
+                                                streamer),
             aftercare_phone=AftercarePhone(aftercare, phone, to, settings.aftercare_callback_url, missing, archive,
                                            translate),
             guardrails=GuardrailsService(tools, spend),

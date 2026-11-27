@@ -69,6 +69,7 @@ from ..services.spend import money
 from ..services.status import StatusService
 from ..services.video_translate import VideoTranslateService
 from ..services.planning_patterns import PlanningPatternsService
+from ..services.cognitive_core import CognitiveCoreService
 from ..services.red_team import RedTeamService
 from ..services.shop import ShopService
 
@@ -83,6 +84,10 @@ def status_service(c: Container = Depends(container)) -> StatusService:
 
 def planning_patterns(c: Container = Depends(container)) -> PlanningPatternsService:
     return c.planning_patterns
+
+
+def cognitive_core(c: Container = Depends(container)) -> CognitiveCoreService:
+    return c.cognitive_core
 
 
 def red_team(c: Container = Depends(container)) -> RedTeamService:

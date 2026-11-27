@@ -63,6 +63,7 @@ export const MENU_COLUMNS: Partial<Record<(typeof GROUPS)[number], Record<string
       'prompting',
       'agents',
       'planning-patterns',
+      'cognitive-core',
       'building-agents',
       'agent-types',
       'context-engineering',
@@ -285,6 +286,15 @@ export const PAGES: PageDef[] = [
     group: 'Building',
     bodyClass: 'lab',
     Component: lazy(() => import('./agents/AgentsPage')),
+  },
+  {
+    id: 'cognitive-core',
+    path: '/cognitive-core',
+    title: 'The Cognitive Core',
+    label: 'The cognitive core',
+    group: 'Building',
+    bodyClass: 'lab',
+    Component: lazy(() => import('./cognitive-core/CognitiveCorePage')),
   },
   {
     id: 'planning-patterns',

@@ -30,7 +30,7 @@ import importlib.util  # noqa: E402
 from common import (CACHE_WRITE_MULTIPLIER, CLAUDE_CONTEXT_TOKENS, CLAUDE_MODEL, DEFAULT_MODEL, GPT_MODELS, IMAGE_INPUT_PRICE_PER_M, LANGUAGE_PRICE_PER_1K_RECORDS, LOCAL_MODEL, MIN_CACHE_TOKENS, PRICES,  # noqa: E402
                     TOOL_PRICES, ModelUnavailable, NeedsClaude, Refused, cost_usd, create, describe_usage, is_local,
                     make_client, stream, text_of, ensure_answered)
-from local_model import NoVision, fallback_model, local_status, without_fallback  # noqa: E402
+from local_model import LocalModel, NoVision, fallback_model, local_status, without_fallback  # noqa: E402
 from gpt_model import count_gpt_tokens, gpt_pieces  # noqa: E402  (GPT's exact tokens, for the token counter)
 import translator  # noqa: E402  (live translation: calls and texts)
 from data import HANDBOOK  # noqa: E402

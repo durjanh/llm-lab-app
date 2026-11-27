@@ -2,9 +2,9 @@
 
 | Script | What it does |
 | --- | --- |
-| `setup-local.sh` | Sets up everything the lab runs in Docker on a new machine, in order: `vector-db.sh`, `local-model.sh --embed`, `local-model.sh`, `sandbox.sh`, then `shop-data.sh` (filling the shop only if it is empty) and `vector-samples.sh`. Safe to run again after a restart or a change; never edits `.env`, but lists the lines it still needs. `--no-chat-model`, `--no-data`. |
+| `setup-local.sh` | Sets up everything the lab runs in Docker on a new machine, in order: `vector-db.sh`, `local-model.sh --embed`, `local-model.sh --core`, `local-model.sh`, `sandbox.sh`, then `shop-data.sh` (filling the shop only if it is empty) and `vector-samples.sh`. Safe to run again after a restart or a change; never edits `.env`, but lists the lines it still needs. `--no-chat-model`, `--no-data`. |
 | `setup-envs.sh` | Sets up the Python 3.12 environments that some labs run in (`claude-agent-sdk`, `tabular`, `lora`, `image-to-3d`, `voice-agent`). With no arguments it lists them; `all` sets up every one; `check-hf` checks the Hugging Face sign-in and the gated models Idol needs. See the main README, "Labs with their own environment". |
-| `local-model.sh` | Runs an open model with Docker Model Runner, for `LLM_LAB_LOCAL_MODEL`. |
+| `local-model.sh` | Runs an open model with Docker Model Runner, for `LLM_LAB_LOCAL_MODEL`, with its context (`LLM_LAB_LOCAL_CONTEXT`, 100k by default). `--embed` pulls the embedding model; `--core` the small "cognitive core" model (`LLM_LAB_CORE_MODEL`, Qwen 3.5 0.8B) for `/cognitive-core`. |
 | `sandbox.sh` | Runs the coding agent's sandbox image in Docker on `127.0.0.1:8099`, for `LLM_LAB_SANDBOX=docker`. |
 | `vector-db.sh` | Runs PostgreSQL with pgvector in Docker, for `/vector-db`. |
 | `shop-data.sh` | Sets up and fills the Shopping Assistant's database (`/shop-assistant`) without the page: starts PostgreSQL and the embedding model, creates or upgrades the `shop` schema, generates an invented shop (`generate 20000`), imports your own files (`import products f.jsonl`), embeds pending products (`embed`) and builds the vector index (`reindex`). Every command is safe to run again (below). |

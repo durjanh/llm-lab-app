@@ -50,6 +50,10 @@ class EnvSettings:
     # LLM_LAB_LOCAL_EMBED_MODEL: an open embedding model on the same local server (tools/local-model.sh --embed pulls
     # ai/nomic-embed-text-v1.5). When set, the embeddings page offers it beside the model that runs in the browser.
     local_embed_model: str = ""
+    # LLM_LAB_CORE_MODEL: a small open model on the same local server, the "cognitive core" of /cognitive-core: about
+    # 1B parameters that reasons and uses tools while the knowledge stays outside it (tools/local-model.sh --core pulls
+    # it). Empty switches the small model's half of that page off.
+    core_model: str = "ai/qwen3.5:0.8b-q4_K_XL"
     # LLM_LAB_PGVECTOR_URL: PostgreSQL with pgvector, for the vector database page. The default is the one
     # tools/vector-db.sh starts in Docker on this machine. Azure Database for PostgreSQL works too.
     pgvector_url: str = "postgresql://lab:lab@127.0.0.1:5433/vectors"
@@ -231,6 +235,7 @@ class EnvSettings:
             failover=switch("LLM_LAB_FAILOVER", cls.failover),
             local_context=num("LLM_LAB_LOCAL_CONTEXT", cls.local_context, 1024),
             local_embed_model=get("LLM_LAB_LOCAL_EMBED_MODEL", "").strip(),
+            core_model=get("LLM_LAB_CORE_MODEL", cls.core_model).strip(),
             pgvector_url=(get("LLM_LAB_PGVECTOR_URL") or cls.pgvector_url).strip(),
             port=num("LLM_LAB_PORT", cls.port, 1, 65535),
             budget_usd=num("LLM_LAB_BUDGET", cls.budget_usd, 0.0),

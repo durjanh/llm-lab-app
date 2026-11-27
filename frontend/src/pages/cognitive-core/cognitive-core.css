@@ -1,0 +1,120 @@
+/* The cognitive core: the experiment's controls and results grid, then the distillation demo. */
+
+.lab main.page-cognitive-core {
+  max-width: 1400px;
+}
+.page-cognitive-core .card + .card {
+  margin-top: 16px;
+}
+.page-cognitive-core .decides {
+  font-size: 15px;
+  color: var(--ink2);
+}
+.page-cognitive-core .cc-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  align-items: flex-end;
+  margin: 12px 0;
+}
+.page-cognitive-core .cc-controls fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.page-cognitive-core .cc-check {
+  display: inline-flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.page-cognitive-core .cc-verdict {
+  font-weight: 600;
+}
+.page-cognitive-core .cc-table-wrap {
+  overflow-x: auto;
+}
+.page-cognitive-core .cc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.page-cognitive-core .cc-table th,
+.page-cognitive-core .cc-table td {
+  border: 1px solid var(--line);
+  padding: 8px;
+  vertical-align: top;
+  text-align: left;
+}
+.page-cognitive-core .cc-table td:first-child {
+  min-width: 260px;
+}
+.page-cognitive-core .cc-off {
+  opacity: 0.55;
+}
+.page-cognitive-core .cc-kind {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brand);
+}
+.page-cognitive-core .cc-expected,
+.page-cognitive-core .cc-meta,
+.page-cognitive-core .cc-answer {
+  display: block;
+}
+.page-cognitive-core .cc-expected,
+.page-cognitive-core .cc-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.page-cognitive-core .cc-right {
+  background: color-mix(in srgb, #16a34a 12%, transparent);
+}
+.page-cognitive-core .cc-wrong {
+  background: color-mix(in srgb, #dc2626 10%, transparent);
+}
+.page-cognitive-core .cc-trace {
+  margin-top: 6px;
+  border: 0;
+  background: none;
+  color: var(--brand);
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.page-cognitive-core .cc-steps {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+.page-cognitive-core .cc-library {
+  columns: 2 320px;
+  font-size: 13px;
+}
+.page-cognitive-core .cc-region-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+.page-cognitive-core .cc-regions {
+  margin: 0;
+}
+.page-cognitive-core .cc-regions svg {
+  width: 100%;
+  max-width: 280px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: block;
+}
+.page-cognitive-core .cc-regions figcaption {
+  font-size: 13px;
+  margin-top: 4px;
+}

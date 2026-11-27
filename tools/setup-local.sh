@@ -47,6 +47,7 @@ step() {  # step "what" command...: runs one script, keeps going if it fails, an
 
 step "PostgreSQL with pgvector (127.0.0.1:5433)" ./tools/vector-db.sh
 step "Local embedding model (search by meaning)" ./tools/local-model.sh --embed
+step "Small \"cognitive core\" model for /cognitive-core (0.6 GB)" ./tools/local-model.sh --core
 if [ "$CHAT" = 1 ]; then
   step "Local chat model (Docker Model Runner, localhost:12434)" ./tools/local-model.sh
 fi

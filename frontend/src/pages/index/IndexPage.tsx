@@ -333,6 +333,18 @@ export default function IndexPage() {
           </span>
           <span className="dl">No download</span>
         </a>{' '}
+        <a className="lab-card" href="/cognitive-core">
+          <span className="num">Lab 59</span>
+          <h3>The cognitive core</h3>
+          <p>
+            A 0.8B model and a 9B one, each closed book, with retrieval done for it and with its own tools, on questions
+            no model can know: does a small model that looks things up do the work? Then distillation in the browser.
+          </p>
+          <span className="decides">
+            <b>Helps you decide:</b> when a small local model with retrieval is enough, and when you need a big one.
+          </span>
+          <span className="dl">Needs the backend and the small local model</span>
+        </a>{' '}
         <a className="lab-card" href="/context-engineering">
           <span className="num">Lab 15</span>
           <h3>Context engineering</h3>

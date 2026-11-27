@@ -9,6 +9,7 @@
 #   ./tools/local-model.sh --stop     unload the model from memory (it stays downloaded)
 #   ./tools/local-model.sh --remove   delete the model's files (about 7 GB)
 #   ./tools/local-model.sh --embed    pull an open embedding model too, for the embeddings page, and check it answers
+#   ./tools/local-model.sh --core     pull the small "cognitive core" model for /cognitive-core, and check it answers
 #
 # The model is LLM_LAB_LOCAL_MODEL from the environment or .env, or Qwen 3.5 9B. Another one from Docker Hub's ai/
 # namespace works the same way: `docker model search <name>` lists them; choose one that can call tools.
@@ -21,6 +22,8 @@ MODEL="${LLM_LAB_LOCAL_MODEL:-$(sed -n 's/^LLM_LAB_LOCAL_MODEL=//p' .env 2>/dev/
 MODEL="${MODEL:-ai/qwen3.5:9b-q4_K_XL}"
 EMBED_MODEL="${LLM_LAB_LOCAL_EMBED_MODEL:-$(sed -n 's/^LLM_LAB_LOCAL_EMBED_MODEL=//p' .env 2>/dev/null | tail -1)}"
 EMBED_MODEL="${EMBED_MODEL:-ai/nomic-embed-text-v1.5}"
+CORE_MODEL="${LLM_LAB_CORE_MODEL:-$(sed -n 's/^LLM_LAB_CORE_MODEL=//p' .env 2>/dev/null | tail -1)}"
+CORE_MODEL="${CORE_MODEL:-ai/qwen3.5:0.8b-q4_K_XL}"  # Qwen 3.5 0.8B: the same family as the default, a tenth the size
 PORT="${PORT:-12434}"
 # The context: LLM_LAB_LOCAL_CONTEXT from the environment or .env, the same setting the lab reads to know how much it can
 # send, or 100k. Agent pages send long prompts (instructions, tools, history, screenshots); the server's default is
@@ -31,8 +34,8 @@ CONTEXT="${CONTEXT:-102400}"
 case "${1:-}" in
   --stop) docker model unload "$MODEL"; exit 0 ;;
   --remove) docker model rm "$MODEL"; exit 0 ;;
-  --embed|"") ;;
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  --embed|--core|"") ;;
+  *) sed -n '2,18p' "$0"; exit 1 ;;
 esac
 
 if ! docker model status >/dev/null 2>&1; then
@@ -42,6 +45,19 @@ if ! docker model status >/dev/null 2>&1; then
          "support on port $PORT. On Linux without Docker Desktop, install the docker-model-plugin package." >&2
     exit 1
   }
+fi
+
+if [ "${1:-}" = "--core" ]; then
+  docker model pull "$CORE_MODEL"
+  echo "Checking it answers..."
+  reply=$(curl -sf "http://localhost:$PORT/anthropic/v1/messages" -H 'content-type: application/json' \
+    -d "{\"model\": \"$CORE_MODEL\", \"max_tokens\": 20, \"messages\": [{\"role\": \"user\", \"content\": \"Say ready.\"}],
+         \"chat_template_kwargs\": {\"enable_thinking\": false}}") || {
+    echo "No answer on http://localhost:$PORT. Check that host-side TCP support is on in Docker Desktop's AI settings." >&2
+    exit 1
+  }
+  echo "$reply" | python3 -c 'import json, sys; print("Core model says:", "".join(b.get("text", "") for b in json.load(sys.stdin)["content"]))'
+  exit 0
 fi
 
 if [ "${1:-}" = "--embed" ]; then

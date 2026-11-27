@@ -538,6 +538,26 @@
 
 **What I built:** a backend that streams four patterns in parallel against one tool set, with step caps (14 model calls, 24 for plan and execute) and a budget per run.
 
+## The Cognitive Core (`/cognitive-core`)
+**In one line:** Andrej Karpathy's idea that a small model which reasons and uses tools could replace a big one that memorises, tested: two models, three setups each, ten questions marked by code, then distillation in the browser.
+
+**Key terms**
+- **Cognitive core**: a model of about a billion parameters that keeps the ability to reason and use tools, with its knowledge outside it in search, memory and tools.
+- **Closed book**: answering from the weights alone.
+- **Retrieval done for it (RAG)**: code searches with the question and puts the best entries in the prompt.
+- **Agentic retrieval**: the model decides what to search for, and when, and can search again.
+- **Knowledge distillation**: a small student trained on a big teacher's full probabilities ("soft targets") instead of single labels.
+
+**Questions they could ask**
+- **Q:** Does a 1B model really match a big one?
+  **A:** On knowledge, given the facts, nearly: on this machine the 0.8B model got 7 of 10 with retrieval done for it, the 9B 8, and both only 4 from memory. On deciding to look things up, no: with its own tools the 0.8B got 1 of 10 because it never chose to search, while the 9B got 10. A cognitive core has to be trained to lean on tools; until then the harness does the retrieval.
+- **Q:** Why an invented island?
+  **A:** So no model can know the facts from training: any right answer about it came from retrieval. A few real-world facts show the other side, where a model's memory helps.
+- **Q:** Why does distillation help a small model?
+  **A:** A teacher's probabilities say how close each example was to the other classes, so the same data carries more. In the demo a straight-line student learns from 6 points to 69% with bare labels and 90% with soft targets.
+
+**What I built:** a backend that runs six setups side by side on each question and streams every step, a gateway for a second, small local model beside the default one, and a seeded distillation demo in TypeScript.
+
 ## Agent Memory (`/agent-memory`)
 **In one line:** an assistant that remembers people across separate sessions, showing all fifteen building blocks of agent memory as they happen, on the local model, Claude or GPT.
 

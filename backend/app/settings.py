@@ -44,8 +44,10 @@ class Settings:
     azure_openai_embedding_deployment: str = ""
     # An open embedding model on the local server (Docker Model Runner), offered on the embeddings page. Empty: off.
     local_embed_model: str = ""
+    core_model: str = ""
     pgvector_url: str = ""
     local_openai_url: str = "http://localhost:12434/engines/v1"
+    local_url: str = "http://localhost:12434/anthropic"
     # Azure AI Search, for the case-handling lab's policy retrieval. Signed in with your Azure login.
     azure_search_endpoint: str = ""
     casework_dir: Path = ROOT / "casework"  # the case-handling lab's audit log
@@ -134,8 +136,10 @@ class Settings:
             azure_openai_deployments=env.azure_openai_deployments,
             azure_openai_embedding_deployment=env.azure_openai_embedding_deployment,
             local_embed_model=env.local_embed_model,
+            core_model=env.core_model,
             pgvector_url=env.pgvector_url,
             local_openai_url=env.local_openai_url,
+            local_url=env.local_url,
             azure_search_endpoint=env.azure_search_endpoint,
             foundry_project_endpoint=env.foundry_project_endpoint,
             foundry_model=env.foundry_model,
