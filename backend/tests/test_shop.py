@@ -1239,3 +1239,37 @@ def test_an_offer_that_stopped_working_says_why(tmp_path, monkeypatch):
     assert r.status_code == 409 and r.json()["error"]["type"] == "invalid_offer"
     message = r.json()["error"]["message"]
     assert message == D.offer_problem("FREESHIP", False) and "already" not in message
+
+
+def test_a_clean_model_check_is_trusted_until_the_model_changes_or_time_passes(tmp_path, monkeypatch):
+    """Finding products embedded with another model reads every embedded product: once a check for this model finds
+    none, the worker does not scan again every minute."""
+    from backend.app.services import shop_embedding as E
+
+    _, service, _ = make(tmp_path, products=20)
+    worker, scans = service.worker, []
+    real = service.store.mark_model
+    monkeypatch.setattr(service.store, "mark_model", lambda model, limit: scans.append(model) or real(model, limit))
+    assert worker.check_model() == 0 and worker.check_model() == 0 and len(scans) == 1
+    worker.embedder.model = "ai/another-embed"  # a new model: everything goes back in the queue
+    assert worker.check_model() == 20 and len(scans) == 2
+    assert worker.check_model() == 0 and len(scans) == 3  # a check that marked some is not trusted
+    assert worker.check_model() == 0 and len(scans) == 3
+    monkeypatch.setattr(E, "MODEL_RECHECK_S", 0.0)  # the trust runs out
+    worker.check_model()
+    assert len(scans) == 4
+
+
+def test_batch_progress_reaches_the_state_file_at_most_once_a_second(tmp_path):
+    path = tmp_path / "import.json"
+    importer = ShopImporter(lambda: MemoryShopStore(), EmbedWorker(lambda: None, FakeEmbedder()), path, None)
+    importer._save(state="running", cursor=0)  # a real change: written at once
+    importer._save(progress=True, cursor=5000)
+    importer._save(progress=True, cursor=10000)
+    assert json.loads(path.read_text())["cursor"] == 0  # batches inside the second: memory only
+    assert importer._state["cursor"] == 10000  # the page reads memory, so it is up to date
+    importer._save(state="stopped")  # a stop writes everything, the latest cursor included
+    assert json.loads(path.read_text())["cursor"] == 10000
+    importer._written_at = 0.0
+    importer._save(progress=True, cursor=15000)
+    assert json.loads(path.read_text())["cursor"] == 15000

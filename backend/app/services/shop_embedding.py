@@ -29,6 +29,7 @@ MAX_ATTEMPTS = 5
 BACKOFF_S = 2.0  # 2, 4, 8, 16 seconds between attempts
 CHURN_SHARE = 0.2
 MODEL_CHECK_S = 60.0
+MODEL_RECHECK_S = 1800.0  # how long a clean check (nothing on another model) is trusted before scanning again
 OUTAGE_WAIT_S = 30.0
 MARK_BATCH = 5000  # products put back in the queue per check after a model change
 
@@ -56,6 +57,7 @@ class EmbedWorker:
         self._thread: threading.Thread | None = None
         self._reindexing = threading.Lock()
         self._model_checked = 0.0
+        self._clean: tuple[str, float] | None = None  # (model, when) of the last check that found nothing to mark
         self._more_to_mark = False
         self._paused_until = 0.0
         self._batches = 0
@@ -151,11 +153,16 @@ class EmbedWorker:
         return True
 
     def check_model(self) -> int:
-        """Puts products embedded with another model back in the queue, a few thousand at a time."""
+        """Puts products embedded with another model back in the queue, a few thousand at a time. Finding them reads
+        every embedded product, so once a check for this model finds none it is trusted for MODEL_RECHECK_S: only a
+        change of model (or another process embedding with an older one, caught at the next recheck) can add any."""
         model = self.model()
         if not model:
             return 0
+        if self._clean and self._clean[0] == model and time.time() - self._clean[1] < MODEL_RECHECK_S:
+            return 0
         n = self.store().mark_model(model, MARK_BATCH)
+        self._clean = None if n else (model, time.time())
         if n:
             log.info("Shop: %d product(s) were embedded with another model; re-embedding them with %s.", n, model)
         return n

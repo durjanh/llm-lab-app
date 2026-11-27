@@ -13,6 +13,7 @@ from typing import Any, Iterator
 
 import pytest
 
+from backend.app.gateways import pg_locks as locks
 from backend.app.services import shop_data as D
 from backend.app.services.shop_embedding import EmbedWorker
 from backend.app.services.shop_schema import app_role
@@ -489,16 +490,16 @@ def test_only_one_process_rebuilds_the_index_and_failed_copies_are_dropped(pg):
             c.execute(f"CREATE UNIQUE INDEX CONCURRENTLY products_embedding_ccnew7 ON {pg.schema}.products (category)")
     assert invalid_copies(pg) == ["products_embedding_ccnew7"]
     with psycopg.connect(URL, autocommit=True) as other:  # another process mid-rebuild holds the lock
-        other.execute("SELECT pg_advisory_lock(hashtext(%s))", (f"{pg.schema}.reindex",))
+        other.execute("SELECT pg_advisory_lock(hashtext(%s))", (locks.key(pg.schema, "reindex"),))
         assert pg.reindex() is False
         assert invalid_copies(pg) == ["products_embedding_ccnew7"]  # possibly its build in progress: left alone
         # It finishes. (Unlocked here rather than by closing: the server drops a closed session's locks a moment later.)
-        other.execute("SELECT pg_advisory_unlock(hashtext(%s))", (f"{pg.schema}.reindex",))
+        locks.unlock(other, pg.schema, "reindex")
     assert pg.reindex() is True
     assert invalid_copies(pg) == [] and pg.has_index()
     with pg.pool.conn() as c:  # the lock was let go
-        assert c.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (f"{pg.schema}.reindex",)).fetchone()[0]
-        c.execute("SELECT pg_advisory_unlock(hashtext(%s))", (f"{pg.schema}.reindex",))
+        assert locks.try_lock(c, pg.schema, "reindex")
+        locks.unlock(c, pg.schema, "reindex")
 
 
 def test_two_stores_rebuilding_at_once_do_not_deadlock(pg):

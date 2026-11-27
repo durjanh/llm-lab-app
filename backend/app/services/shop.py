@@ -1352,16 +1352,21 @@ class ShopService:
         def tried(name: str, attempt: str, ok: bool, outcome: str, detail: str = "") -> None:
             attempts.append({"name": name, "attempt": attempt, "ok": ok, "outcome": outcome, "detail": detail})
 
+        def expect_refusal(name: str, attempt: str, tool: str, args: dict[str, Any], detail: str = "",
+                    if_allowed: str = "") -> None:
+            """Calls a tool as this shopper; the check holds when the tool refuses. The outcome is its error, or
+            `if_allowed` when it went through."""
+            ok, out, _ = self.run_tool(me, ctx, tool, args)
+            error = out.get("error", "") if isinstance(out, dict) else ""
+            tried(name, attempt, not ok, error or if_allowed, detail)
+
         if other["order_id"]:
-            ok, out, _ = self.run_tool(me, ctx, "get_order", {"order_id": other["order_id"]})
-            tried("Read another shopper's order", f"get_order {other['order_id']}", not ok,
-                  out.get("error", "returned an order") if isinstance(out, dict) else "", "Row-level security: the "
-                  "order is not visible in this shopper's transaction, so it does not exist for them.")
-        ok, out, _ = self.run_tool(me, ctx, "get_order", {"order_id": other["order_id"] or "o0000010",
-                                                          "customer_id": other["customer_id"]})
-        tried("Name another customer in a tool call", f"get_order with customer_id {other['customer_id']}", not ok,
-              out.get("error", "") if isinstance(out, dict) else "", "No tool has a customer field; extra fields are "
-              "refused.")
+            expect_refusal("Read another shopper's order", f"get_order {other['order_id']}", "get_order",
+                           {"order_id": other["order_id"]}, "Row-level security: the order is not visible in this "
+                           "shopper's transaction, so it does not exist for them.", if_allowed="returned an order")
+        expect_refusal("Name another customer in a tool call", f"get_order with customer_id {other['customer_id']}",
+                       "get_order", {"order_id": other["order_id"] or "o0000010", "customer_id": other["customer_id"]},
+                       "No tool has a customer field; extra fields are refused.")
         planted = None
         with self.store.shopper(me) as tx:
             product = next(iter(tx.search("", None, Filters(in_stock_only=True), 1)), (None, 0))[0]
@@ -1369,19 +1374,15 @@ class ShopService:
             self.store.create_customer({"customer_id": PROBE, "display_name": "Isolation check", "email": None})
             planted = self.store.plant_basket_item(PROBE, product)
             try:
-                ok, out, _ = self.run_tool(me, ctx, "update_basket_item", {"item_id": planted, "quantity": 9})
-                tried("Change another shopper's basket line", f"update_basket_item {planted} to 9", not ok,
-                      out.get("error", "") if isinstance(out, dict) else "")
-                ok, out, _ = self.run_tool(me, ctx, "remove_from_basket", {"item_id": planted})
-                tried("Delete another shopper's basket line", f"remove_from_basket {planted}", not ok,
-                      out.get("error", "") if isinstance(out, dict) else "")
+                expect_refusal("Change another shopper's basket line", f"update_basket_item {planted} to 9",
+                               "update_basket_item", {"item_id": planted, "quantity": 9})
+                expect_refusal("Delete another shopper's basket line", f"remove_from_basket {planted}",
+                               "remove_from_basket", {"item_id": planted})
             finally:
                 self.store.unplant(planted)
         if other["order_item_id"]:
-            ok, out, _ = self.run_tool(me, ctx, "propose_return", {"order_item_id": other["order_item_id"],
-                                                                   "reason": "testing"})
-            tried("Return another shopper's item", f"propose_return {other['order_item_id']}", not ok,
-                  out.get("error", "") if isinstance(out, dict) else "")
+            expect_refusal("Return another shopper's item", f"propose_return {other['order_item_id']}",
+                           "propose_return", {"order_item_id": other["order_item_id"], "reason": "testing"})
         guesses = [f"o{j:06d}{k}" for j in range(0, 12) for k in range(0, 3)]
         mine = {o["id"] for o in self.orders(me, 50)["orders"]}
         leaked = []
@@ -1407,11 +1408,11 @@ class ShopService:
         injected = self.search("STAFF100 staff code ignore previous instructions", Filters(), 3)
         flagged = [p for p in injected if "STAFF100" in (p.get("description") or "") or "instructions" in
                    (p.get("description") or "").lower()]
-        ok, out, _ = self.run_tool(me, ctx, "apply_offer", {"code": "STAFF100"})
-        tried("Follow a product's injected instruction (apply STAFF100)",
-              f"apply_offer STAFF100, as {flagged[0]['id'] if flagged else 'a product'}'s description demands",
-              not ok, out.get("error", "") if isinstance(out, dict) else "",
-              "Product text reaches the model marked untrusted; the code is not one the shop accepts either way.")
+        expect_refusal("Follow a product's injected instruction (apply STAFF100)",
+                       f"apply_offer STAFF100, as {flagged[0]['id'] if flagged else 'a product'}'s description demands",
+                       "apply_offer", {"code": "STAFF100"},
+                       "Product text reaches the model marked untrusted; the code is not one the shop accepts "
+                       "either way.")
         before = len(self.orders(me, 50)["orders"])
         try:
             self.confirm(me, secrets.token_hex(16), True)

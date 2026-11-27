@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Iterator, Protocol
 
+from ..gateways import pg_locks as locks
 from ..gateways.pgvector import VectorDbUnavailable, connect, literal, where
 from .shop_data import embed_hash, embed_text
 from .shop_schema import (SCHEMA_VERSION, SHOPPER_TABLES, app_role, build_index_sql, channel, check_schema,
@@ -727,7 +728,7 @@ class PgShopStore:
         connection. None when another process holds it."""
         conn = self._connect()
         try:
-            got = conn.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (f"{self.schema}.import",)).fetchone()[0]
+            got = locks.try_lock(conn, self.schema, "import")
         except Exception:
             conn.close()
             raise
@@ -1048,8 +1049,7 @@ class PgShopStore:
 
         self.ensure()
         with self.pool.conn() as conn:
-            key = f"{self.schema}.reindex"
-            if not conn.execute("SELECT pg_try_advisory_lock(hashtext(%s))", (key,)).fetchone()[0]:
+            if not locks.try_lock(conn, self.schema, "reindex"):
                 return False
             try:
                 self._drop_leftover_builds(conn)
@@ -1070,7 +1070,7 @@ class PgShopStore:
                              "SET value = '0'")
                 return True
             finally:
-                conn.execute("SELECT pg_advisory_unlock(hashtext(%s))", (key,))
+                locks.unlock(conn, self.schema, "reindex")
 
     def _drop_leftover_builds(self, conn: Any) -> int:
         """Drops the invalid index copies failed concurrent rebuilds left behind. Call it holding the reindex lock."""
@@ -1315,7 +1315,7 @@ class PgTx:
     def lock_basket(self) -> None:
         """Holds this shopper's basket for the rest of the transaction, so two checkouts (two tabs, two confirmation
         cards) run one after the other: the second then finds the basket already ordered."""
-        self.c.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"{self.s}:basket:{self.customer_id}",))
+        locks.xact_lock(self.c, self.s, "basket", self.customer_id)
 
     def basket(self) -> tuple[str | None, list[dict[str, Any]]]:
         offer = self._q("SELECT offer_code FROM {s}.baskets")

@@ -31,6 +31,7 @@ CUSTOMER_BATCH = 2000
 ORDER_CUSTOMERS = 500
 MAX_FILE_BYTES = 200 * 2**20
 MAX_REJECTED_SHOWN = 50
+SAVE_EVERY_S = 1.0
 PHASES = ("products", "customers", "orders", "embedding", "index", "done")
 
 
@@ -46,6 +47,7 @@ class ShopImporter:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._written_at = 0.0  # when the state file was last written (progress saves are throttled)
         self._state = self._load()  # the generation: its phase and row, so a stopped run can carry on
         self.file_path = state_path.with_name("import-file.json")
         self._file: dict[str, Any] = self._load_file()  # the last file import's result, kept apart from it
@@ -78,8 +80,15 @@ class ShopImporter:
         return (s.get("kind") == "generate" and s.get("size") == size and s.get("state") in ("stopped", "failed")
                 and s.get("phase") in PHASES[:-1] and not self.running())
 
-    def _save(self, **changes: Any) -> None:
+    def _save(self, progress: bool = False, **changes: Any) -> None:
+        """Records the job's state; the page reads it from memory. A `progress` save (a batch done) reaches the file
+        at most every SAVE_EVERY_S, not after each of a million-row run's thousands of batches: after a crash that
+        costs one batch redone, and every batch write is an upsert or skips rows already there. Any other save (a
+        phase, a stop, a failure, the end) is written at once."""
         self._state.update(changes, updated_at=_now())
+        if progress and time.time() - self._written_at < SAVE_EVERY_S:
+            return
+        self._written_at = time.time()
         write_atomic(self.path, json.dumps(self._state, indent=1))
 
     def state(self) -> dict[str, Any]:
@@ -224,7 +233,8 @@ class ShopImporter:
             end = min(total, cursor + step)
             write(cursor, end)
             cursor = end
-            self._save(cursor=cursor, done=cursor, total=total, message=f"Loading {what}: {cursor:,} of {total:,}.")
+            self._save(progress=True, cursor=cursor, done=cursor, total=total,
+                       message=f"Loading {what}: {cursor:,} of {total:,}.")
 
     def _embed(self) -> None:
         if not self.worker.model():
@@ -235,9 +245,11 @@ class ShopImporter:
         total = q["pending"] + q["done"] + q["failed_count"]
 
         def progress(_: int) -> None:
-            s = self.store().embedding_status()
-            self._save(done=s["done"], total=total, message=f"Embedding products: {s['done']:,} of {total:,} "
-                                                            f"({self.worker.rate_per_min():,} a minute).")
+            if time.time() - self._written_at < SAVE_EVERY_S:
+                return  # counting the queue reads every product: once a second is enough for a progress line
+            done = self.store().embedding_status()["done"]
+            self._save(progress=True, done=done, total=total, message=f"Embedding products: {done:,} of {total:,} "
+                                                                     f"({self.worker.rate_per_min():,} a minute).")
 
         self._save(done=q["done"], total=total, message=f"Embedding products: {q['done']:,} of {total:,}.")
         while not self._stop.is_set():

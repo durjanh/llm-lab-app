@@ -20,9 +20,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from backend.app.core.errors import ApiError  # noqa: E402
-from backend.app.gateways.local_embeddings import LocalEmbeddings  # noqa: E402
-from backend.app.gateways.pgvector import VectorDbUnavailable  # noqa: E402
+from backend.app import cli  # noqa: E402
 from backend.app.services import shop_data as D  # noqa: E402
 from backend.app.services.shop_embedding import EmbedWorker  # noqa: E402
 from backend.app.services.shop_import import ShopImporter  # noqa: E402
@@ -38,8 +36,7 @@ class Shop:
     def __init__(self, settings: Settings, store: Any = None, embedder: Any = None):
         self.settings = settings
         self.store = store if store is not None else PgShopStore(settings.pgvector_url)
-        self.embedder = embedder if embedder is not None else LocalEmbeddings(settings.local_embed_model,
-                                                                               settings.local_openai_url)
+        self.embedder = embedder if embedder is not None else cli.local_embedder(settings)
         self.worker = EmbedWorker(lambda: self.store, self.embedder)
         self.importer = ShopImporter(lambda: self.store, self.worker, state_path(settings), self.embedder)
 
@@ -223,7 +220,8 @@ def main(argv: list[str] | None = None, shop: Shop | None = None) -> int:
 
     shop = shop or Shop(Settings.from_env())
     settings = shop.settings
-    try:
+
+    def command() -> int:
         if args.command == "generate" and args.if_empty:
             shop.store.ensure(shop.importer.model_dims())
             products = shop.store.counts()["products"]
@@ -248,12 +246,9 @@ def main(argv: list[str] | None = None, shop: Shop | None = None) -> int:
         if args.command == "status":
             return status(shop)
         return setup(shop)
-    except (ApiError, VectorDbUnavailable) as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-    except OSError as exc:
-        print(f"{exc.strerror}: {exc.filename}" if exc.filename else str(exc), file=sys.stderr)
-        return 1
+
+    try:
+        return cli.run(command)
     finally:
         shop.store.close()
 

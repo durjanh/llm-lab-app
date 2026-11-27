@@ -284,7 +284,7 @@ class AnswerCache:
 
     def __init__(self, entries: int = CACHE_ENTRIES):
         self.entries = entries
-        self._items: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._items: OrderedDict[str, str] = OrderedDict()  # kept as JSON: no caller can change a stored answer
         self._lock = threading.Lock()
         self.hits = self.misses = 0
 
@@ -296,11 +296,12 @@ class AnswerCache:
                 return None
             self._items.move_to_end(key)
             self.hits += 1
-            return json.loads(json.dumps(item))
+        return json.loads(item)  # a fresh copy for each hit, decoded outside the lock
 
     def put(self, key: str, value: dict[str, Any]) -> None:
+        text = json.dumps(value, default=str)  # encoded once, outside the lock
         with self._lock:
-            self._items[key] = json.loads(json.dumps(value, default=str))
+            self._items[key] = text
             self._items.move_to_end(key)
             while len(self._items) > self.entries:
                 self._items.popitem(last=False)

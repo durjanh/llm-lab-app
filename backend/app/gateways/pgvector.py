@@ -19,6 +19,7 @@ import re
 import time
 from typing import Any, Protocol
 from urllib.parse import urlsplit
+from . import pg_locks as locks
 
 DISTANCE_INDEX = "hnsw"  # graph index: fast, approximate nearest neighbours, with no training step (unlike IVFFlat)
 RRF_K = 60  # reciprocal rank fusion: score = 1/(60 + rank) per list, so a top place in either list counts
@@ -180,7 +181,7 @@ class PgVector:
             # CREATE ... IF NOT EXISTS is not safe at once: two first writes (two tabs, a page and
             # tools/vector-samples.sh) both create the table and one fails on "already exists". One at a time, until
             # commit, and the second finds it made.
-            conn.execute("SELECT pg_advisory_xact_lock(hashtext('llm-lab.pgvector.create'))")
+            locks.xact_lock(conn, "pgvector", "create")
             conn.execute(create_sql(dims))
         except psycopg.errors.FeatureNotSupported as exc:
             raise VectorDbUnavailable("This PostgreSQL has no pgvector extension. Use the pgvector/pgvector image "
@@ -220,7 +221,7 @@ class PgVector:
                 # One writer per document until commit: two adds of the same document at once (the page's sample
                 # button and tools/vector-samples.sh, or two tabs) would each delete nothing of the other's and both
                 # insert, leaving it twice.
-                conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"{t}/{model}/{collection}/{source}",))
+                locks.xact_lock(conn, "pgvector", t, model, collection, source)
                 conn.execute(f"DELETE FROM {t} WHERE model = %s AND collection = %s AND source = %s",
                              (model, collection, source))
                 with conn.cursor() as cur:

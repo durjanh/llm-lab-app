@@ -33,44 +33,31 @@ export class ApiClient {
     this.http.defaults.headers.common[name] = value;
   }
 
-  async get<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      return (await this.http.get<T>(path, config)).data;
-    } catch (err) {
-      throw await toError(err);
-    }
+  get<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
+    return this.request<T>('GET', path, undefined, config);
   }
 
-  async post<T>(path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      return (await this.http.post<T>(path, body, { ...config, headers: { ...bodyHeaders(body), ...config?.headers } }))
-        .data;
-    } catch (err) {
-      throw await toError(err);
-    }
+  post<T>(path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return this.request<T>('POST', path, body, config);
   }
 
-  async patch<T>(path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
-    try {
-      return (
-        await this.http.patch<T>(path, body, { ...config, headers: { ...bodyHeaders(body), ...config?.headers } })
-      ).data;
-    } catch (err) {
-      throw await toError(err);
-    }
+  patch<T>(path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return this.request<T>('PATCH', path, body, config);
   }
 
-  async put<T>(path: string, body: unknown): Promise<T> {
-    try {
-      return (await this.http.put<T>(path, body, { headers: bodyHeaders(body) })).data;
-    } catch (err) {
-      throw await toError(err);
-    }
+  put<T>(path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return this.request<T>('PUT', path, body, config);
   }
 
-  async delete<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
+  delete<T>(path: string, config?: AxiosRequestConfig): Promise<T> {
+    return this.request<T>('DELETE', path, undefined, config);
+  }
+
+  /** Every verb goes through here: the same headers for a FormData body, and every failure as an ApiError. */
+  private async request<T>(method: string, path: string, body: unknown, config?: AxiosRequestConfig): Promise<T> {
     try {
-      return (await this.http.delete<T>(path, config)).data;
+      const headers = { ...bodyHeaders(body), ...config?.headers };
+      return (await this.http.request<T>({ ...config, method, url: path, data: body, headers })).data;
     } catch (err) {
       throw await toError(err);
     }

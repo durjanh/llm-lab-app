@@ -16,9 +16,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from backend.app.core.errors import ApiError  # noqa: E402
-from backend.app.gateways.local_embeddings import LocalEmbeddings  # noqa: E402
-from backend.app.gateways.pgvector import PgVector, VectorDbUnavailable  # noqa: E402
+from backend.app import cli  # noqa: E402
+from backend.app.gateways.pgvector import PgVector  # noqa: E402
 from backend.app.services.graphrag import load_sample as load_graphrag_sample  # noqa: E402
 from backend.app.services.vectordb import VectorDbService, samples  # noqa: E402
 from backend.app.settings import Settings  # noqa: E402
@@ -29,7 +28,7 @@ SETS = (*samples(), GRAPHRAG)
 
 def service(settings: Settings) -> VectorDbService:
     """The vector database page's service, without a model client: loading and listing never call one."""
-    embedder = LocalEmbeddings(settings.local_embed_model, settings.local_openai_url)
+    embedder = cli.local_embedder(settings)
     return VectorDbService(PgVector(settings.pgvector_url), embedder, None, None)  # type: ignore[arg-type]
 
 
@@ -50,9 +49,10 @@ def main(argv: list[str] | None = None, svc: VectorDbService | None = None) -> i
     unknown = [k for k in getattr(args, "sets", None) or [] if k not in SETS]
     if unknown:
         parser.error(f"no sample set {', '.join(unknown)}; choose from {', '.join(SETS)}")
-    try:
-        svc = svc or service(Settings.from_env())
-        if not (svc.embedder.model or "").strip():
+
+    def command() -> int:
+        s = svc or service(Settings.from_env())
+        if not (s.embedder.model or "").strip():
             print("No embedding model is set: run ./tools/local-model.sh --embed and set LLM_LAB_LOCAL_EMBED_MODEL in "
                   ".env.", file=sys.stderr)
             return 1
@@ -60,19 +60,18 @@ def main(argv: list[str] | None = None, svc: VectorDbService | None = None) -> i
             for key in SETS:
                 title = "GraphRAG sample corpus (/graphrag)" if key == GRAPHRAG else samples()[key]["title"]
                 print(f"{key:<11} {title}")
-            rows = svc.status().get("sources") or []
-            print(f"\nIn the database ({svc.embedder.model}): "
+            rows = s.status().get("sources") or []
+            print(f"\nIn the database ({s.embedder.model}): "
                   + (", ".join(f"{r['collection']}/{r['source']}" for r in rows) or "nothing yet"))
             return 0
         for key in args.sets or SETS:
-            r = load(svc, key)
+            r = load(s, key)
             print(f"{key}: {r['documents']} document(s), {r['chunks']} chunk(s) in collection {r['collection']}")
         if GRAPHRAG in (args.sets or SETS):
             print("To build the GraphRAG graph from it, open /graphrag and press Build (that step calls a model).")
         return 0
-    except (ApiError, VectorDbUnavailable) as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+
+    return cli.run(command)
 
 
 if __name__ == "__main__":
