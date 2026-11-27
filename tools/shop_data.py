@@ -209,6 +209,8 @@ def main(argv: list[str] | None = None, shop: Shop | None = None) -> int:
     g = sub.add_parser("generate", help="generate an invented shop, or carry on with a stopped one")
     g.add_argument("size", type=int, choices=D.SIZES, help="how many products")
     g.add_argument("--force", action="store_true", help="go ahead while the backend is running")
+    g.add_argument("--if-empty", action="store_true",
+                   help="only when the shop has no products yet (tools/setup-local.sh), so running it again is safe")
     i = sub.add_parser("import", help="import a JSON Lines or CSV file (rows with the same id are replaced)")
     i.add_argument("kind", choices=("products", "customers", "orders"))
     i.add_argument("file", type=Path)
@@ -222,6 +224,13 @@ def main(argv: list[str] | None = None, shop: Shop | None = None) -> int:
     shop = shop or Shop(Settings.from_env())
     settings = shop.settings
     try:
+        if args.command == "generate" and args.if_empty:
+            shop.store.ensure(shop.importer.model_dims())
+            products = shop.store.counts()["products"]
+            if products and not shop.importer.resumable(args.size):
+                print(f"The shop already has {products:,} products; leaving it as it is.")
+                return 0
+            args.force = True  # nothing to replace, or a stopped run of its own to carry on
         if args.command == "generate" and not args.force and backend_running(settings.port):
             print(f"The backend is running on port {settings.port}. A new shop replaces every shopper, basket and "
                   "order the page is using. Use the page's Lab tab, stop the backend, or add --force.")

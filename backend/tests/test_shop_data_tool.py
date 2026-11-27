@@ -177,3 +177,15 @@ def test_refresh_rewrites_generated_products_and_keeps_shoppers_orders_stock_and
     embedded = sum(len(c) for c in s.embedder.calls[calls:])
     assert embedded == 30  # only the reworded tenth is embedded again
     assert s.store.get_meta("data_version") != version  # cached answers quoting the old wording are not reused
+
+
+def test_generate_if_empty_fills_a_new_shop_once_and_leaves_a_full_one(tmp_path, monkeypatch, capsys):
+    """tools/setup-local.sh runs it every time: a new shop is filled even with the backend up (nothing to replace),
+    and a shop that has products is left alone."""
+    monkeypatch.setattr(tool, "backend_running", lambda port: True)
+    s = shop(tmp_path)
+    assert tool.main(["generate", "300", "--if-empty"], s) == 0 and s.store.counts()["products"] == 300
+    s.store.products_["p0000001"]["title"] = "Edited in the Lab tab"
+    assert tool.main(["generate", "300", "--if-empty"], s) == 0
+    assert "leaving it as it is" in capsys.readouterr().out
+    assert s.store.products_["p0000001"]["title"] == "Edited in the Lab tab"

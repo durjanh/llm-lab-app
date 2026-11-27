@@ -2,6 +2,7 @@
 
 | Script | What it does |
 | --- | --- |
+| `setup-local.sh` | Sets up everything the lab runs in Docker on a new machine, in order: `vector-db.sh`, `local-model.sh --embed`, `local-model.sh`, `sandbox.sh`, then `shop-data.sh` (filling the shop only if it is empty) and `vector-samples.sh`. Safe to run again after a restart or a change; never edits `.env`, but lists the lines it still needs. `--no-chat-model`, `--no-data`. |
 | `setup-envs.sh` | Sets up the Python 3.12 environments that some labs run in (`claude-agent-sdk`, `tabular`, `lora`, `image-to-3d`, `voice-agent`). With no arguments it lists them; `all` sets up every one; `check-hf` checks the Hugging Face sign-in and the gated models Idol needs. See the main README, "Labs with their own environment". |
 | `local-model.sh` | Runs an open model with Docker Model Runner, for `LLM_LAB_LOCAL_MODEL`. |
 | `sandbox.sh` | Runs the coding agent's sandbox image in Docker on `127.0.0.1:8099`, for `LLM_LAB_SANDBOX=docker`. |

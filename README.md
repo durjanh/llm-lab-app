@@ -34,7 +34,48 @@ The images are screenshots of `/architecture` in the light and dark themes. Afte
 
 ## Start
 
-All commands run from the `llm-lab-app` folder. You need Python 3.10 or newer and Node.js 20 or newer. On a Mac, use `python3` until the virtual environment is active.
+All commands run from the `llm-lab-app` folder. On a Mac, use `python3` until the virtual environment is active.
+
+### On a new machine, in order
+
+**You need:** Python 3.10 or newer, Node.js 20 or newer, and [Docker Desktop](https://www.docker.com/products/docker-desktop/) with Docker Model Runner turned on (Settings > AI > Enable Docker Model Runner, with host-side TCP support). An Anthropic API key for Claude; without one, the pages that allow it run on the local model. For the Azure labs only: the Azure CLI and azd.
+
+```sh
+# 1. Python and the frontend (once)
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r backend/requirements.txt
+(cd frontend && npm install)
+
+# 2. Settings: copy the defaults, then put your Anthropic key in .env
+umask 077 && cp .env.example .env
+
+# 3. Everything that runs in Docker, with its data (open Docker Desktop first)
+./tools/setup-local.sh          # database, embedding model, chat model, sandbox, shop data, sample documents
+
+# 4. Run it: two terminals
+python -m backend --budget 1 --reload
+cd frontend && npm run dev      # then open http://localhost:5173
+```
+
+`./tools/setup-local.sh` runs the other scripts in `tools/` in the right order and is safe to run again at any time: each step only does what is missing, and at the end it lists any line `.env` still needs. `--no-chat-model` skips the 6.9 GB local chat model; `--no-data` sets up the services without the shop's products and the sample documents. What each step does:
+
+| Step | Script it runs | Gives you | Size |
+|---|---|---|---|
+| PostgreSQL with pgvector, `127.0.0.1:5433` | `./tools/vector-db.sh` | `/vector-db`, `/semantic-cache`, `/graphrag`, `/shop-assistant` | about 650 MB image |
+| Local embedding model | `./tools/local-model.sh --embed` | Search by meaning on those pages | about 270 MB |
+| Local chat model (Qwen 3.5 9B) | `./tools/local-model.sh` | Free model calls, the default where the work allows | about 6.9 GB |
+| Sandbox, `127.0.0.1:8099` | `./tools/sandbox.sh` | The coding agent's commands, `/assistant`, skills and decks off Claude | builds an image, about 3 GB |
+| The shop's tables and 20,000 products | `./tools/shop-data.sh` | `/shop-assistant` | about 1.5 minutes of embedding |
+| Sample documents | `./tools/vector-samples.sh` | Ready-made collections on `/vector-db` and `/graphrag` | small |
+
+Then, only for the labs that need them:
+
+| For | Run | Section |
+|---|---|---|
+| The tutor's 3D people | the `curl` loop below | [One-time setup](#one-time-setup) |
+| `/coding-agent` (Agent SDK), `/tabular`, `/lora`, `/image-to-3d`, `/voice-agent` | `./tools/setup-envs.sh all` | [Labs with their own environment](#labs-with-their-own-environment) |
+| GPT, speech, translation, search, Foundry agents, images, MedAssist's texts | `azd up` | [Azure resources (optional)](#azure-resources-optional) |
+| The full-internals GPT-2 on the explainer | `python tools/export_gpt2_explainer.py` | `tools/README.md` |
 
 ### One-time setup
 
@@ -141,11 +182,13 @@ Open http://localhost:5173. Vite forwards `/api` and `/models` to the backend. R
 
 ### After restarting the machine
 
-Two things run in Docker beside the backend, each from its own script. The first time, set each one up as its section below says: [A local open model, at no cost per token](#a-local-open-model-at-no-cost-per-token) and [Skills and decks without Claude's container](#skills-and-decks-without-claudes-container). The lab's `/local-model` page walks through the same steps and shows whether your model is configured, running and pulled.
+Four things run in Docker beside the backend. `./tools/setup-local.sh` checks and starts all of them, so after a restart it is the one command to run; each also has its own script. The lab's `/local-model` page walks through the model's steps and shows whether your model is configured, running and pulled.
 
 | What | Script | Where | After a restart |
 |---|---|---|---|
 | The local model (Qwen 3.5 9B), the default where the work allows | `./tools/local-model.sh` | Docker Model Runner, on the Mac itself, `localhost:12434` | Run the script again: it sets the 32k context the agent pages need, and checks the model answers |
+| The local embedding model | `./tools/local-model.sh --embed` | Docker Model Runner, the same port | Loads again on the first request; nothing to run |
+| PostgreSQL with pgvector, with its data in a volume | `./tools/vector-db.sh` | A container, `127.0.0.1:5433` | Starts by itself with Docker Desktop |
 | The sandbox, where the coding agent's commands and the local model's and GPT's skills and decks run | `./tools/sandbox.sh` | A container, `127.0.0.1:8099` | Starts by itself with Docker Desktop. Run the script only the first time, or with `--rebuild` after changing the image |
 
 `sandbox.sh` does not start the model. The model cannot run in a container on a Mac, because a container cannot reach the GPU, so Model Runner runs it on the host.
@@ -154,7 +197,7 @@ In order:
 
 ```sh
 # 1. open Docker Desktop and wait until it says it is running
-./tools/local-model.sh                     # 2. "Model says: Ready."
+./tools/setup-local.sh                     # 2. "Every step worked." (or just ./tools/local-model.sh)
 source .venv/bin/activate
 python -m backend --budget 1 --reload      # 3. then the frontend, as above
 ```
@@ -164,7 +207,7 @@ Only for real phone calls (Aftercare and MedAssist), also start the tunnel in it
 To check what is running:
 
 ```sh
-docker ps --filter name=llm-lab-sandbox     # the sandbox container, "Up"
+docker ps --filter name=llm-lab           # the sandbox and the database containers, "Up"
 curl -s http://127.0.0.1:8099/health        # {"status": "ok", "delta": 2}
 docker model status                         # Model Runner is running
 grep '^LLM_LAB_SANDBOX' .env                # docker: the local sandbox; sessions: the one in Azure
@@ -594,7 +637,7 @@ Live features otherwise use Claude Haiku 5.5 by default, where each action costs
 ## Other folders
 
 - `python/`: runnable scripts for each lab. See `python/README.md`.
-- `tools/`: `setup-envs.sh` sets up the labs' own environments (see [Labs with their own environment](#labs-with-their-own-environment)); `local-model.sh` runs the local model with Docker Model Runner, and `sandbox.sh` and `vector-db.sh` run the coding agent's sandbox and PostgreSQL with pgvector in Docker; `shop-data.sh` sets up and fills the shop's database, and `vector-samples.sh` loads the sample documents; `deploy-frontend.sh` deploys the pages to the public site; `export_gpt2_explainer.py` rebuilds the GPT-2 model with its internals exposed. See `tools/README.md`.
+- `tools/`: `setup-local.sh` sets up everything that runs in Docker, in order, by running the scripts below; `setup-envs.sh` sets up the labs' own environments (see [Labs with their own environment](#labs-with-their-own-environment)); `local-model.sh` runs the local model with Docker Model Runner, and `sandbox.sh` and `vector-db.sh` run the coding agent's sandbox and PostgreSQL with pgvector in Docker; `shop-data.sh` sets up and fills the shop's database, and `vector-samples.sh` loads the sample documents; `deploy-frontend.sh` deploys the pages to the public site; `export_gpt2_explainer.py` rebuilds the GPT-2 model with its internals exposed. See `tools/README.md`.
 - `examples/tabular/`, `examples/lora/` and `examples/image-to-3d/`: the scripts the `/tabular`, `/lora` and `/image-to-3d` pages run, each in its own environment. Each README says how to set it up and run it without the lab.
 - `examples/mcp/`: an MCP server in Python (tools, a resource, a prompt; stdio and authenticated Streamable HTTP), used from Claude Code, from your own harness with approvals, and through the Claude API's MCP connector. Its README covers the design decisions.
 - `examples/sdks/`: the same five tasks (structured output, tools, MCP, an agent with human approval, multi-agent) in sixteen SDKs: OpenAI, OpenAI Agents, Claude, Microsoft Agent Framework, Semantic Kernel, AutoGen, LangChain, LangGraph, CrewAI, Strands Agents, PydanticAI, Agno, CAMEL, LlamaIndex (with Workflows), Google ADK and AWS Bedrock Agents, each in its own environment, with a comparison cheatsheet. Bedrock Agents prints SKIP without an AWS account.
